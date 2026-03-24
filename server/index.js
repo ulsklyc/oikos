@@ -7,11 +7,13 @@
 'use strict';
 
 require('dotenv').config();
-const express = require('express');
-const helmet = require('helmet');
-const path = require('path');
-const db = require('./db');
+const express    = require('express');
+const helmet     = require('helmet');
+const rateLimit  = require('express-rate-limit');
+const path       = require('path');
+const db         = require('./db');
 const { router: authRouter, sessionMiddleware, requireAuth } = require('./auth');
+const { csrfMiddleware } = require('./middleware/csrf');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -73,12 +75,28 @@ app.use(express.static(path.join(__dirname, '..', 'public'), {
 }));
 
 // --------------------------------------------------------
+// Globaler API-Rate-Limiter (Schritt 29)
+// Verhindert Brute-Force und DoS auf allen API-Endpunkten.
+// Login hat einen eigenen, strengeren Limiter (auth.js).
+// --------------------------------------------------------
+const apiLimiter = rateLimit({
+  windowMs: 60_000,         // 1 Minute
+  max: 300,                 // 300 Requests/Minute pro IP (großzügig für Familien-App)
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Zu viele Anfragen. Bitte warte kurz.', code: 429 },
+  skip: (req) => req.path === '/health', // Health-Check ausgenommen
+});
+app.use('/api/', apiLimiter);
+
+// --------------------------------------------------------
 // API-Routen
 // --------------------------------------------------------
 app.use('/api/v1/auth', authRouter);
 
-// Alle weiteren API-Routen erfordern Authentifizierung
+// Alle weiteren API-Routen erfordern Authentifizierung + CSRF-Schutz
 app.use('/api/v1', requireAuth);
+app.use('/api/v1', csrfMiddleware);
 app.use('/api/v1/dashboard', require('./routes/dashboard'));
 app.use('/api/v1/tasks', require('./routes/tasks'));
 app.use('/api/v1/shopping', require('./routes/shopping'));

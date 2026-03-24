@@ -13,6 +13,7 @@ const session = require('express-session');
 const rateLimit = require('express-rate-limit');
 const db = require('./db');
 
+const { generateToken } = require('./middleware/csrf');
 const router = express.Router();
 
 // --------------------------------------------------------
@@ -117,8 +118,17 @@ router.post('/login', loginLimiter, async (req, res) => {
         return res.status(500).json({ error: 'Interner Serverfehler.', code: 500 });
       }
 
-      req.session.userId = user.id;
-      req.session.role = user.role;
+      req.session.userId    = user.id;
+      req.session.role      = user.role;
+      req.session.csrfToken = generateToken();
+
+      // CSRF-Token als Cookie setzen (nicht httpOnly → lesbar für JS)
+      res.cookie('csrf-token', req.session.csrfToken, {
+        httpOnly: false,
+        sameSite: 'strict',
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 1000 * 60 * 60 * 24 * 7,
+      });
 
       res.json({
         user: {

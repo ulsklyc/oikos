@@ -217,6 +217,26 @@ function showToast(message, type = 'default', duration = 3000) {
 // Event-Listener
 // --------------------------------------------------------
 
+// --------------------------------------------------------
+// Globale Fehler-Handler (Error Boundary)
+// --------------------------------------------------------
+
+window.addEventListener('error', (e) => {
+  // Ressource-Ladefehler (z.B. fehlgeschlagenes Bild): ignorieren
+  if (e.target && e.target !== window) return;
+  console.error('[Oikos] Unbehandelter Fehler:', e.error ?? e.message);
+  showToast('Ein unerwarteter Fehler ist aufgetreten.', 'danger');
+});
+
+window.addEventListener('unhandledrejection', (e) => {
+  // Auth-Fehler werden bereits von auth:expired behandelt
+  if (e.reason?.status === 401) return;
+  console.error('[Oikos] Unbehandeltes Promise-Rejection:', e.reason);
+  const msg = e.reason?.message || 'Ein Fehler ist aufgetreten.';
+  showToast(msg, 'danger');
+  e.preventDefault(); // Konsolenfehler unterdrücken (bereits geloggt)
+});
+
 // Browser zurück/vor
 window.addEventListener('popstate', (e) => {
   navigate(e.state?.path || location.pathname, false);

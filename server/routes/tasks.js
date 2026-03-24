@@ -9,7 +9,8 @@
 const express      = require('express');
 const router       = express.Router();
 const db           = require('../db');
-const { nextOccurrence } = require('../services/recurrence');
+const { nextOccurrence }   = require('../services/recurrence');
+const v            = require('../middleware/validate');
 
 // --------------------------------------------------------
 // Konstanten
@@ -47,22 +48,17 @@ function subtaskProgress(taskId) {
   return { total: row.total ?? 0, done: row.done ?? 0 };
 }
 
-/** Eingabe-Validierung für Task-Felder. */
+/** Eingabe-Validierung für Task-Felder (zentralisiert über validate.js). */
 function validateTaskInput(body, isCreate = true) {
-  const errors = [];
-  if (isCreate && !body.title?.trim()) errors.push('title ist erforderlich.');
-  if (body.title !== undefined && !body.title?.trim()) errors.push('title darf nicht leer sein.');
-  if (body.priority && !VALID_PRIORITIES.includes(body.priority))
-    errors.push(`priority muss eines von: ${VALID_PRIORITIES.join(', ')} sein.`);
-  if (body.status && !VALID_STATUSES.includes(body.status))
-    errors.push(`status muss eines von: ${VALID_STATUSES.join(', ')} sein.`);
-  if (body.category && !VALID_CATEGORIES.includes(body.category))
-    errors.push(`Ungültige Kategorie.`);
-  if (body.due_date && !/^\d{4}-\d{2}-\d{2}$/.test(body.due_date))
-    errors.push('due_date muss im Format YYYY-MM-DD sein.');
-  if (body.due_time && !/^\d{2}:\d{2}$/.test(body.due_time))
-    errors.push('due_time muss im Format HH:MM sein.');
-  return errors;
+  return v.collectErrors([
+    v.str(body.title,       'title',       { required: isCreate }),
+    v.str(body.description, 'description', { required: false, max: v.MAX_TEXT }),
+    v.oneOf(body.priority,  VALID_PRIORITIES, 'priority'),
+    v.oneOf(body.status,    VALID_STATUSES,   'status'),
+    v.oneOf(body.category,  VALID_CATEGORIES, 'category'),
+    v.date(body.due_date,   'due_date'),
+    v.time(body.due_time,   'due_time'),
+  ]);
 }
 
 // --------------------------------------------------------

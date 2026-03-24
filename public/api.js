@@ -6,6 +6,14 @@
 
 const API_BASE = '/api/v1';
 
+/** Liest den CSRF-Token aus dem Cookie (gesetzt vom Server nach Login). */
+function getCsrfToken() {
+  return document.cookie.split(';')
+    .map((c) => c.trim())
+    .find((c) => c.startsWith('csrf-token='))
+    ?.slice('csrf-token='.length) ?? '';
+}
+
 /**
  * Zentraler Fetch-Wrapper.
  * Setzt Content-Type, handhabt 401-Redirects und parsed JSON-Fehler.
@@ -17,10 +25,14 @@ const API_BASE = '/api/v1';
 async function apiFetch(path, options = {}) {
   const url = `${API_BASE}${path}`;
 
+  const method = options.method ?? 'GET';
+  const stateChanging = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
+
   const response = await fetch(url, {
     credentials: 'same-origin',
     headers: {
       'Content-Type': 'application/json',
+      ...(stateChanging ? { 'X-CSRF-Token': getCsrfToken() } : {}),
       ...options.headers,
     },
     ...options,
