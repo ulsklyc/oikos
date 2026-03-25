@@ -13,7 +13,7 @@
   --color-surface-2: #F0F0F5;
   --color-border: #E5E5EA;
   --color-text-primary: #1C1C1E;
-  --color-text-secondary: #8E8E93;
+  --color-text-secondary: #6C6C70; /* WCAG AA: ~5.2:1 auf weißem Hintergrund */
   --color-text-disabled: #C7C7CC;
 
   /* --------------------------------------------------------
@@ -22,6 +22,8 @@
   --color-accent: #007AFF;
   --color-accent-hover: #0056CC;
   --color-accent-light: #E3F2FF;
+  --color-btn-primary: #0066DB;       /* WCAG AA: ~5.0:1 auf weiß (Buttons mit weißem Text) */
+  --color-btn-primary-hover: #0056CC;
 
   /* --------------------------------------------------------
    * Farben — Semantisch
@@ -133,7 +135,7 @@
     --color-surface-2: #3A3A3C;
     --color-border: #3A3A3C;
     --color-text-primary: #F5F5F7;
-    --color-text-secondary: #8E8E93;
+    --color-text-secondary: #AEAEB2; /* WCAG AA: ~4.6:1 auf #2C2C2E */
     --color-text-disabled: #48484A;
 
     --color-accent-light: #1A3A5C;

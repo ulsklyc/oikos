@@ -12,7 +12,7 @@ import { auth } from '/api.js';
  */
 export async function render(container) {
   container.innerHTML = `
-    <div class="login-page">
+    <main class="login-page" id="main-content">
       <div class="login-card card card--padded">
         <h1 class="login-card__title">Oikos</h1>
         <p class="login-card__subtitle">Familienplaner</p>
@@ -53,7 +53,7 @@ export async function render(container) {
           </button>
         </form>
       </div>
-    </div>
+    </main>
   `;
 
   const form = container.querySelector('#login-form');

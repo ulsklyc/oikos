@@ -231,12 +231,12 @@
 }
 
 .btn--primary {
-  background-color: var(--color-accent);
+  background-color: var(--color-btn-primary);
   color: #ffffff;
 }
 
 .btn--primary:hover {
-  background-color: var(--color-accent-hover);
+  background-color: var(--color-btn-primary-hover);
 }
 
 .btn--secondary {
