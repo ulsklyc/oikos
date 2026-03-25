@@ -99,7 +99,7 @@
 }
 
 /* --------------------------------------------------------
- * Sidebar Navigation (Desktop, > 1024px)
+ * Sidebar Navigation — Desktop (Neumorphismus)
  * -------------------------------------------------------- */
 @media (min-width: 1024px) {
   .app-shell {
@@ -110,37 +110,179 @@
     flex: 1;
     padding-bottom: 0;
     margin-left: var(--sidebar-width);
+    transition: margin-left var(--transition-slow);
   }
 
   .nav-bottom {
     display: none;
   }
 
+  /* ── Sidebar Container ── */
   .nav-sidebar {
     position: fixed;
     top: 0;
     left: 0;
     bottom: 0;
     width: var(--sidebar-width);
-    background-color: var(--color-surface);
-    border-right: 1px solid var(--color-border);
+    background: var(--sidebar-bg);
+    border-right: none;
+    box-shadow:
+      6px 0 28px var(--sidebar-shadow-dark),
+      2px 0 8px var(--sidebar-shadow-dark),
+      inset -1px 0 0 var(--sidebar-shadow-light);
     display: flex;
     flex-direction: column;
     z-index: var(--z-nav);
-    padding: var(--space-5) 0 var(--space-6);
+    padding: var(--space-4) 0 var(--space-6);
+    transition: width var(--transition-slow);
+    overflow: hidden;
   }
 
+  /* ── Logo: Icon-only bei collapsed ── */
   .nav-sidebar__logo {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: var(--space-3) 0 var(--space-5);
+    margin-bottom: var(--space-2);
+    flex-shrink: 0;
+  }
+
+  /* Neumorphic App-Icon als Logo-Ersatz */
+  .nav-sidebar__logo::before {
+    content: 'O';
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(135deg, var(--color-accent) 0%, #5856D6 100%);
+    color: #ffffff;
+    font-size: var(--text-sm);
+    font-weight: var(--font-weight-bold);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow:
+      3px 3px 8px var(--sidebar-shadow-dark),
+      -2px -2px 6px var(--sidebar-shadow-light);
+  }
+
+  /* Volltext-Span verstecken im collapsed-Modus */
+  .nav-sidebar__logo > span {
+    display: none;
+  }
+
+  /* ── Nav-Items Container ── */
+  .nav-sidebar__items {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 0 var(--space-2);
+    flex: 1;
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+  .nav-sidebar__items::-webkit-scrollbar { display: none; }
+
+  /* ── Nav-Item: Basis ── */
+  .nav-sidebar .nav-item {
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    border-radius: var(--radius-sm);
+    padding: var(--space-3) var(--space-2);
+    gap: 0;
+    min-height: 44px;
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    background: transparent;
+    box-shadow: none;
+    transition:
+      box-shadow var(--transition-base),
+      color var(--transition-fast),
+      background var(--transition-fast);
+    position: relative;
+  }
+
+  .nav-sidebar .nav-item__icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+  }
+
+  .nav-sidebar .nav-item__label {
+    display: none;
+    font-size: var(--text-sm);
+    font-weight: var(--font-weight-medium);
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  /* Hover: neumorphic raised */
+  .nav-sidebar .nav-item:hover:not([aria-current="page"]) {
+    color: var(--color-accent);
+    background: var(--sidebar-bg);
+    box-shadow:
+      4px 4px 10px var(--sidebar-shadow-dark),
+      -4px -4px 10px var(--sidebar-shadow-light);
+  }
+
+  /* Aktiv: neumorphic inset (gedrückt) */
+  .nav-sidebar .nav-item[aria-current="page"] {
+    color: var(--color-accent);
+    font-weight: var(--font-weight-semibold);
+    background: var(--sidebar-bg);
+    box-shadow:
+      inset 3px 3px 7px var(--sidebar-shadow-dark),
+      inset -3px -3px 7px var(--sidebar-shadow-light);
+  }
+
+  /* Aktiv-Indikator: kleiner Akzentstreifen links */
+  .nav-sidebar .nav-item[aria-current="page"]::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 20%;
+    bottom: 20%;
+    width: 3px;
+    border-radius: 0 var(--radius-full) var(--radius-full) 0;
+    background: linear-gradient(180deg, var(--color-accent) 0%, #5856D6 100%);
+    box-shadow: 0 0 6px rgba(0, 122, 255, 0.45);
+  }
+
+  /* ── Divider vor Einstellungen ── */
+  .nav-sidebar__items > a:last-child {
+    margin-top: auto;
+  }
+}
+
+/* --------------------------------------------------------
+ * Sidebar Expanded (≥ 1280px) — Labels sichtbar
+ * -------------------------------------------------------- */
+@media (min-width: 1280px) {
+  :root {
+    --sidebar-width: var(--sidebar-width-expanded);
+  }
+
+  /* Logo: Text-Variante */
+  .nav-sidebar__logo {
+    justify-content: flex-start;
+    padding: var(--space-3) var(--space-4) var(--space-5);
+    gap: var(--space-3);
+  }
+
+  .nav-sidebar__logo::before {
+    width: 30px;
+    height: 30px;
+    font-size: var(--text-xs);
+    flex-shrink: 0;
+  }
+
+  .nav-sidebar__logo > span {
+    display: inline-block;
     font-size: var(--text-lg);
     font-weight: var(--font-weight-bold);
-    letter-spacing: -0.3px;
-    color: var(--color-text-primary);
-    padding: var(--space-2) var(--space-5) var(--space-5);
-    margin-bottom: var(--space-2);
-  }
-
-  .nav-sidebar__logo span {
-    display: inline-block;
+    letter-spacing: -0.4px;
     background: linear-gradient(135deg, var(--color-accent) 0%, #5856D6 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -148,45 +290,31 @@
   }
 
   .nav-sidebar__items {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
     padding: 0 var(--space-3);
-    flex: 1;
+    gap: 2px;
   }
 
+  /* Nav-Items: horizontal mit Label */
   .nav-sidebar .nav-item {
-    flex-direction: row;
     justify-content: flex-start;
-    border-radius: var(--radius-sm);
     padding: var(--space-2) var(--space-3);
     gap: var(--space-3);
     min-height: 40px;
-    font-size: var(--text-sm);
-    color: var(--color-text-secondary);
-    transition: background-color var(--transition-fast), color var(--transition-fast);
   }
 
   .nav-sidebar .nav-item__icon {
-    width: 18px;
-    height: 18px;
-    flex-shrink: 0;
-  }
-
-  .nav-sidebar .nav-item[aria-current="page"] {
-    background-color: var(--color-accent-light);
-    color: var(--color-accent);
-    font-weight: var(--font-weight-semibold);
-  }
-
-  .nav-sidebar .nav-item:hover:not([aria-current="page"]) {
-    background-color: var(--color-surface-2);
-    color: var(--color-text-primary);
+    width: 17px;
+    height: 17px;
   }
 
   .nav-sidebar .nav-item__label {
-    font-size: var(--text-sm);
+    display: block;
     font-weight: inherit;
+  }
+
+  /* Aktiv-Indikator bleibt links */
+  .nav-sidebar .nav-item[aria-current="page"]::before {
+    left: 0;
   }
 }
 

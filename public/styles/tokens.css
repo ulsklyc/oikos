@@ -104,8 +104,14 @@
    * Layout
    * -------------------------------------------------------- */
   --nav-height-mobile: 64px;
-  --sidebar-width: 256px;
+  --sidebar-width: 64px;           /* collapsed icon-only (1024–1279px) */
+  --sidebar-width-expanded: 200px; /* full sidebar (1280px+) */
   --content-max-width: 1200px;
+
+  /* Sidebar Neumorphismus */
+  --sidebar-bg: #E8E8EE;
+  --sidebar-shadow-light: rgba(255, 255, 255, 0.82);
+  --sidebar-shadow-dark: rgba(148, 148, 170, 0.28);
   --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
 
   /* --------------------------------------------------------
@@ -137,6 +143,10 @@
     --color-text-primary: #F5F5F7;
     --color-text-secondary: #AEAEB2; /* WCAG AA: ~4.6:1 auf #2C2C2E */
     --color-text-disabled: #48484A;
+
+    --sidebar-bg: #19191D;
+    --sidebar-shadow-light: rgba(255, 255, 255, 0.05);
+    --sidebar-shadow-dark: rgba(0, 0, 0, 0.55);
 
     --color-accent-light: #1A3A5C;
     --color-success-light: #1A3A26;
