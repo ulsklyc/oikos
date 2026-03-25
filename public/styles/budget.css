@@ -56,10 +56,17 @@
  * -------------------------------------------------------- */
 .budget-summary {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-3);
-  padding: var(--space-4);
+  grid-template-columns: 1fr;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
   flex-shrink: 0;
+}
+
+@media (min-width: 480px) {
+  .budget-summary {
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-3);
+  }
 }
 
 .budget-summary-card {
@@ -191,8 +198,8 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
   cursor: pointer;
   transition: background-color var(--transition-fast);
 }
@@ -283,7 +290,7 @@
 .budget-modal-overlay {
   position: fixed;
   inset: 0;
-  background-color: rgba(0,0,0,0.5);
+  background-color: var(--color-overlay);
   z-index: var(--z-modal);
   display: flex;
   align-items: flex-end;
@@ -366,7 +373,7 @@
 
 .amount-type-btn {
   padding: var(--space-2) var(--space-3);
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   border: none;
   font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);

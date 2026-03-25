@@ -65,7 +65,7 @@
 }
 
 .day-column {
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border-subtle);
 }
 
 .day-column:last-child {
@@ -103,14 +103,14 @@
 
 .day-slots {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: var(--space-2);
-  padding: 0 var(--space-4) var(--space-4);
+  padding: 0 var(--space-4) var(--space-3);
 }
 
-@media (max-width: 600px) {
+@media (min-width: 600px) {
   .day-slots {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(4, 1fr);
   }
 }
 
@@ -118,7 +118,7 @@
  * Mahlzeit-Slot
  * -------------------------------------------------------- */
 .meal-slot {
-  min-height: 80px;
+  min-height: 72px;
   border-radius: var(--radius-sm);
   border: 1.5px dashed var(--color-border);
   background-color: var(--color-surface);
@@ -142,11 +142,11 @@
   padding: var(--space-1) var(--space-2) 0;
 }
 
-/* Slot-Typ-Farben */
-.meal-slot[data-type="breakfast"] .meal-slot__type-label { color: #FF9500; }
-.meal-slot[data-type="lunch"]     .meal-slot__type-label { color: #34C759; }
-.meal-slot[data-type="dinner"]    .meal-slot__type-label { color: #007AFF; }
-.meal-slot[data-type="snack"]     .meal-slot__type-label { color: #FF6B35; }
+/* Slot-Typ-Farben — zentrale Tokens aus tokens.css */
+.meal-slot[data-type="breakfast"] .meal-slot__type-label { color: var(--meal-breakfast); }
+.meal-slot[data-type="lunch"]     .meal-slot__type-label { color: var(--meal-lunch); }
+.meal-slot[data-type="dinner"]    .meal-slot__type-label { color: var(--meal-dinner); }
+.meal-slot[data-type="snack"]     .meal-slot__type-label { color: var(--meal-snack); }
 
 .meal-slot__add-btn {
   flex: 1;
@@ -236,7 +236,7 @@
 
 .meal-card__action-btn:hover {
   color: var(--color-danger);
-  background-color: var(--color-surface-2, rgba(0,0,0,0.04));
+  background-color: var(--color-surface-2);
 }
 
 .meal-card__action-btn--shopping:hover {
@@ -249,7 +249,7 @@
 .meal-modal-overlay {
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: var(--color-overlay);
   z-index: var(--z-modal);
   display: flex;
   align-items: flex-end;
@@ -483,10 +483,10 @@
   border-radius: var(--radius-full);
 }
 
-.meal-type-badge--breakfast { background: #FFF3E0; color: #FF9500; }
-.meal-type-badge--lunch     { background: #E8F5E9; color: #2E7D32; }
-.meal-type-badge--dinner    { background: #E3F2FF; color: #007AFF; }
-.meal-type-badge--snack     { background: #FBE9E7; color: #FF6B35; }
+.meal-type-badge--breakfast { background: var(--meal-breakfast-light); color: var(--meal-breakfast); }
+.meal-type-badge--lunch     { background: var(--meal-lunch-light);    color: var(--meal-lunch); }
+.meal-type-badge--dinner    { background: var(--meal-dinner-light);   color: var(--meal-dinner); }
+.meal-type-badge--snack     { background: var(--meal-snack-light);    color: var(--meal-snack); }
 
 /* --------------------------------------------------------
  * Leer-Zustand

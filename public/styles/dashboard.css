@@ -16,13 +16,24 @@
 
 @media (min-width: 1024px) {
   .dashboard {
-    padding: var(--space-8);
-    padding-bottom: var(--space-16);
+    padding: var(--space-6) var(--space-8);
+    padding-bottom: var(--space-12);
+  }
+}
+
+@media (min-width: 1440px) {
+  .dashboard {
+    padding: var(--space-6) var(--space-10);
   }
 }
 
 /* --------------------------------------------------------
  * Widget-Grid
+ *
+ * Mobile:  1 Spalte
+ * Tablet:  2 Spalten
+ * Desktop: 3 Spalten
+ * Wide:    4 Spalten (ab 1440px)
  * -------------------------------------------------------- */
 .dashboard__grid {
   display: grid;
@@ -43,6 +54,7 @@
 @media (min-width: 1024px) {
   .dashboard__grid {
     grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-5);
   }
 
   .widget--wide {
@@ -50,13 +62,29 @@
   }
 }
 
+@media (min-width: 1440px) {
+  .dashboard__grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  /* Wide-Widgets nehmen 2 von 4 Spalten ein */
+  .widget--wide {
+    grid-column: span 2;
+  }
+
+  /* Greeting-Widget über alle 4 Spalten */
+  .widget-greeting {
+    grid-column: 1 / -1;
+  }
+}
+
 /* --------------------------------------------------------
  * Begrüßungs-Widget
  * -------------------------------------------------------- */
 .widget-greeting {
-  background: linear-gradient(135deg, var(--color-accent) 0%, #5B9FFF 100%);
+  background: linear-gradient(135deg, var(--color-accent) 0%, #6BA3FF 100%);
   border-radius: var(--radius-md);
-  padding: var(--space-5) var(--space-6);
+  padding: var(--space-4) var(--space-5);
   color: #ffffff;
   grid-column: 1 / -1;
 }
@@ -64,16 +92,22 @@
 .widget-greeting__content {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: 2px;
 }
 
 .widget-greeting__title {
-  font-size: var(--text-2xl);
+  font-size: var(--text-xl);
   font-weight: var(--font-weight-bold);
 }
 
+@media (min-width: 1024px) {
+  .widget-greeting__title {
+    font-size: var(--text-2xl);
+  }
+}
+
 .widget-greeting__date {
-  font-size: var(--text-base);
+  font-size: var(--text-sm);
   opacity: 0.85;
 }
 
@@ -81,20 +115,19 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
-  margin-top: var(--space-3);
+  margin-top: var(--space-2);
 }
 
 .greeting-chip {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.18);
   color: #ffffff;
   font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
-  padding: 3px var(--space-2);
+  padding: 2px var(--space-2);
   border-radius: var(--radius-full);
-  backdrop-filter: blur(4px);
 }
 
 .greeting-chip--warn {
@@ -103,6 +136,9 @@
 
 /* --------------------------------------------------------
  * Basis-Widget (Card)
+ *
+ * Kompaktes Padding: 12px Header, 12px Body.
+ * Internes Spacing: 8–12px (enger als vorher 16–24px).
  * -------------------------------------------------------- */
 .widget {
   background-color: var(--color-surface);
@@ -117,12 +153,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-4) var(--space-4) var(--space-3);
-  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-3) var(--space-4) var(--space-2);
 }
 
 .widget__title {
-  font-size: var(--text-base);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   display: flex;
@@ -131,18 +166,23 @@
 }
 
 .widget__title-icon {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   color: var(--color-accent);
 }
 
 .widget__link {
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   color: var(--color-accent);
   font-weight: var(--font-weight-medium);
   display: inline-flex;
   align-items: center;
   gap: 2px;
+  transition: opacity var(--transition-fast);
+}
+
+.widget__link:hover {
+  opacity: 0.7;
 }
 
 .widget__badge {
@@ -151,10 +191,10 @@
   justify-content: center;
   background-color: var(--color-accent);
   color: #ffffff;
-  font-size: 10px;
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
-  min-width: 18px;
-  height: 18px;
+  min-width: 16px;
+  height: 16px;
   padding: 0 4px;
   border-radius: var(--radius-full);
   line-height: 1;
@@ -162,40 +202,48 @@
 
 .widget__body {
   flex: 1;
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-2) var(--space-4) var(--space-3);
 }
 
 .widget__empty {
-  padding: var(--space-6) var(--space-4);
+  padding: var(--space-5) var(--space-4);
   text-align: center;
-  color: var(--color-text-secondary);
+  color: var(--color-text-tertiary);
   font-size: var(--text-sm);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1);
 }
 
-/* Widget hover lift (desktop) */
+.widget__empty .empty-state__icon {
+  width: 28px;
+  height: 28px;
+  color: var(--color-text-disabled);
+  margin-bottom: var(--space-1);
+}
+
+/* Widget hover lift (desktop) — dezent, max 1px */
 @media (min-width: 1024px) {
   .widget {
     transition: transform var(--transition-fast), box-shadow var(--transition-fast);
   }
   .widget:hover {
-    transform: translateY(-2px);
+    transform: translateY(-1px);
     box-shadow: var(--shadow-md);
   }
 }
 
 /* --------------------------------------------------------
  * Aufgaben-Widget
+ * Kompakte Items: 8px vertikales Padding, enger Spacing.
  * -------------------------------------------------------- */
 .task-item {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-3);
-  padding: var(--space-3) 0;
-  border-bottom: 1px solid var(--color-border);
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--color-border-subtle);
   cursor: pointer;
   transition: opacity var(--transition-fast);
 }
@@ -205,19 +253,21 @@
 }
 
 .task-item:hover {
-  opacity: 0.75;
+  opacity: 0.7;
 }
 
 .task-item__priority {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: var(--radius-full);
   flex-shrink: 0;
-  margin-top: 6px;
+  margin-top: 5px;
 }
 
 .task-item__priority--urgent { background-color: var(--color-priority-urgent); }
 .task-item__priority--high   { background-color: var(--color-priority-high); }
+.task-item__priority--medium { background-color: var(--color-priority-medium); }
+.task-item__priority--low    { background-color: var(--color-priority-low); }
 
 .task-item__content {
   flex: 1;
@@ -231,12 +281,13 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: var(--line-height-snug);
 }
 
 .task-item__meta {
   font-size: var(--text-xs);
-  color: var(--color-text-secondary);
-  margin-top: 2px;
+  color: var(--color-text-tertiary);
+  margin-top: 1px;
 }
 
 .task-item__meta--overdue {
@@ -245,27 +296,29 @@
 }
 
 .task-item__avatar {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   border-radius: var(--radius-full);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: var(--font-weight-bold);
   color: #ffffff;
   flex-shrink: 0;
+  margin-top: 1px;
 }
 
 /* --------------------------------------------------------
  * Termine-Widget
+ * Kompakt: Farbbalken + Inhalt, enge Abstände.
  * -------------------------------------------------------- */
 .event-item {
   display: flex;
   align-items: stretch;
-  gap: var(--space-3);
-  padding: var(--space-3) 0;
-  border-bottom: 1px solid var(--color-border);
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--color-border-subtle);
   cursor: pointer;
   transition: opacity var(--transition-fast);
 }
@@ -275,7 +328,7 @@
 }
 
 .event-item:hover {
-  opacity: 0.75;
+  opacity: 0.7;
 }
 
 .event-item__bar {
@@ -297,23 +350,24 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: var(--line-height-snug);
 }
 
 .event-item__time {
   font-size: var(--text-xs);
-  color: var(--color-text-secondary);
-  margin-top: 2px;
+  color: var(--color-text-tertiary);
+  margin-top: 1px;
   display: flex;
   align-items: center;
   gap: var(--space-1);
 }
 
 .event-time-badge {
-  font-size: 10px;
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   padding: 1px 5px;
   border-radius: var(--radius-full);
-  background-color: var(--color-surface-2);
+  background-color: var(--color-surface-3);
   color: var(--color-text-secondary);
 }
 
@@ -341,13 +395,13 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--space-1);
-  padding: var(--space-3) var(--space-2);
+  gap: 2px;
+  padding: var(--space-2) var(--space-1);
   background-color: var(--color-surface);
   cursor: pointer;
   transition: background-color var(--transition-fast);
   text-align: center;
-  min-height: 88px;
+  min-height: 72px;
 }
 
 .meal-slot:hover {
@@ -363,8 +417,8 @@
 }
 
 .meal-slot__icon {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   color: var(--color-text-disabled);
   flex-shrink: 0;
 }
@@ -374,7 +428,7 @@
 }
 
 .meal-slot__type {
-  font-size: 10px;
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-disabled);
   text-transform: uppercase;
@@ -430,50 +484,6 @@
   transform: translateY(-1px);
 }
 
-/* legacy (old .note-item had margin-bottom, now grid handles gap) */
-
-/* --------------------------------------------------------
- * Alte Essen-Listen-Styles (Fallback, nicht mehr primär)
- * -------------------------------------------------------- */
-.meal-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) 0;
-  border-bottom: 1px solid var(--color-border);
-  cursor: pointer;
-  transition: opacity var(--transition-fast);
-}
-
-.meal-item:last-child {
-  border-bottom: none;
-}
-
-.meal-item:hover {
-  opacity: 0.75;
-}
-
-.meal-item__type-badge {
-  font-size: var(--text-xs);
-  font-weight: var(--font-weight-semibold);
-  padding: 2px var(--space-2);
-  border-radius: var(--radius-xs);
-  background-color: var(--color-accent-light);
-  color: var(--color-accent);
-  white-space: nowrap;
-  flex-shrink: 0;
-  min-width: 72px;
-  text-align: center;
-}
-
-.meal-item__title {
-  font-size: var(--text-sm);
-  color: var(--color-text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .note-item__title {
   font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
@@ -495,9 +505,12 @@
 
 /* --------------------------------------------------------
  * Wetter-Widget
+ *
+ * Eigener Gradient, überschreibt .widget Hintergrund.
+ * Kompakt: Icon kleiner, Forecast enger.
  * -------------------------------------------------------- */
 .weather-widget {
-  background: linear-gradient(135deg, #1a73e8 0%, #0f4fa8 100%);
+  background: linear-gradient(135deg, var(--color-accent) 0%, #1E5CB3 100%);
   color: #ffffff;
 }
 
@@ -505,47 +518,47 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-4) var(--space-5);
+  padding: var(--space-3) var(--space-4);
 }
 
 .weather-widget__temp {
-  font-size: var(--text-4xl, 2.25rem);
+  font-size: var(--text-4xl);
   font-weight: var(--font-weight-bold);
   line-height: 1;
-  margin-bottom: var(--space-1);
-}
-
-.weather-widget__desc {
-  font-size: var(--text-base);
-  font-weight: var(--font-weight-medium);
-  text-transform: capitalize;
   margin-bottom: 2px;
 }
 
-.weather-widget__city {
+.weather-widget__desc {
   font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  text-transform: capitalize;
+  margin-bottom: 1px;
+}
+
+.weather-widget__city {
+  font-size: var(--text-xs);
   opacity: 0.85;
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--space-1);
 }
 
 .weather-widget__meta {
   font-size: var(--text-xs);
-  opacity: 0.75;
-  line-height: 1.4;
+  opacity: 0.7;
+  line-height: 1.3;
 }
 
 .weather-widget__icon {
-  width: 80px;
-  height: 80px;
+  width: 64px;
+  height: 64px;
   flex-shrink: 0;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
 }
 
 .weather-forecast {
   display: flex;
-  border-top: 1px solid rgba(255,255,255,0.2);
-  padding: var(--space-3) var(--space-5);
-  gap: var(--space-4);
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  padding: var(--space-2) var(--space-4);
+  gap: var(--space-3);
 }
 
 .weather-forecast__day {
@@ -564,13 +577,13 @@
 }
 
 .weather-forecast__icon {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
 }
 
 .weather-forecast__temps {
   display: flex;
-  gap: var(--space-2);
+  gap: var(--space-1);
   font-size: var(--text-xs);
 }
 
@@ -579,28 +592,29 @@
 }
 
 .weather-forecast__low {
-  opacity: 0.65;
+  opacity: 0.6;
 }
 
 /* --------------------------------------------------------
  * Skeleton-Zustände (pro Widget)
+ * Kompakt: gleiches Spacing wie echte Widgets.
  * -------------------------------------------------------- */
 .widget-skeleton {
   background-color: var(--color-surface);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
-  padding: var(--space-4);
+  padding: var(--space-3) var(--space-4);
 }
 
 .skeleton-line {
-  height: 14px;
+  height: 12px;
   margin-bottom: var(--space-2);
   border-radius: var(--radius-xs);
 }
 
-.skeleton-line--short { width: 40%; }
-.skeleton-line--medium { width: 65%; }
-.skeleton-line--full  { width: 100%; }
+.skeleton-line--short  { width: 35%; }
+.skeleton-line--medium { width: 60%; }
+.skeleton-line--full   { width: 100%; }
 
 /* --------------------------------------------------------
  * FAB Speed-Dial
@@ -623,8 +637,8 @@
 }
 
 .fab-main {
-  width: 56px;
-  height: 56px;
+  width: 52px;
+  height: 52px;
   border-radius: var(--radius-full);
   background-color: var(--color-accent);
   color: #ffffff;
@@ -633,18 +647,31 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: transform var(--transition-base), background-color var(--transition-fast);
+  transition:
+    transform var(--transition-base),
+    background-color var(--transition-fast);
   border: none;
   flex-shrink: 0;
+}
+
+@media (min-width: 1024px) {
+  .fab-main {
+    width: 48px;
+    height: 48px;
+  }
 }
 
 .fab-main:hover {
   background-color: var(--color-accent-hover);
 }
 
+.fab-main:active {
+  transform: scale(0.95);
+}
+
 .fab-main--open {
   transform: rotate(45deg);
-  background-color: var(--color-text-secondary);
+  background-color: var(--neutral-600);
 }
 
 .fab-actions {
@@ -683,8 +710,8 @@
 }
 
 .fab-action__btn {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: var(--radius-full);
   background-color: var(--color-surface);
   color: var(--color-accent);

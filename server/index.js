@@ -30,6 +30,7 @@ const PORT = process.env.PORT || 3000;
 // --------------------------------------------------------
 // Security-Middleware
 // --------------------------------------------------------
+const isSecure = process.env.SESSION_SECURE !== 'false';
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -45,13 +46,16 @@ app.use(helmet({
       fontSrc: ["'self'"],
       objectSrc: ["'none'"],
       frameSrc: ["'none'"],
+      // upgrade-insecure-requests nur mit HTTPS aktivieren
+      upgradeInsecureRequests: isSecure ? [] : null,
     },
   },
-  hsts: {
+  // HSTS nur mit HTTPS aktivieren
+  hsts: isSecure ? {
     maxAge: 31536000,
     includeSubDomains: true,
     preload: true,
-  },
+  } : false,
 }));
 
 // Trust Proxy für korrekte IP hinter Nginx

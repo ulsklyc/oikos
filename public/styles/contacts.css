@@ -98,6 +98,11 @@
   min-height: 30px;
 }
 
+.contact-filter-chip:hover:not(.contact-filter-chip--active) {
+  border-color: var(--color-text-secondary);
+  color: var(--color-text-primary);
+}
+
 .contact-filter-chip--active {
   background-color: var(--color-accent);
   border-color: var(--color-accent);
@@ -136,7 +141,7 @@
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border-subtle);
   cursor: pointer;
   transition: background-color var(--transition-fast);
 }
@@ -231,7 +236,7 @@
 .contact-modal-overlay {
   position: fixed;
   inset: 0;
-  background-color: rgba(0,0,0,0.5);
+  background-color: var(--color-overlay);
   z-index: var(--z-modal);
   display: flex;
   align-items: flex-end;

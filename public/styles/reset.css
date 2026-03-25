@@ -19,6 +19,8 @@ html {
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
   scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
@@ -67,6 +69,16 @@ button, [role="button"], input[type="checkbox"], input[type="radio"] {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
   border-radius: var(--radius-xs);
+}
+
+/* Reduzierte Bewegung (Barrierefreiheit) */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Versteckte, aber zugängliche Elemente */

@@ -1,59 +1,147 @@
 /**
  * Modul: Design Tokens
- * Zweck: CSS Custom Properties für das gesamte Design-System
+ * Zweck: CSS Custom Properties fuer das gesamte Design-System
  * Abhängigkeiten: keine
+ *
+ * Aufbau:
+ *   1. Neutral-Farbskala (50–950)
+ *   2. Akzentfarben + Semantische Farben
+ *   3. Modul-Akzentfarben
+ *   4. Mahlzeit-Typ-Farben
+ *   5. Prioritäten
+ *   6. Overlay / Backdrop
+ *   7. Schatten
+ *   8. Border-Radien
+ *   9. Typografie
+ *  10. Abstände (4px-Raster)
+ *  11. Layout
+ *  12. Sidebar
+ *  13. Übergänge
+ *  14. Z-Indizes
+ *  15. Dark Mode
  */
 
 :root {
   /* --------------------------------------------------------
-   * Farben — Neutrals
+   * 1. Farben — Neutral-Skala
+   *    Leicht warmgetönt (kein reines Grau) für einladende Atmosphäre.
+   *    Benannt als --neutral-{stufe} für direkte Nutzung,
+   *    plus semantische Aliase (--color-bg, --color-surface etc.)
+   *    die bestehender Code bereits referenziert.
    * -------------------------------------------------------- */
-  --color-bg: #F5F5F7;
-  --color-surface: #FFFFFF;
-  --color-surface-2: #F0F0F5;
-  --color-border: #E5E5EA;
-  --color-text-primary: #1C1C1E;
-  --color-text-secondary: #6C6C70; /* WCAG AA: ~5.2:1 auf weißem Hintergrund */
-  --color-text-disabled: #C7C7CC;
+  --neutral-50:  #FAFAF8;
+  --neutral-100: #F5F4F1;
+  --neutral-150: #EFEEE9;
+  --neutral-200: #E8E7E2;
+  --neutral-250: #DDDCD7;
+  --neutral-300: #D1D0CB;
+  --neutral-400: #B5B4AF;
+  --neutral-500: #8E8D89;
+  --neutral-600: #6C6B67;
+  --neutral-700: #4A4A46;
+  --neutral-800: #2E2E2B;
+  --neutral-900: #1C1C1A;
+  --neutral-950: #121211;
+
+  /* Semantische Aliase (abwärtskompatibel) */
+  --color-bg:             var(--neutral-100);
+  --color-surface:        #FFFFFF;
+  --color-surface-2:      var(--neutral-50);
+  --color-surface-3:      var(--neutral-150);
+  --color-border:         var(--neutral-200);
+  --color-border-subtle:  var(--neutral-150);
+  --color-text-primary:   var(--neutral-900);
+  --color-text-secondary: var(--neutral-600);  /* WCAG AA: ~5.0:1 auf weiß */
+  --color-text-tertiary:  var(--neutral-500);
+  --color-text-disabled:  var(--neutral-300);
 
   /* --------------------------------------------------------
-   * Farben — Akzent (konfigurierbar)
+   * 2. Farben — Akzent (konfigurierbar)
+   *    Wärmerer Blauton statt reinem Corporate-Blau.
    * -------------------------------------------------------- */
-  --color-accent: #007AFF;
-  --color-accent-hover: #0056CC;
-  --color-accent-light: #E3F2FF;
-  --color-btn-primary: #0066DB;       /* WCAG AA: ~5.0:1 auf weiß (Buttons mit weißem Text) */
-  --color-btn-primary-hover: #0056CC;
+  --color-accent:           #3478F6;
+  --color-accent-hover:     #2860D0;
+  --color-accent-active:    #1E4FA8;
+  --color-accent-light:     #EBF2FF;
+  --color-accent-subtle:    #D6E5FF;
+  --color-btn-primary:      #2C6BE0;       /* WCAG AA: ~4.8:1 auf weiß (weißer Text) */
+  --color-btn-primary-hover: #2258BA;
 
   /* --------------------------------------------------------
-   * Farben — Semantisch
+   * 3. Farben — Semantisch
    * -------------------------------------------------------- */
-  --color-success: #34C759;
-  --color-success-light: #E3F9EB;
-  --color-warning: #FF9500;
-  --color-warning-light: #FFF3E0;
-  --color-danger: #FF3B30;
-  --color-danger-light: #FFE5E3;
-  --color-info: #5AC8FA;
-  --color-info-light: #E5F7FF;
+  --color-success:       #2DA44E;
+  --color-success-hover: #258B3E;
+  --color-success-light: #DAFBE1;
+  --color-warning:       #E6930A;
+  --color-warning-hover: #C97D08;
+  --color-warning-light: #FFF4D4;
+  --color-danger:        #E5534B;
+  --color-danger-hover:  #CC403A;
+  --color-danger-light:  #FFE2E0;
+  --color-info:          #54AEFF;
+  --color-info-hover:    #3A94E5;
+  --color-info-light:    #DDF4FF;
 
   /* --------------------------------------------------------
-   * Farben — Prioritäten
+   * 4. Farben — Modul-Akzente
+   *    Jedes Modul hat eine eigene dezente Akzentfarbe.
+   *    Einsatz in Modul-Headern, Icons, aktiven States.
    * -------------------------------------------------------- */
-  --color-priority-low: #8E8E93;
-  --color-priority-medium: #FF9500;
-  --color-priority-high: #FF6B35;
-  --color-priority-urgent: #FF3B30;
+  --module-dashboard:  #3478F6;  /* Blau — Übersicht, neutral */
+  --module-tasks:      #2DA44E;  /* Grün — Erledigung, Fortschritt */
+  --module-calendar:   #8250DF;  /* Violett — Termine, Zeit */
+  --module-meals:      #E6930A;  /* Orange — Essen, Wärme */
+  --module-shopping:   #D4511E;  /* Rot-Orange — Einkaufen, Aktion */
+  --module-notes:      #BF8700;  /* Gold — Notizen, Pinnwand */
+  --module-contacts:   #0969DA;  /* Kräftiges Blau — Kontakte */
+  --module-budget:     #1A7F5A;  /* Teal — Finanzen, Stabilität */
+  --module-settings:   #6E7781;  /* Grau — Konfiguration */
 
   /* --------------------------------------------------------
-   * Schatten
+   * 5. Farben — Mahlzeit-Typen
+   *    Zentrale Tokens statt Hardcoding in meals.css
    * -------------------------------------------------------- */
-  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04), 0 1px 6px rgba(0,0,0,0.04);
-  --shadow-md: 0 4px 12px rgba(0,0,0,0.07), 0 1px 3px rgba(0,0,0,0.04);
-  --shadow-lg: 0 12px 32px rgba(0,0,0,0.09), 0 2px 8px rgba(0,0,0,0.05);
+  --meal-breakfast:       #E6930A;
+  --meal-breakfast-light: #FFF4D4;
+  --meal-lunch:           #2DA44E;
+  --meal-lunch-light:     #DAFBE1;
+  --meal-dinner:          #3478F6;
+  --meal-dinner-light:    #EBF2FF;
+  --meal-snack:           #D4511E;
+  --meal-snack-light:     #FFECE3;
 
   /* --------------------------------------------------------
-   * Border-Radien
+   * 6. Farben — Prioritäten
+   * -------------------------------------------------------- */
+  --color-priority-low:    var(--neutral-500);
+  --color-priority-medium: #E6930A;
+  --color-priority-high:   #D4511E;
+  --color-priority-urgent: #E5534B;
+
+  /* Hintergrundfarben für Priority-Badges */
+  --color-priority-low-bg:    rgba(142, 141, 137, 0.12);
+  --color-priority-medium-bg: rgba(230, 147, 10, 0.12);
+  --color-priority-high-bg:   rgba(212, 81, 30, 0.12);
+  --color-priority-urgent-bg: rgba(229, 83, 75, 0.12);
+
+  /* --------------------------------------------------------
+   * 7. Overlay / Backdrop
+   * -------------------------------------------------------- */
+  --color-overlay: rgba(0, 0, 0, 0.45);
+  --color-overlay-light: rgba(0, 0, 0, 0.2);
+
+  /* --------------------------------------------------------
+   * 8. Schatten
+   *    3 Stufen: subtle (Karten), medium (Dropdowns, Hover),
+   *    elevated (Modals, FAB).
+   * -------------------------------------------------------- */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 4px rgba(0, 0, 0, 0.03);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04);
+
+  /* --------------------------------------------------------
+   * 9. Border-Radien
    * -------------------------------------------------------- */
   --radius-xs: 4px;
   --radius-sm: 8px;
@@ -63,99 +151,153 @@
   --radius-full: 9999px;
 
   /* --------------------------------------------------------
-   * Typografie
+   * 10. Typografie
+   *     System-Font-Stack laut Redesign-Spec.
+   *     Skala von xs (12px) bis 4xl (36px).
    * -------------------------------------------------------- */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', monospace;
 
-  --text-xs: 0.75rem;    /* 12px */
-  --text-sm: 0.8125rem;  /* 13px */
-  --text-base: 1rem;     /* 16px */
-  --text-md: 1.0625rem;  /* 17px */
-  --text-lg: 1.125rem;   /* 18px */
-  --text-xl: 1.25rem;    /* 20px */
-  --text-2xl: 1.5rem;    /* 24px */
-  --text-3xl: 1.875rem;  /* 30px */
+  /* Size-Skala */
+  --text-2xs:  0.625rem;   /* 10px — Micro-Labels (Nav, Avatare) */
+  --text-xs:   0.75rem;    /* 12px — Captions, Badges */
+  --text-sm:   0.8125rem;  /* 13px — Small/Secondary */
+  --text-base: 0.875rem;   /* 14px — Body (Desktop), kompakter */
+  --text-md:   1rem;       /* 16px — Body (Mobile), Inputs */
+  --text-lg:   1.125rem;   /* 18px — Section-Title */
+  --text-xl:   1.25rem;    /* 20px — Subtitle */
+  --text-2xl:  1.5rem;     /* 24px — Page-Title */
+  --text-3xl:  1.875rem;   /* 30px — Page-Title Desktop */
+  --text-4xl:  2.25rem;    /* 36px — Hero/Greeting */
 
-  --line-height-tight: 1.2;
-  --line-height-base: 1.5;
-  --line-height-relaxed: 1.75;
+  /* Line-Heights */
+  --line-height-tight:   1.25;
+  --line-height-snug:    1.375;
+  --line-height-base:    1.5;
+  --line-height-relaxed: 1.625;
 
-  --font-weight-regular: 400;
-  --font-weight-medium: 500;
+  /* Font-Weights */
+  --font-weight-regular:  400;
+  --font-weight-medium:   500;
   --font-weight-semibold: 600;
-  --font-weight-bold: 700;
+  --font-weight-bold:     700;
 
   /* --------------------------------------------------------
-   * Abstände
+   * 11. Abstände — 4px-Raster
    * -------------------------------------------------------- */
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 20px;
-  --space-6: 24px;
-  --space-8: 32px;
+  --space-0:  0px;
+  --space-px: 1px;
+  --space-0h: 2px;
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
   --space-10: 40px;
   --space-12: 48px;
   --space-16: 64px;
 
   /* --------------------------------------------------------
-   * Layout
+   * 12. Layout
    * -------------------------------------------------------- */
-  --nav-height-mobile: 64px;
-  --sidebar-width: 64px;           /* collapsed icon-only (1024–1279px) */
-  --sidebar-width-expanded: 200px; /* full sidebar (1280px+) */
-  --content-max-width: 1200px;
+  --nav-height-mobile: 56px;
+  --sidebar-width: 56px;             /* collapsed icon-only (1024–1279px) */
+  --sidebar-width-expanded: 220px;   /* full sidebar (1280px+), max 240px laut Spec */
+  --content-max-width: 1280px;
 
-  /* Sidebar Neumorphismus */
-  --sidebar-bg: #E8E8EE;
-  --sidebar-shadow-light: rgba(255, 255, 255, 0.82);
-  --sidebar-shadow-dark: rgba(148, 148, 170, 0.28);
+  /* --------------------------------------------------------
+   * 13. Sidebar
+   *     Reduzierter Neumorphismus — subtilere Schatten.
+   * -------------------------------------------------------- */
+  --sidebar-bg: var(--neutral-100);
+  --sidebar-shadow-light: rgba(255, 255, 255, 0.6);
+  --sidebar-shadow-dark: rgba(0, 0, 0, 0.08);
   --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
 
   /* --------------------------------------------------------
-   * Übergänge
+   * 14. Übergänge
+   *     fast=150ms, base=250ms, slow=400ms (laut Redesign-Spec)
    * -------------------------------------------------------- */
-  --transition-fast: 0.1s ease;
-  --transition-base: 0.2s ease;
-  --transition-slow: 0.3s ease;
+  --transition-fast: 0.15s ease;
+  --transition-base: 0.25s ease;
+  --transition-slow: 0.4s ease;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
 
   /* --------------------------------------------------------
-   * Z-Indizes
+   * 15. Z-Indizes
    * -------------------------------------------------------- */
-  --z-base: 0;
-  --z-card: 1;
-  --z-nav: 100;
-  --z-modal: 200;
-  --z-toast: 300;
+  --z-base:    0;
+  --z-card:    1;
+  --z-sticky:  10;
+  --z-dropdown: 50;
+  --z-nav:     100;
+  --z-modal:   200;
+  --z-toast:   300;
 }
 
-/* --------------------------------------------------------
+/* ================================================================
  * Dark Mode
- * -------------------------------------------------------- */
+ * ================================================================ */
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-bg: #1C1C1E;
-    --color-surface: #2C2C2E;
-    --color-surface-2: #3A3A3C;
-    --color-border: #3A3A3C;
-    --color-text-primary: #F5F5F7;
-    --color-text-secondary: #AEAEB2; /* WCAG AA: ~4.6:1 auf #2C2C2E */
-    --color-text-disabled: #48484A;
+    /* Neutral-Skala invertiert (warm-dunkel) */
+    --neutral-50:  #1A1A18;
+    --neutral-100: #222220;
+    --neutral-150: #2A2A28;
+    --neutral-200: #333331;
+    --neutral-250: #3D3D3A;
+    --neutral-300: #48484A;
+    --neutral-400: #636360;
+    --neutral-500: #8E8D89;
+    --neutral-600: #AEADB0;   /* WCAG AA: ~4.8:1 auf #2A2A28 */
+    --neutral-700: #C8C7C3;
+    --neutral-800: #E2E1DC;
+    --neutral-900: #F5F4F1;
+    --neutral-950: #FAFAF8;
 
-    --sidebar-bg: #19191D;
-    --sidebar-shadow-light: rgba(255, 255, 255, 0.05);
-    --sidebar-shadow-dark: rgba(0, 0, 0, 0.55);
+    /* Semantische Aliase folgen automatisch via var(--neutral-*) */
+    --color-surface:   #2A2A28;
+    --color-surface-2: #1A1A18;
+    --color-surface-3: #333331;
 
-    --color-accent-light: #1A3A5C;
-    --color-success-light: #1A3A26;
-    --color-warning-light: #3A2800;
-    --color-danger-light: #3A1A1A;
-    --color-info-light: #1A3A4A;
+    /* Sidebar */
+    --sidebar-bg: #1A1A18;
+    --sidebar-shadow-light: rgba(255, 255, 255, 0.04);
+    --sidebar-shadow-dark: rgba(0, 0, 0, 0.4);
 
-    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
-    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+    /* Akzent-Light-Varianten (dunkler Hintergrund) */
+    --color-accent-light:  #1A2D4D;
+    --color-accent-subtle: #162442;
+    --color-success-light: #1A3325;
+    --color-warning-light: #332400;
+    --color-danger-light:  #3D1C1A;
+    --color-info-light:    #1A2D40;
+
+    /* Modul-Akzente bleiben im Dark Mode gleich (genug Kontrast) */
+
+    /* Mahlzeit-Typ Light-Varianten */
+    --meal-breakfast-light: #332400;
+    --meal-lunch-light:     #1A3325;
+    --meal-dinner-light:    #1A2D4D;
+    --meal-snack-light:     #3D2010;
+
+    /* Priority-Badge Hintergründe */
+    --color-priority-low-bg:    rgba(142, 141, 137, 0.18);
+    --color-priority-medium-bg: rgba(230, 147, 10, 0.18);
+    --color-priority-high-bg:   rgba(212, 81, 30, 0.18);
+    --color-priority-urgent-bg: rgba(229, 83, 75, 0.18);
+
+    /* Overlay */
+    --color-overlay: rgba(0, 0, 0, 0.6);
+    --color-overlay-light: rgba(0, 0, 0, 0.35);
+
+    /* Schatten stärker im Dark Mode */
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.25);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.45);
   }
 }

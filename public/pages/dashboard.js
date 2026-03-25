@@ -85,7 +85,7 @@ function widgetHeader(icon, title, count, linkHref, linkLabel = 'Alle') {
         ${badge}
       </span>
       <a href="${linkHref}" data-route="${linkHref}" class="widget__link">
-        ${linkLabel} <i data-lucide="chevron-right" style="width:12px;height:12px;vertical-align:-2px;"></i>
+        ${linkLabel}
       </a>
     </div>
   `;
@@ -97,13 +97,11 @@ function widgetHeader(icon, title, count, linkHref, linkLabel = 'Alle') {
 
 function skeletonWidget(lines = 3) {
   const lineHtml = Array.from({ length: lines }, (_, i) => `
-    <div class="skeleton skeleton-line ${i % 2 === 0 ? 'skeleton-line--full' : 'skeleton-line--medium'}"
-         style="margin-bottom:var(--space-2)"></div>
+    <div class="skeleton skeleton-line ${i % 2 === 0 ? 'skeleton-line--full' : 'skeleton-line--medium'}"></div>
   `).join('');
   return `
     <div class="widget-skeleton">
-      <div class="skeleton skeleton-line skeleton-line--short"
-           style="height:16px;margin-bottom:var(--space-4)"></div>
+      <div class="skeleton skeleton-line skeleton-line--short"></div>
       ${lineHtml}
     </div>
   `;
@@ -116,20 +114,21 @@ function skeletonWidget(lines = 3) {
 function renderGreeting(user, stats = {}) {
   const { urgentCount = 0, todayEventCount = 0, todayMealTitle = null } = stats;
 
+  const chipIcon = 'width:12px;height:12px;flex-shrink:0;';
   const statChips = [];
   if (urgentCount > 0)
     statChips.push(`<span class="greeting-chip greeting-chip--warn">
-      <i data-lucide="alert-circle" style="width:12px;height:12px;"></i>
+      <i data-lucide="alert-circle" style="${chipIcon}"></i>
       ${urgentCount} dring. Aufgabe${urgentCount > 1 ? 'n' : ''}
     </span>`);
   if (todayEventCount > 0)
     statChips.push(`<span class="greeting-chip">
-      <i data-lucide="calendar" style="width:12px;height:12px;"></i>
+      <i data-lucide="calendar" style="${chipIcon}"></i>
       ${todayEventCount} Termin${todayEventCount > 1 ? 'e' : ''} heute
     </span>`);
   if (todayMealTitle)
     statChips.push(`<span class="greeting-chip">
-      <i data-lucide="utensils" style="width:12px;height:12px;"></i>
+      <i data-lucide="utensils" style="${chipIcon}"></i>
       Heute: ${todayMealTitle}
     </span>`);
 
@@ -149,7 +148,7 @@ function renderUrgentTasks(tasks) {
     return `<div class="widget">
       ${widgetHeader('check-square', 'Aufgaben', 0, '/tasks')}
       <div class="widget__empty">
-        <i data-lucide="check-circle" style="width:32px;height:32px;color:var(--color-success);margin-bottom:var(--space-2);"></i>
+        <i data-lucide="check-circle" class="empty-state__icon" style="color:var(--color-success)"></i>
         <div>Alles erledigt</div>
       </div>
     </div>`;
@@ -182,7 +181,7 @@ function renderUpcomingEvents(events) {
     return `<div class="widget">
       ${widgetHeader('calendar', 'Termine', 0, '/calendar')}
       <div class="widget__empty">
-        <i data-lucide="calendar-check" style="width:32px;height:32px;color:var(--color-text-disabled);margin-bottom:var(--space-2);"></i>
+        <i data-lucide="calendar-check" class="empty-state__icon"></i>
         <div>Keine Termine</div>
       </div>
     </div>`;
@@ -239,7 +238,7 @@ function renderPinnedNotes(notes) {
     return `<div class="widget">
       ${widgetHeader('pin', 'Pinnwand', 0, '/notes')}
       <div class="widget__empty">
-        <i data-lucide="sticky-note" style="width:32px;height:32px;color:var(--color-text-disabled);margin-bottom:var(--space-2);"></i>
+        <i data-lucide="sticky-note" class="empty-state__icon"></i>
         <div>Keine angepinnten Notizen</div>
       </div>
     </div>`;

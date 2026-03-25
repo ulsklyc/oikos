@@ -2,6 +2,13 @@
  * Modul: Layout
  * Zweck: App-Shell-Layout, Navigation (Bottom Mobile / Sidebar Desktop), Responsive Grid
  * Abhängigkeiten: tokens.css, reset.css
+ *
+ * Navigation:
+ *   Mobile (<1024px):  Bottom-Nav-Bar, 5 Haupt-Module
+ *   Desktop (1024–1279px): Collapsed Sidebar, nur Icons (56px)
+ *   Wide Desktop (≥1280px): Expanded Sidebar mit Labels (220px)
+ *
+ * Referenz: Apple HIG Sidebar-Pattern
  */
 
 /* --------------------------------------------------------
@@ -37,6 +44,24 @@
 }
 
 /* --------------------------------------------------------
+ * Seiten-Übergangs-Animation
+ * -------------------------------------------------------- */
+@keyframes page-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes page-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+.page-transition--out {
+  animation: page-out 0.12s ease forwards;
+  pointer-events: none;
+}
+
+/* --------------------------------------------------------
  * Layout: Mobile (Standard, < 1024px)
  * -------------------------------------------------------- */
 .app-content {
@@ -45,8 +70,16 @@
   overflow-y: auto;
 }
 
+/* Sidebar auf Mobile verstecken */
+.nav-sidebar {
+  display: none;
+}
+
 /* --------------------------------------------------------
  * Bottom Navigation (Mobil + Tablet)
+ *
+ * Kompakte Bar: 56px Höhe, Icons 22px, Labels 11px.
+ * Leichter Blur-Effekt für Glassmorphismus.
  * -------------------------------------------------------- */
 .nav-bottom {
   position: fixed;
@@ -55,13 +88,13 @@
   right: 0;
   height: calc(var(--nav-height-mobile) + var(--safe-area-inset-bottom));
   padding-bottom: var(--safe-area-inset-bottom);
-  background-color: var(--color-surface);
-  border-top: 1px solid var(--color-border);
+  background-color: color-mix(in srgb, var(--color-surface) 85%, transparent);
+  border-top: 1px solid var(--color-border-subtle);
   display: flex;
   align-items: center;
   z-index: var(--z-nav);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
 }
 
 .nav-bottom__items {
@@ -70,37 +103,50 @@
   height: 100%;
 }
 
+/* ── Nav-Item (Bottom-Bar): Basis-State ── */
 .nav-item {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--space-1);
-  padding: var(--space-2) var(--space-1);
-  color: var(--color-text-secondary);
+  gap: 2px;
+  padding: var(--space-1) var(--space-1);
+  color: var(--color-text-tertiary);
   transition: color var(--transition-fast);
   -webkit-tap-highlight-color: transparent;
-  min-height: unset; /* Reset des Touch-Target-Minimums für Nav-Items */
+  min-height: unset;
+  text-decoration: none;
 }
 
+.nav-item:active {
+  transform: scale(0.92);
+}
+
+/* ── Nav-Item: Aktiv ── */
 .nav-item[aria-current="page"] {
   color: var(--color-accent);
 }
 
 .nav-item__icon {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
 }
 
 .nav-item__label {
-  font-size: var(--text-xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-medium);
+  line-height: 1;
 }
 
-/* --------------------------------------------------------
- * Sidebar Navigation — Desktop (Neumorphismus)
- * -------------------------------------------------------- */
+/* ================================================================
+ * Sidebar Navigation — Desktop (≥ 1024px)
+ *
+ * Design: Flach, kein Neumorphismus. Dezenter Seitenrand.
+ * Aktiver State: Hintergrund-Highlight + Akzentstreifen links.
+ * Hover: Subtile Hintergrundfarbe, kein Shadow.
+ * ================================================================ */
 @media (min-width: 1024px) {
   .app-shell {
     flex-direction: row;
@@ -117,23 +163,19 @@
     display: none;
   }
 
-  /* ── Sidebar Container ── */
+  /* ── Sidebar anzeigen ── */
   .nav-sidebar {
+    display: flex;
     position: fixed;
     top: 0;
     left: 0;
     bottom: 0;
     width: var(--sidebar-width);
     background: var(--sidebar-bg);
-    border-right: none;
-    box-shadow:
-      6px 0 28px var(--sidebar-shadow-dark),
-      2px 0 8px var(--sidebar-shadow-dark),
-      inset -1px 0 0 var(--sidebar-shadow-light);
-    display: flex;
+    border-right: 1px solid var(--color-border-subtle);
     flex-direction: column;
     z-index: var(--z-nav);
-    padding: var(--space-4) 0 var(--space-6);
+    padding: var(--space-4) 0 var(--space-4);
     transition: width var(--transition-slow);
     overflow: hidden;
   }
@@ -143,18 +185,18 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: var(--space-3) 0 var(--space-5);
-    margin-bottom: var(--space-2);
+    padding: var(--space-2) 0 var(--space-4);
+    margin-bottom: var(--space-1);
     flex-shrink: 0;
   }
 
-  /* Neumorphic App-Icon als Logo-Ersatz */
+  /* App-Icon als kompaktes Logo */
   .nav-sidebar__logo::before {
     content: 'O';
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
     border-radius: var(--radius-sm);
-    background: linear-gradient(135deg, var(--color-accent) 0%, #5856D6 100%);
+    background: linear-gradient(135deg, var(--color-accent) 0%, #7C5CFC 100%);
     color: #ffffff;
     font-size: var(--text-sm);
     font-weight: var(--font-weight-bold);
@@ -162,12 +204,9 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    box-shadow:
-      3px 3px 8px var(--sidebar-shadow-dark),
-      -2px -2px 6px var(--sidebar-shadow-light);
   }
 
-  /* Volltext-Span verstecken im collapsed-Modus */
+  /* Logo-Text verstecken im collapsed-Modus */
   .nav-sidebar__logo > span {
     display: none;
   }
@@ -176,7 +215,7 @@
   .nav-sidebar__items {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--space-0h);
     padding: 0 var(--space-2);
     flex: 1;
     overflow-y: auto;
@@ -184,29 +223,27 @@
   }
   .nav-sidebar__items::-webkit-scrollbar { display: none; }
 
-  /* ── Nav-Item: Basis ── */
+  /* ── Nav-Item: Sidebar-Basis ── */
   .nav-sidebar .nav-item {
     flex-direction: row;
     justify-content: center;
     align-items: center;
-    border-radius: var(--radius-xs);
-    padding: 6px var(--space-2);
+    border-radius: var(--radius-sm);
+    padding: 8px var(--space-2);
     gap: 0;
     min-height: unset;
     font-size: var(--text-sm);
     color: var(--color-text-secondary);
     background: transparent;
-    box-shadow: none;
     transition:
-      box-shadow var(--transition-base),
       color var(--transition-fast),
-      background var(--transition-fast);
+      background-color var(--transition-fast);
     position: relative;
   }
 
   .nav-sidebar .nav-item__icon {
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
     flex-shrink: 0;
   }
 
@@ -218,47 +255,45 @@
     overflow: hidden;
   }
 
-  /* Hover: sehr subtiler raised-Effekt */
+  /* ── Hover: dezente Hintergrundfarbe ── */
   .nav-sidebar .nav-item:hover:not([aria-current="page"]) {
-    color: var(--color-accent);
-    background: var(--sidebar-bg);
-    box-shadow:
-      2px 2px 5px var(--sidebar-shadow-dark),
-      -2px -2px 5px var(--sidebar-shadow-light);
+    color: var(--color-text-primary);
+    background-color: var(--color-surface-3);
   }
 
-  /* Aktiv: leichter inset */
+  /* ── Aktiv: Hintergrund-Highlight + Akzent-Indikator ── */
   .nav-sidebar .nav-item[aria-current="page"] {
     color: var(--color-accent);
     font-weight: var(--font-weight-semibold);
-    background: var(--sidebar-bg);
-    box-shadow:
-      inset 1px 1px 3px var(--sidebar-shadow-dark),
-      inset -1px -1px 3px var(--sidebar-shadow-light);
+    background-color: var(--color-accent-light);
   }
 
-  /* Aktiv-Indikator: kleiner Akzentstreifen links */
+  /* Akzentstreifen links */
   .nav-sidebar .nav-item[aria-current="page"]::before {
     content: '';
     position: absolute;
     left: 0;
-    top: 20%;
-    bottom: 20%;
+    top: 6px;
+    bottom: 6px;
     width: 3px;
     border-radius: 0 var(--radius-full) var(--radius-full) 0;
-    background: linear-gradient(180deg, var(--color-accent) 0%, #5856D6 100%);
-    box-shadow: 0 0 6px rgba(0, 122, 255, 0.45);
+    background: var(--color-accent);
   }
 
-  /* ── Divider vor Einstellungen ── */
+  /* Active-Press auf Desktop */
+  .nav-sidebar .nav-item:active {
+    transform: scale(0.97);
+  }
+
+  /* ── Einstellungen ans Ende ── */
   .nav-sidebar__items > a:last-child {
     margin-top: auto;
   }
 }
 
-/* --------------------------------------------------------
+/* ================================================================
  * Sidebar Expanded (≥ 1280px) — Labels sichtbar
- * -------------------------------------------------------- */
+ * ================================================================ */
 @media (min-width: 1280px) {
   :root {
     --sidebar-width: var(--sidebar-width-expanded);
@@ -267,54 +302,44 @@
   /* Logo: Text-Variante */
   .nav-sidebar__logo {
     justify-content: flex-start;
-    padding: var(--space-3) var(--space-4) var(--space-5);
+    padding: var(--space-2) var(--space-5) var(--space-4);
     gap: var(--space-3);
   }
 
   .nav-sidebar__logo::before {
-    width: 30px;
-    height: 30px;
+    width: 28px;
+    height: 28px;
     font-size: var(--text-xs);
-    flex-shrink: 0;
   }
 
   .nav-sidebar__logo > span {
     display: inline-block;
     font-size: var(--text-lg);
     font-weight: var(--font-weight-bold);
-    letter-spacing: -0.4px;
-    background: linear-gradient(135deg, var(--color-accent) 0%, #5856D6 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    letter-spacing: -0.3px;
+    color: var(--color-text-primary);
   }
 
   .nav-sidebar__items {
-    padding: 0 var(--space-3);
-    gap: 2px;
+    padding: 0 var(--space-2);
+    gap: var(--space-0h);
   }
 
   /* Nav-Items: horizontal mit Label */
   .nav-sidebar .nav-item {
     justify-content: flex-start;
-    padding: 6px var(--space-3);
+    padding: 8px var(--space-3);
     gap: var(--space-3);
-    min-height: unset;
   }
 
   .nav-sidebar .nav-item__icon {
-    width: 17px;
-    height: 17px;
+    width: 18px;
+    height: 18px;
   }
 
   .nav-sidebar .nav-item__label {
     display: block;
     font-weight: inherit;
-  }
-
-  /* Aktiv-Indikator bleibt links */
-  .nav-sidebar .nav-item[aria-current="page"]::before {
-    left: 0;
   }
 }
 
@@ -331,28 +356,49 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: var(--space-6);
+  margin-bottom: var(--space-5);
   gap: var(--space-4);
 }
 
 .page__title {
-  font-size: var(--text-2xl);
+  font-size: var(--text-xl);
   font-weight: var(--font-weight-bold);
+  letter-spacing: -0.3px;
 }
 
 @media (min-width: 1024px) {
   .page {
-    padding: var(--space-10) var(--space-10);
+    padding: var(--space-8) var(--space-8);
   }
 
   .page__title {
-    font-size: var(--text-3xl);
+    font-size: var(--text-2xl);
     letter-spacing: -0.5px;
+  }
+}
+
+@media (min-width: 1440px) {
+  .page {
+    padding: var(--space-8) var(--space-10);
   }
 }
 
 /* --------------------------------------------------------
  * Cards
+ *
+ * Einheitliches Card-Pattern für alle Module:
+ * - Padding: 16px (mobile), 20px (desktop)
+ * - Radius: 12px
+ * - Shadow: subtle (sm)
+ * - Internes Spacing: 8–12px
+ * - Hover auf Desktop: leichter Lift (1px)
+ *
+ * Varianten:
+ * .card              — Basis (kein Padding)
+ * .card--padded      — Mit Padding
+ * .card--compact     — Enges Padding (12px)
+ * .card--flat        — Kein Shadow, nur Border
+ * .card--interactive — Hover-Lift + Cursor
  * -------------------------------------------------------- */
 .card {
   background-color: var(--color-surface);
@@ -365,6 +411,168 @@
   padding: var(--space-4);
 }
 
+.card--compact {
+  padding: var(--space-3);
+}
+
+.card--flat {
+  box-shadow: none;
+  border: 1px solid var(--color-border-subtle);
+}
+
+.card--interactive {
+  cursor: pointer;
+  transition:
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.card--interactive:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.card--interactive:active {
+  transform: scale(0.99);
+}
+
+@media (min-width: 1024px) {
+  .card--padded {
+    padding: var(--space-5);
+  }
+}
+
+/* ── Card-Inhalts-Utilities ── */
+.card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-bottom: var(--space-3);
+  margin-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.card__title {
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.card__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* --------------------------------------------------------
+ * Modal-Basis
+ *
+ * Einheitliches Modal-Pattern für alle Module:
+ * - Mobile: Bottom-Sheet (gerundet oben)
+ * - Desktop: Zentriert (max-width variabel)
+ * - Overlay: var(--color-overlay)
+ * - Padding: 16px
+ * - Radius: 16px
+ * -------------------------------------------------------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: var(--color-overlay);
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: modal-overlay-in 0.2s ease forwards;
+}
+
+@media (min-width: 768px) {
+  .modal-overlay {
+    align-items: center;
+    padding: var(--space-6);
+  }
+}
+
+.modal-panel {
+  background-color: var(--color-surface);
+  width: 100%;
+  max-height: 90dvh;
+  overflow-y: auto;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  animation: modal-slide-up 0.25s var(--ease-out) forwards;
+}
+
+@media (min-width: 768px) {
+  .modal-panel {
+    max-width: 520px;
+    border-radius: var(--radius-lg);
+    animation: modal-scale-in 0.2s var(--ease-out) forwards;
+  }
+}
+
+.modal-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+  position: sticky;
+  top: 0;
+  background-color: var(--color-surface);
+  z-index: 1;
+}
+
+.modal-panel__title {
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-semibold);
+}
+
+.modal-panel__close {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+  transition: background-color var(--transition-fast);
+}
+
+.modal-panel__close:hover {
+  background-color: var(--color-surface-3);
+}
+
+.modal-panel__body {
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.modal-panel__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+@keyframes modal-overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes modal-slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+@keyframes modal-scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
 /* --------------------------------------------------------
  * Buttons
  * -------------------------------------------------------- */
@@ -373,36 +581,59 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-sm);
-  font-size: var(--text-base);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
-  min-height: 44px;
-  transition: opacity var(--transition-fast), background-color var(--transition-fast);
+  min-height: 36px;
+  transition:
+    background-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
   cursor: pointer;
   white-space: nowrap;
+}
+
+/* Touch-Targets: 44px auf Mobile */
+@media (max-width: 1023px) {
+  .btn {
+    min-height: 44px;
+  }
+}
+
+.btn:active {
+  transform: scale(0.98);
 }
 
 .btn--primary {
   background-color: var(--color-btn-primary);
   color: #ffffff;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.12);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .btn--primary:hover {
   background-color: var(--color-btn-primary-hover);
-  box-shadow: 0 2px 6px rgba(0,102,219,0.28);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
 }
 
 .btn--secondary {
   background-color: transparent;
   color: var(--color-accent);
-  border: 1.5px solid var(--color-accent);
+  border: 1.5px solid var(--color-border);
+}
+
+.btn--secondary:hover {
+  background-color: var(--color-accent-light);
+  border-color: var(--color-accent);
 }
 
 .btn--danger {
   background-color: var(--color-danger);
   color: #ffffff;
+}
+
+.btn--danger:hover {
+  background-color: var(--color-danger-hover);
 }
 
 .btn--ghost {
@@ -412,18 +643,27 @@
 
 .btn--ghost:hover {
   background-color: var(--color-surface-2);
+  color: var(--color-text-primary);
 }
 
 .btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+  pointer-events: none;
 }
 
 .btn--icon {
   padding: var(--space-2);
-  min-height: 44px;
-  min-width: 44px;
+  min-height: 36px;
+  min-width: 36px;
   border-radius: var(--radius-sm);
+}
+
+@media (max-width: 1023px) {
+  .btn--icon {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
 
 /* FAB (Floating Action Button) */
@@ -431,8 +671,8 @@
   position: fixed;
   bottom: calc(var(--nav-height-mobile) + var(--safe-area-inset-bottom) + var(--space-4));
   right: var(--space-4);
-  width: 56px;
-  height: 56px;
+  width: 52px;
+  height: 52px;
   border-radius: var(--radius-full);
   background-color: var(--color-accent);
   color: #ffffff;
@@ -441,17 +681,24 @@
   align-items: center;
   justify-content: center;
   z-index: calc(var(--z-nav) - 1);
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+  transition:
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
 .fab:hover {
   transform: scale(1.05);
-  box-shadow: var(--shadow-lg);
+}
+
+.fab:active {
+  transform: scale(0.95);
 }
 
 @media (min-width: 1024px) {
   .fab {
     bottom: var(--space-8);
+    width: 48px;
+    height: 48px;
   }
 }
 
@@ -460,19 +707,27 @@
  * -------------------------------------------------------- */
 .input {
   width: 100%;
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
   border: 1.5px solid var(--color-border);
   background-color: var(--color-surface);
   color: var(--color-text-primary);
-  font-size: var(--text-base);
-  transition: border-color var(--transition-fast);
+  font-size: var(--text-md);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
   min-height: 44px;
+}
+
+@media (min-width: 1024px) {
+  .input {
+    min-height: 36px;
+    font-size: var(--text-base);
+  }
 }
 
 .input:focus {
   outline: none;
   border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-light);
 }
 
 .input::placeholder {
@@ -500,9 +755,9 @@
 .skeleton {
   background: linear-gradient(
     90deg,
-    var(--color-border) 25%,
+    var(--color-border-subtle) 25%,
     var(--color-surface-2) 50%,
-    var(--color-border) 75%
+    var(--color-border-subtle) 75%
   );
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.5s infinite;
@@ -522,31 +777,32 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--space-4);
+  gap: var(--space-3);
   padding: var(--space-12) var(--space-6);
   text-align: center;
 }
 
 .empty-state__icon {
-  width: 64px;
-  height: 64px;
+  width: 56px;
+  height: 56px;
   color: var(--color-text-disabled);
 }
 
 .empty-state__title {
-  font-size: var(--text-lg);
+  font-size: var(--text-md);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
 }
 
 .empty-state__description {
-  font-size: var(--text-base);
+  font-size: var(--text-sm);
   color: var(--color-text-secondary);
   max-width: 280px;
+  line-height: var(--line-height-base);
 }
 
 /* --------------------------------------------------------
- * Responsive Grid
+ * Responsive Grid (Utility)
  * -------------------------------------------------------- */
 .grid {
   display: grid;
@@ -562,6 +818,156 @@
   .grid--3 { grid-template-columns: repeat(3, 1fr); }
 }
 
+@media (min-width: 1440px) {
+  .grid--4 { grid-template-columns: repeat(4, 1fr); }
+}
+
+/* --------------------------------------------------------
+ * Layout-Primitives
+ *
+ * Wiederverwendbare Content-Area-Patterns für Desktop.
+ * Mobile: immer single-column (Stacking).
+ *
+ * .layout-master-detail  — Liste links, Detail rechts (Aufgaben, Einkauf)
+ * .layout-content-aside  — Hauptinhalt + schmale Seitenleiste (Kalender)
+ * .layout-center         — Zentrierter schmaler Content (Settings, Login)
+ * .layout-wide           — Volle Breite mit max-width (Dashboard)
+ * -------------------------------------------------------- */
+
+/* ── Master-Detail ──
+ * Mobile: gestapelt (Detail wird programmatisch ein-/ausgeblendet).
+ * Desktop: 2 Spalten — Liste ~40%, Detail ~60%.
+ */
+.layout-master-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+}
+
+.layout-master-detail__master {
+  flex: 1;
+  min-width: 0;
+}
+
+.layout-master-detail__detail {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (min-width: 1024px) {
+  .layout-master-detail {
+    flex-direction: row;
+    gap: var(--space-6);
+  }
+
+  .layout-master-detail__master {
+    flex: 0 0 380px;
+    max-width: 420px;
+    overflow-y: auto;
+    max-height: calc(100dvh - var(--space-16));
+    position: sticky;
+    top: var(--space-8);
+  }
+
+  .layout-master-detail__detail {
+    flex: 1;
+  }
+}
+
+@media (min-width: 1440px) {
+  .layout-master-detail__master {
+    flex: 0 0 420px;
+    max-width: 460px;
+  }
+}
+
+/* ── Content + Aside ──
+ * Mobile: gestapelt.
+ * Desktop: Hauptinhalt nimmt Platz ein, Aside ist 280–320px.
+ */
+.layout-content-aside {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+}
+
+.layout-content-aside__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.layout-content-aside__aside {
+  min-width: 0;
+}
+
+@media (min-width: 1024px) {
+  .layout-content-aside {
+    flex-direction: row;
+    gap: var(--space-6);
+  }
+
+  .layout-content-aside__main {
+    flex: 1;
+  }
+
+  .layout-content-aside__aside {
+    flex: 0 0 280px;
+    overflow-y: auto;
+    max-height: calc(100dvh - var(--space-16));
+    position: sticky;
+    top: var(--space-8);
+  }
+}
+
+@media (min-width: 1440px) {
+  .layout-content-aside__aside {
+    flex: 0 0 320px;
+  }
+}
+
+/* ── Center ──
+ * Schmaler, zentrierter Content-Bereich (max. 720px).
+ * Ideal für Settings, Formulare, Einzelansichten.
+ */
+.layout-center {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+/* ── Wide ──
+ * Volle verfügbare Breite mit max-width.
+ * Für Dashboard und andere Multi-Column-Ansichten.
+ */
+.layout-wide {
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+}
+
+/* ── Prose ──
+ * Text-Content mit optimaler Lesebreite.
+ */
+.prose {
+  max-width: 720px;
+}
+
+/* ── Sticky-Header (Modul-Toolbars) ──
+ * Klebt am oberen Rand beim Scrollen.
+ */
+.sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  background-color: color-mix(in srgb, var(--color-bg) 90%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding-bottom: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
 /* --------------------------------------------------------
  * Toast-Benachrichtigungen
  * -------------------------------------------------------- */
@@ -575,25 +981,25 @@
   gap: var(--space-2);
   z-index: var(--z-toast);
   pointer-events: none;
-  width: min(calc(100% - var(--space-8)), 400px);
+  width: min(calc(100% - var(--space-8)), 380px);
 }
 
 @media (min-width: 1024px) {
   .toast-container {
     bottom: var(--space-6);
-    left: calc(var(--sidebar-width) + 50%);
+    left: calc(var(--sidebar-width) + (100% - var(--sidebar-width)) / 2);
   }
 }
 
 .toast {
-  background-color: var(--color-text-primary);
-  color: var(--color-bg);
+  background-color: var(--neutral-800);
+  color: var(--neutral-50);
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-sm);
   font-size: var(--text-sm);
   box-shadow: var(--shadow-lg);
   pointer-events: auto;
-  animation: toast-in 0.2s ease forwards;
+  animation: toast-in 0.25s var(--ease-out) forwards;
 }
 
 .toast--success { background-color: var(--color-success); color: #fff; }
@@ -601,6 +1007,60 @@
 .toast--warning { background-color: var(--color-warning); color: #fff; }
 
 @keyframes toast-in {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.toast--out {
+  animation: toast-out 0.2s ease forwards;
+}
+
+@keyframes toast-out {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0.95) translateY(4px); }
+}
+
+/* --------------------------------------------------------
+ * Print-Styles
+ * -------------------------------------------------------- */
+@media print {
+  .nav-sidebar,
+  .nav-bottom,
+  .fab,
+  .toast-container,
+  .modal-overlay,
+  .modal-backdrop {
+    display: none !important;
+  }
+
+  .app-content {
+    margin-left: 0 !important;
+    padding-bottom: 0 !important;
+  }
+
+  .app-shell {
+    display: block;
+  }
+
+  body {
+    background: #fff;
+    color: #000;
+  }
+
+  .card {
+    box-shadow: none;
+    border: 1px solid #ddd;
+    break-inside: avoid;
+  }
+
+  a[href]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.85em;
+    color: #666;
+  }
+
+  .nav-item,
+  a[data-route]::after {
+    content: none;
+  }
 }

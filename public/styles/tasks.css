@@ -65,6 +65,10 @@
   cursor: pointer;
 }
 
+.group-toggle__btn:hover:not(.group-toggle__btn--active) {
+  color: var(--color-text-primary);
+}
+
 .group-toggle__btn--active {
   background-color: var(--color-surface);
   color: var(--color-text-primary);
@@ -103,6 +107,11 @@
   min-height: 34px;
 }
 
+.filter-chip:hover:not(.filter-chip--active) {
+  border-color: var(--color-text-secondary);
+  color: var(--color-text-primary);
+}
+
 .filter-chip--active {
   background-color: var(--color-accent-light);
   border-color: var(--color-accent);
@@ -118,7 +127,7 @@
   border-radius: var(--radius-full);
   background-color: var(--color-accent);
   color: #fff;
-  font-size: 10px;
+  font-size: var(--text-2xs);
   line-height: 1;
 }
 
@@ -232,13 +241,14 @@
 
 .task-card--done {
   opacity: 0.6;
+  transition: opacity var(--transition-base);
 }
 
 .task-card__main {
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
-  padding: var(--space-4);
+  padding: var(--space-3);
 }
 
 /* Status-Checkbox */
@@ -261,6 +271,13 @@
 .task-status-btn--done {
   border-color: var(--color-success);
   background-color: var(--color-success);
+  animation: check-pop 0.2s var(--ease-out);
+}
+
+@keyframes check-pop {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.2); }
+  100% { transform: scale(1); }
 }
 
 .task-status-btn--in_progress {
@@ -312,10 +329,10 @@
   border-radius: var(--radius-xs);
 }
 
-.priority-badge--low     { color: var(--color-priority-low);    background-color: #8E8E9322; }
-.priority-badge--medium  { color: var(--color-priority-medium); background-color: #FF950022; }
-.priority-badge--high    { color: var(--color-priority-high);   background-color: #FF6B3522; }
-.priority-badge--urgent  { color: var(--color-priority-urgent); background-color: #FF3B3022; }
+.priority-badge--low     { color: var(--color-priority-low);    background-color: var(--color-priority-low-bg); }
+.priority-badge--medium  { color: var(--color-priority-medium); background-color: var(--color-priority-medium-bg); }
+.priority-badge--high    { color: var(--color-priority-high);   background-color: var(--color-priority-high-bg); }
+.priority-badge--urgent  { color: var(--color-priority-urgent); background-color: var(--color-priority-urgent-bg); }
 
 .priority-dot {
   width: 6px;
@@ -349,7 +366,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   color: #fff;
   flex-shrink: 0;
@@ -357,7 +374,7 @@
 
 /* Subtask-Fortschrittsbalken */
 .subtask-progress {
-  padding: 0 var(--space-4) var(--space-3);
+  padding: 0 var(--space-3) var(--space-2);
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -387,8 +404,8 @@
 
 /* Subtask-Liste (eingeklappt/ausgeklappt) */
 .subtask-list {
-  border-top: 1px solid var(--color-border);
-  padding: var(--space-2) var(--space-4);
+  border-top: 1px solid var(--color-border-subtle);
+  padding: var(--space-2) var(--space-3);
   display: none;
 }
 
@@ -399,7 +416,7 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2) 0;
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border-subtle);
 }
 
 .subtask-item:last-child { border-bottom: none; }
@@ -461,7 +478,7 @@
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.4);
+  background-color: var(--color-overlay);
   z-index: var(--z-modal);
   display: flex;
   align-items: flex-end;
@@ -551,7 +568,7 @@
   border-radius: var(--radius-full);
   background-color: var(--color-danger);
   color: #fff;
-  font-size: 10px;
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   margin-left: auto;
 }
@@ -561,15 +578,15 @@
  * -------------------------------------------------------- */
 .kanban-board {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 1fr;
   gap: var(--space-3);
   align-items: start;
   min-height: 60vh;
 }
 
-@media (max-width: 640px) {
+@media (min-width: 640px) {
   .kanban-board {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 

@@ -73,7 +73,7 @@
   font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
   padding: var(--space-1) var(--space-2);
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   border: none;
   background: none;
   color: var(--color-text-secondary);
@@ -81,6 +81,10 @@
   transition: all var(--transition-fast);
   min-height: unset;
   white-space: nowrap;
+}
+
+.cal-toolbar__view-btn:hover:not(.cal-toolbar__view-btn--active) {
+  color: var(--color-text-primary);
 }
 
 .cal-toolbar__view-btn--active {
@@ -125,8 +129,8 @@
 }
 
 .month-day {
-  border-right: 1px solid var(--color-border);
-  border-bottom: 1px solid var(--color-border);
+  border-right: 1px solid var(--color-border-subtle);
+  border-bottom: 1px solid var(--color-border-subtle);
   padding: var(--space-1);
   min-height: 80px;
   cursor: pointer;
@@ -171,10 +175,10 @@
 }
 
 .month-day__event {
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
   padding: 1px 5px;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   margin-bottom: 2px;
   white-space: nowrap;
   overflow: hidden;
@@ -185,7 +189,7 @@
 }
 
 .month-day__more {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--color-text-secondary);
   padding: 1px 4px;
   cursor: pointer;
@@ -215,7 +219,7 @@
 .week-view__day-header {
   padding: var(--space-2) var(--space-1);
   text-align: center;
-  border-left: 1px solid var(--color-border);
+  border-left: 1px solid var(--color-border-subtle);
 }
 
 .week-view__day-name {
@@ -273,7 +277,7 @@
 }
 
 .week-view__time-label {
-  font-size: 10px;
+  font-size: var(--text-xs);
   color: var(--color-text-disabled);
   white-space: nowrap;
 }
@@ -285,7 +289,7 @@
 }
 
 .week-view__col {
-  border-left: 1px solid var(--color-border);
+  border-left: 1px solid var(--color-border-subtle);
   position: relative;
 }
 
@@ -294,7 +298,7 @@
   left: 0;
   right: 0;
   height: 1px;
-  background-color: var(--color-border);
+  background-color: var(--color-border-subtle);
   pointer-events: none;
 }
 
@@ -323,9 +327,9 @@
   position: absolute;
   left: 2px;
   right: 2px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   padding: 2px 5px;
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
   color: #ffffff;
   overflow: hidden;
@@ -346,7 +350,7 @@
 }
 
 .week-event__time {
-  font-size: 10px;
+  font-size: var(--text-xs);
   opacity: 0.85;
 }
 
@@ -391,7 +395,7 @@
 
 .day-view__col {
   flex: 1;
-  border-left: 1px solid var(--color-border);
+  border-left: 1px solid var(--color-border-subtle);
   position: relative;
 }
 
@@ -514,7 +518,7 @@
 .event-modal-overlay {
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: var(--color-overlay);
   z-index: var(--z-modal);
   display: flex;
   align-items: flex-end;
@@ -700,15 +704,15 @@
 }
 
 .allday-cell {
-  border-left: 1px solid var(--color-border);
+  border-left: 1px solid var(--color-border-subtle);
   padding: 2px;
 }
 
 .allday-event {
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
   padding: 1px 6px;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   color: #ffffff;
   white-space: nowrap;
   overflow: hidden;

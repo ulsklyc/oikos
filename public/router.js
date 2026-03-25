@@ -116,12 +116,20 @@ async function renderPage(route) {
       renderAppShell(app);
     }
 
+    const content = document.getElementById('page-content') || app;
+
+    // Alte Seite kurz ausfaden, falls vorhanden
+    const oldPage = content.querySelector('.page-transition');
+    if (oldPage) {
+      oldPage.classList.add('page-transition--out');
+      await new Promise(r => setTimeout(r, 120));
+    }
+
     // Seiten-Wrapper bereits jetzt in den DOM einfügen, damit
     // document.getElementById() in render() die richtigen Elemente findet.
     const pageWrapper = document.createElement('div');
     pageWrapper.className = 'page-transition';
     pageWrapper.style.animation = 'page-in 0.2s ease forwards';
-    const content = document.getElementById('page-content') || app;
     content.replaceChildren(pageWrapper);
 
     await module.render(pageWrapper, { user: currentUser });
@@ -236,7 +244,10 @@ function showToast(message, type = 'default', duration = 3000) {
   toast.setAttribute('role', 'alert');
 
   container.appendChild(toast);
-  setTimeout(() => toast.remove(), duration);
+  setTimeout(() => {
+    toast.classList.add('toast--out');
+    toast.addEventListener('animationend', () => toast.remove(), { once: true });
+  }, duration);
 }
 
 // --------------------------------------------------------
