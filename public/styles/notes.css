@@ -202,8 +202,8 @@
   justify-content: center;
   padding: var(--space-12) var(--space-6);
   text-align: center;
-  flex: 1;
   color: var(--color-text-secondary);
+  column-span: all;              /* Multicolumn: volle Breite */
 }
 
 .notes-empty__icon {

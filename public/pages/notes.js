@@ -86,7 +86,7 @@ function renderGrid() {
 
   if (!state.notes.length) {
     grid.innerHTML = `
-      <div class="notes-empty" style="columns:unset;grid-column:1/-1;">
+      <div class="notes-empty">
         <i data-lucide="sticky-note" class="notes-empty__icon"></i>
         <div style="font-size:var(--text-lg);font-weight:600;margin-bottom:var(--space-2);">Noch keine Notizen</div>
         <div style="font-size:var(--text-sm);">Klicke auf „Neue Notiz" um loszulegen.</div>
