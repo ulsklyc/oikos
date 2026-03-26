@@ -555,6 +555,9 @@ export async function render(container, { user }) {
     <div class="shopping-page">
       <div class="list-tabs-bar" id="list-tabs-bar"></div>
       <div id="list-content" style="flex:1;display:flex;flex-direction:column;overflow:hidden"></div>
+      <button class="page-fab" id="fab-new-item" aria-label="Artikel hinzufügen">
+        <i data-lucide="plus" style="width:24px;height:24px"></i>
+      </button>
     </div>
   `;
 
@@ -562,4 +565,15 @@ export async function render(container, { user }) {
   wireTabBar(container);
   renderListContent(container);
   wireListContentEvents(container);
+
+  container.querySelector('#fab-new-item')?.addEventListener('click', () => {
+    const input = container.querySelector('#item-name-input');
+    if (input) {
+      input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      input.focus();
+    } else {
+      // Keine Liste aktiv → neue Liste erstellen
+      container.querySelector('[data-action="new-list"]')?.click();
+    }
+  });
 }
