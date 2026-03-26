@@ -6,6 +6,7 @@
  */
 
 import { api } from '/api.js';
+import { openModal as openSharedModal, closeModal } from '/components/modal.js';
 
 // --------------------------------------------------------
 // Konstanten
@@ -134,7 +135,7 @@ function wireNav() {
     renderBody();
     updateLabel();
   });
-  const addHandler = () => openModal({ mode: 'create' });
+  const addHandler = () => openBudgetModal({ mode: 'create' });
   _container.querySelector('#budget-add').addEventListener('click', addHandler);
   _container.querySelector('#fab-new-budget').addEventListener('click', addHandler);
   updateLabel();
@@ -208,7 +209,7 @@ function renderBody() {
     const item = e.target.closest('.budget-entry[data-id]');
     if (item && !e.target.closest('[data-action]')) {
       const entry = state.entries.find((e) => e.id === parseInt(item.dataset.id, 10));
-      if (entry) openModal({ mode: 'edit', entry });
+      if (entry) openBudgetModal({ mode: 'edit', entry });
     }
   });
 }
@@ -276,150 +277,133 @@ function formatEntryDate(dateStr) {
 // Modal
 // --------------------------------------------------------
 
-function openModal({ mode, entry = null }) {
-  document.querySelector('#budget-modal-overlay')?.remove();
-
+function openBudgetModal({ mode, entry = null }) {
   const isEdit = mode === 'edit';
   const today  = new Date().toISOString().slice(0, 10);
 
-  const isExpense  = isEdit ? entry.amount < 0 : true; // Standard: Ausgabe
+  const isExpense  = isEdit ? entry.amount < 0 : true;
   const absAmount  = isEdit ? Math.abs(entry.amount).toFixed(2) : '';
 
   const catOpts = CATEGORIES.map((c) =>
     `<option value="${c}" ${isEdit && entry.category === c ? 'selected' : ''}>${c}</option>`
   ).join('');
 
-  const overlay = document.createElement('div');
-  overlay.id        = 'budget-modal-overlay';
-  overlay.className = 'budget-modal-overlay';
-  overlay.innerHTML = `
-    <div class="budget-modal" role="dialog" aria-modal="true">
-      <div class="budget-modal__header">
-        <h2 class="budget-modal__title">${isEdit ? 'Eintrag bearbeiten' : 'Neuer Eintrag'}</h2>
-        <button class="budget-modal__close" id="bm-close" aria-label="Schließen">
-          <i data-lucide="x" style="width:16px;height:16px;"></i>
-        </button>
-      </div>
-      <div class="budget-modal__body">
-        <!-- Einnahme / Ausgabe Toggle -->
-        <div class="amount-type-toggle">
-          <button class="amount-type-btn amount-type-btn--expenses ${isExpense ? 'amount-type-btn--active' : ''}"
-                  id="type-expense" type="button">Ausgabe</button>
-          <button class="amount-type-btn amount-type-btn--income ${!isExpense ? 'amount-type-btn--active' : ''}"
-                  id="type-income" type="button">Einnahme</button>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="bm-title">Titel *</label>
-          <input type="text" class="form-input" id="bm-title"
-                 placeholder="z.B. REWE Einkauf" value="${escHtml(isEdit ? entry.title : '')}">
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="bm-amount">Betrag (€) *</label>
-          <input type="number" class="form-input" id="bm-amount"
-                 placeholder="0,00" step="0.01" min="0"
-                 value="${absAmount}">
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="bm-category">Kategorie</label>
-          <select class="form-input" id="bm-category">${catOpts}</select>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="bm-date">Datum *</label>
-          <input type="date" class="form-input" id="bm-date"
-                 value="${isEdit ? entry.date : today}">
-        </div>
-
-        <div class="form-group">
-          <label class="allday-toggle">
-            <input type="checkbox" id="bm-recurring" ${isEdit && entry.is_recurring ? 'checked' : ''}>
-            <span class="allday-toggle__label">Wiederkehrend</span>
-          </label>
-        </div>
-      </div>
-      <div class="budget-modal__footer">
-        ${isEdit ? `<button class="btn btn--danger btn--icon" id="bm-delete" title="Löschen">
-          <i data-lucide="trash-2" style="width:16px;height:16px;"></i>
-        </button>` : '<div></div>'}
-        <div class="budget-modal__footer-actions">
-          <button class="btn btn--secondary" id="bm-cancel">Abbrechen</button>
-          <button class="btn btn--primary" id="bm-save">${isEdit ? 'Speichern' : 'Hinzufügen'}</button>
-        </div>
-      </div>
+  const content = `
+    <div class="amount-type-toggle">
+      <button class="amount-type-btn amount-type-btn--expenses ${isExpense ? 'amount-type-btn--active' : ''}"
+              id="type-expense" type="button">Ausgabe</button>
+      <button class="amount-type-btn amount-type-btn--income ${!isExpense ? 'amount-type-btn--active' : ''}"
+              id="type-income" type="button">Einnahme</button>
     </div>
-  `;
 
-  document.body.appendChild(overlay);
-  if (window.lucide) lucide.createIcons();
+    <div class="form-group">
+      <label class="form-label" for="bm-title">Titel *</label>
+      <input type="text" class="form-input" id="bm-title"
+             placeholder="z.B. REWE Einkauf" value="${escHtml(isEdit ? entry.title : '')}">
+    </div>
 
-  // Typ-Toggle
-  let currentType = isExpense ? 'expense' : 'income';
-  overlay.querySelector('#type-expense').addEventListener('click', () => {
-    currentType = 'expense';
-    overlay.querySelector('#type-expense').classList.add('amount-type-btn--active');
-    overlay.querySelector('#type-income').classList.remove('amount-type-btn--active');
+    <div class="form-group">
+      <label class="form-label" for="bm-amount">Betrag (€) *</label>
+      <input type="number" class="form-input" id="bm-amount"
+             placeholder="0,00" step="0.01" min="0"
+             value="${absAmount}">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="bm-category">Kategorie</label>
+      <select class="form-input" id="bm-category">${catOpts}</select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="bm-date">Datum *</label>
+      <input type="date" class="form-input" id="bm-date"
+             value="${isEdit ? entry.date : today}">
+    </div>
+
+    <div class="form-group">
+      <label class="allday-toggle">
+        <input type="checkbox" id="bm-recurring" ${isEdit && entry.is_recurring ? 'checked' : ''}>
+        <span class="allday-toggle__label">Wiederkehrend</span>
+      </label>
+    </div>
+
+    <div class="modal-panel__footer" style="border:none;padding:0;margin-top:var(--space-4)">
+      ${isEdit ? `<button class="btn btn--danger btn--icon" id="bm-delete" title="Löschen">
+        <i data-lucide="trash-2" style="width:16px;height:16px;"></i>
+      </button>` : '<div></div>'}
+      <div style="display:flex;gap:var(--space-3)">
+        <button class="btn btn--secondary" id="bm-cancel">Abbrechen</button>
+        <button class="btn btn--primary" id="bm-save">${isEdit ? 'Speichern' : 'Hinzufügen'}</button>
+      </div>
+    </div>`;
+
+  openSharedModal({
+    title: isEdit ? 'Eintrag bearbeiten' : 'Neuer Eintrag',
+    content,
+    size: 'sm',
+    onSave(panel) {
+      let currentType = isExpense ? 'expense' : 'income';
+
+      panel.querySelector('#type-expense').addEventListener('click', () => {
+        currentType = 'expense';
+        panel.querySelector('#type-expense').classList.add('amount-type-btn--active');
+        panel.querySelector('#type-income').classList.remove('amount-type-btn--active');
+      });
+      panel.querySelector('#type-income').addEventListener('click', () => {
+        currentType = 'income';
+        panel.querySelector('#type-income').classList.add('amount-type-btn--active');
+        panel.querySelector('#type-expense').classList.remove('amount-type-btn--active');
+      });
+
+      panel.querySelector('#bm-cancel').addEventListener('click', closeModal);
+
+      panel.querySelector('#bm-delete')?.addEventListener('click', async () => {
+        if (!confirm(`"${entry.title}" wirklich löschen?`)) return;
+        closeModal();
+        await deleteEntry(entry.id);
+      });
+
+      panel.querySelector('#bm-save').addEventListener('click', async () => {
+        const saveBtn    = panel.querySelector('#bm-save');
+        const title      = panel.querySelector('#bm-title').value.trim();
+        const absVal     = parseFloat(panel.querySelector('#bm-amount').value);
+        const category   = panel.querySelector('#bm-category').value;
+        const date       = panel.querySelector('#bm-date').value;
+        const recurring  = panel.querySelector('#bm-recurring').checked ? 1 : 0;
+
+        if (!title)           { window.oikos?.showToast('Titel ist erforderlich', 'error'); return; }
+        if (isNaN(absVal) || absVal <= 0) { window.oikos?.showToast('Gültigen Betrag eingeben', 'error'); return; }
+        if (!date)            { window.oikos?.showToast('Datum ist erforderlich', 'error'); return; }
+
+        const amount = currentType === 'expense' ? -absVal : absVal;
+
+        saveBtn.disabled    = true;
+        saveBtn.textContent = '…';
+
+        try {
+          const body = { title, amount, category, date, is_recurring: recurring };
+          if (mode === 'create') {
+            const res = await api.post('/budget', body);
+            state.entries.unshift(res.data);
+          } else {
+            const res = await api.put(`/budget/${entry.id}`, body);
+            const idx = state.entries.findIndex((e) => e.id === entry.id);
+            if (idx !== -1) state.entries[idx] = res.data;
+          }
+          const sumRes  = await api.get(`/budget/summary?month=${state.month}`);
+          state.summary = sumRes.data;
+
+          closeModal();
+          renderBody();
+          window.oikos?.showToast(mode === 'create' ? 'Eintrag hinzugefügt' : 'Eintrag gespeichert', 'success');
+        } catch (err) {
+          window.oikos?.showToast(err.data?.error ?? 'Fehler', 'error');
+          saveBtn.disabled    = false;
+          saveBtn.textContent = isEdit ? 'Speichern' : 'Hinzufügen';
+        }
+      });
+    },
   });
-  overlay.querySelector('#type-income').addEventListener('click', () => {
-    currentType = 'income';
-    overlay.querySelector('#type-income').classList.add('amount-type-btn--active');
-    overlay.querySelector('#type-expense').classList.remove('amount-type-btn--active');
-  });
-
-  overlay.querySelector('#bm-close').addEventListener('click',  () => overlay.remove());
-  overlay.querySelector('#bm-cancel').addEventListener('click', () => overlay.remove());
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
-
-  overlay.querySelector('#bm-delete')?.addEventListener('click', async () => {
-    if (!confirm(`"${entry.title}" wirklich löschen?`)) return;
-    overlay.remove();
-    await deleteEntry(entry.id);
-  });
-
-  overlay.querySelector('#bm-save').addEventListener('click', async () => {
-    const saveBtn    = overlay.querySelector('#bm-save');
-    const title      = overlay.querySelector('#bm-title').value.trim();
-    const absVal     = parseFloat(overlay.querySelector('#bm-amount').value);
-    const category   = overlay.querySelector('#bm-category').value;
-    const date       = overlay.querySelector('#bm-date').value;
-    const recurring  = overlay.querySelector('#bm-recurring').checked ? 1 : 0;
-
-    if (!title)           { window.oikos?.showToast('Titel ist erforderlich', 'error'); return; }
-    if (isNaN(absVal) || absVal <= 0) { window.oikos?.showToast('Gültigen Betrag eingeben', 'error'); return; }
-    if (!date)            { window.oikos?.showToast('Datum ist erforderlich', 'error'); return; }
-
-    const amount = currentType === 'expense' ? -absVal : absVal;
-
-    saveBtn.disabled    = true;
-    saveBtn.textContent = '…';
-
-    try {
-      const body = { title, amount, category, date, is_recurring: recurring };
-      if (mode === 'create') {
-        const res = await api.post('/budget', body);
-        state.entries.unshift(res.data);
-      } else {
-        const res = await api.put(`/budget/${entry.id}`, body);
-        const idx = state.entries.findIndex((e) => e.id === entry.id);
-        if (idx !== -1) state.entries[idx] = res.data;
-      }
-      // Zusammenfassung neu laden
-      const sumRes  = await api.get(`/budget/summary?month=${state.month}`);
-      state.summary = sumRes.data;
-
-      overlay.remove();
-      renderBody();
-      window.oikos?.showToast(mode === 'create' ? 'Eintrag hinzugefügt' : 'Eintrag gespeichert', 'success');
-    } catch (err) {
-      window.oikos?.showToast(err.data?.error ?? 'Fehler', 'error');
-      saveBtn.disabled    = false;
-      saveBtn.textContent = isEdit ? 'Speichern' : 'Hinzufügen';
-    }
-  });
-
-  overlay.querySelector('#bm-title').focus();
 }
 
 // --------------------------------------------------------

@@ -6,6 +6,7 @@
 
 import { api } from '/api.js';
 import { renderRRuleFields, bindRRuleEvents, getRRuleValues } from '/rrule-ui.js';
+import { openModal as openSharedModal, closeModal } from '/components/modal.js';
 
 // --------------------------------------------------------
 // Konstanten
@@ -703,61 +704,54 @@ function showEventPopup(ev, anchor) {
 // --------------------------------------------------------
 
 function openEventModal({ mode, event = null, date = null }) {
-  document.querySelector('#event-modal-overlay')?.remove();
+  const isEdit = mode === 'edit';
+  const content = buildEventModalContent({ mode, event, date });
 
-  const overlay = document.createElement('div');
-  overlay.id        = 'event-modal-overlay';
-  overlay.className = 'event-modal-overlay';
-  overlay.innerHTML = buildEventModalHTML({ mode, event, date });
-  document.body.appendChild(overlay);
+  openSharedModal({
+    title: isEdit ? 'Termin bearbeiten' : 'Neuer Termin',
+    content,
+    size: 'md',
+    onSave(panel) {
+      // RRULE-Events binden
+      bindRRuleEvents(panel, 'event');
 
-  if (window.lucide) lucide.createIcons();
+      const selectedColor = isEdit ? (event?.color || EVENT_COLORS[0]) : EVENT_COLORS[0];
 
-  // RRULE-Events binden
-  bindRRuleEvents(overlay, 'event');
+      // Farb-Auswahl
+      panel.querySelectorAll('.color-swatch').forEach((sw) => {
+        sw.addEventListener('click', () => {
+          panel.querySelectorAll('.color-swatch').forEach((s) => s.classList.remove('color-swatch--active'));
+          sw.classList.add('color-swatch--active');
+        });
+      });
+      panel.querySelectorAll('.color-swatch').forEach((sw) => {
+        if (sw.dataset.color === selectedColor) sw.classList.add('color-swatch--active');
+      });
 
-  const isEdit       = mode === 'edit';
-  const selectedColor = isEdit ? (event?.color || EVENT_COLORS[0]) : EVENT_COLORS[0];
+      // Ganztägig-Toggle
+      const alldayCheck = panel.querySelector('#modal-allday');
+      const timeFields  = panel.querySelector('#time-fields');
+      const alldayFields = panel.querySelector('#allday-fields');
+      alldayCheck.addEventListener('change', () => {
+        if (alldayCheck.checked) { timeFields.style.display = 'none'; alldayFields.style.display = ''; }
+        else                      { timeFields.style.display = '';     alldayFields.style.display = 'none'; }
+      });
+      if (isEdit && event?.all_day) { timeFields.style.display = 'none'; alldayFields.style.display = ''; }
 
-  // Farb-Auswahl
-  overlay.querySelectorAll('.color-swatch').forEach((sw) => {
-    sw.addEventListener('click', () => {
-      overlay.querySelectorAll('.color-swatch').forEach((s) => s.classList.remove('color-swatch--active'));
-      sw.classList.add('color-swatch--active');
-    });
+      panel.querySelector('#modal-cancel').addEventListener('click', closeModal);
+
+      panel.querySelector('#modal-delete')?.addEventListener('click', async () => {
+        if (!confirm(`"${event.title}" wirklich löschen?`)) return;
+        closeModal();
+        await deleteEvent(event.id);
+      });
+
+      panel.querySelector('#modal-save').addEventListener('click', () => saveEvent(panel, mode, event?.id));
+    },
   });
-  // Initial aktive Farbe markieren
-  overlay.querySelectorAll('.color-swatch').forEach((sw) => {
-    if (sw.dataset.color === selectedColor) sw.classList.add('color-swatch--active');
-  });
-
-  // Ganztägig-Toggle
-  const alldayCheck = overlay.querySelector('#modal-allday');
-  const timeFields  = overlay.querySelector('#time-fields');
-  alldayCheck.addEventListener('change', () => {
-    timeFields.style.display = alldayCheck.checked ? 'none' : '';
-  });
-  if (isEdit && event?.all_day) timeFields.style.display = 'none';
-
-  // Schließen
-  overlay.querySelector('#modal-close').addEventListener('click',  closeEventModal);
-  overlay.querySelector('#modal-cancel').addEventListener('click', closeEventModal);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeEventModal(); });
-
-  // Löschen (nur Edit)
-  overlay.querySelector('#modal-delete')?.addEventListener('click', async () => {
-    if (!confirm(`"${event.title}" wirklich löschen?`)) return;
-    closeEventModal();
-    await deleteEvent(event.id);
-  });
-
-  // Speichern
-  overlay.querySelector('#modal-save').addEventListener('click', () => saveEvent(overlay, mode, event?.id));
-
-  overlay.querySelector('#modal-title').focus();
 }
 
-function buildEventModalHTML({ mode, event, date }) {
+function buildEventModalContent({ mode, event, date }) {
   const isEdit = mode === 'edit';
   const today  = date || state.today;
 
@@ -776,118 +770,93 @@ function buildEventModalHTML({ mode, event, date }) {
   ].join('');
 
   return `
-    <div class="event-modal" role="dialog" aria-modal="true">
-      <div class="event-modal__header">
-        <h2 class="event-modal__title">${isEdit ? 'Termin bearbeiten' : 'Neuer Termin'}</h2>
-        <button class="event-modal__close" id="modal-close" aria-label="Schließen">
-          <i data-lucide="x" style="width:16px;height:16px;"></i>
-        </button>
+    <div class="form-group">
+      <label class="form-label" for="modal-title">Titel *</label>
+      <input type="text" class="form-input" id="modal-title"
+             placeholder="z.B. Zahnarzt" value="${escHtml(isEdit ? event.title : '')}">
+    </div>
+
+    <div class="form-group">
+      <label class="allday-toggle">
+        <input type="checkbox" id="modal-allday" ${isEdit && event.all_day ? 'checked' : ''}>
+        <span class="allday-toggle__label">Ganztägig</span>
+      </label>
+    </div>
+
+    <div id="time-fields">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)">
+        <div class="form-group">
+          <label class="form-label" for="modal-start-date">Startdatum</label>
+          <input type="date" class="form-input" id="modal-start-date" value="${startDate}">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="modal-start-time">Startzeit</label>
+          <input type="time" class="form-input" id="modal-start-time" value="${startTime}">
+        </div>
       </div>
-      <div class="event-modal__body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)">
         <div class="form-group">
-          <label class="form-label" for="modal-title">Titel *</label>
-          <input type="text" class="form-input" id="modal-title"
-                 placeholder="z.B. Zahnarzt" value="${escHtml(isEdit ? event.title : '')}">
+          <label class="form-label" for="modal-end-date">Enddatum</label>
+          <input type="date" class="form-input" id="modal-end-date" value="${endDate}">
         </div>
-
         <div class="form-group">
-          <label class="allday-toggle">
-            <input type="checkbox" id="modal-allday" ${isEdit && event.all_day ? 'checked' : ''}>
-            <span class="allday-toggle__label">Ganztägig</span>
-          </label>
-        </div>
-
-        <div id="time-fields">
-          <div class="event-modal__row">
-            <div class="form-group">
-              <label class="form-label" for="modal-start-date">Startdatum</label>
-              <input type="date" class="form-input" id="modal-start-date" value="${startDate}">
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="modal-start-time">Startzeit</label>
-              <input type="time" class="form-input" id="modal-start-time" value="${startTime}">
-            </div>
-          </div>
-          <div class="event-modal__row">
-            <div class="form-group">
-              <label class="form-label" for="modal-end-date">Enddatum</label>
-              <input type="date" class="form-input" id="modal-end-date" value="${endDate}">
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="modal-end-time">Endzeit</label>
-              <input type="time" class="form-input" id="modal-end-time" value="${endTime}">
-            </div>
-          </div>
-        </div>
-
-        <!-- Ganztägig: nur Datum -->
-        <div id="allday-fields" style="display:none;">
-          <div class="event-modal__row">
-            <div class="form-group">
-              <label class="form-label" for="modal-allday-start">Von</label>
-              <input type="date" class="form-input" id="modal-allday-start" value="${startDate}">
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="modal-allday-end">Bis</label>
-              <input type="date" class="form-input" id="modal-allday-end" value="${endDate}">
-            </div>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="modal-location">Ort</label>
-          <input type="text" class="form-input" id="modal-location"
-                 placeholder="Optional" value="${escHtml(isEdit && event.location ? event.location : '')}">
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="modal-assigned">Zugewiesen an</label>
-          <select class="form-input" id="modal-assigned">${userOpts}</select>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Farbe</label>
-          <div class="color-picker">
-            ${EVENT_COLORS.map((c) => `
-              <div class="color-swatch" data-color="${c}" style="background-color:${c};"
-                   role="radio" tabindex="0" aria-label="Farbe ${c}"></div>
-            `).join('')}
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="modal-description">Beschreibung</label>
-          <textarea class="form-input" id="modal-description" rows="2"
-                    placeholder="Optional…">${escHtml(isEdit && event.description ? event.description : '')}</textarea>
-        </div>
-
-        ${renderRRuleFields('event', isEdit ? event.recurrence_rule : null)}
-      </div>
-      <div class="event-modal__footer">
-        ${isEdit ? `<button class="btn btn--danger btn--icon" id="modal-delete" title="Löschen">
-          <i data-lucide="trash-2" style="width:16px;height:16px;"></i>
-        </button>` : '<div></div>'}
-        <div class="event-modal__footer-actions">
-          <button class="btn btn--secondary" id="modal-cancel">Abbrechen</button>
-          <button class="btn btn--primary" id="modal-save">${isEdit ? 'Speichern' : 'Erstellen'}</button>
+          <label class="form-label" for="modal-end-time">Endzeit</label>
+          <input type="time" class="form-input" id="modal-end-time" value="${endTime}">
         </div>
       </div>
     </div>
-  `;
-}
 
-// Allday-Toggle: Felder umschalten
-document.addEventListener('change', (e) => {
-  if (e.target.id !== 'modal-allday') return;
-  const tf = document.querySelector('#time-fields');
-  const af = document.querySelector('#allday-fields');
-  if (!tf || !af) return;
-  if (e.target.checked) { tf.style.display = 'none'; af.style.display = ''; }
-  else                   { tf.style.display = '';     af.style.display = 'none'; }
-});
+    <div id="allday-fields" style="display:none;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)">
+        <div class="form-group">
+          <label class="form-label" for="modal-allday-start">Von</label>
+          <input type="date" class="form-input" id="modal-allday-start" value="${startDate}">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="modal-allday-end">Bis</label>
+          <input type="date" class="form-input" id="modal-allday-end" value="${endDate}">
+        </div>
+      </div>
+    </div>
 
-function closeEventModal() {
-  document.querySelector('#event-modal-overlay')?.remove();
+    <div class="form-group">
+      <label class="form-label" for="modal-location">Ort</label>
+      <input type="text" class="form-input" id="modal-location"
+             placeholder="Optional" value="${escHtml(isEdit && event.location ? event.location : '')}">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="modal-assigned">Zugewiesen an</label>
+      <select class="form-input" id="modal-assigned">${userOpts}</select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Farbe</label>
+      <div class="color-picker">
+        ${EVENT_COLORS.map((c) => `
+          <div class="color-swatch" data-color="${c}" style="background-color:${c};"
+               role="radio" tabindex="0" aria-label="Farbe ${c}"></div>
+        `).join('')}
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="modal-description">Beschreibung</label>
+      <textarea class="form-input" id="modal-description" rows="2"
+                placeholder="Optional…">${escHtml(isEdit && event.description ? event.description : '')}</textarea>
+    </div>
+
+    ${renderRRuleFields('event', isEdit ? event.recurrence_rule : null)}
+
+    <div class="modal-panel__footer" style="border:none;padding:0;margin-top:var(--space-4)">
+      ${isEdit ? `<button class="btn btn--danger btn--icon" id="modal-delete" title="Löschen">
+        <i data-lucide="trash-2" style="width:16px;height:16px;"></i>
+      </button>` : '<div></div>'}
+      <div style="display:flex;gap:var(--space-3)">
+        <button class="btn btn--secondary" id="modal-cancel">Abbrechen</button>
+        <button class="btn btn--primary" id="modal-save">${isEdit ? 'Speichern' : 'Erstellen'}</button>
+      </div>
+    </div>`;
 }
 
 async function saveEvent(overlay, mode, eventId) {
@@ -943,7 +912,7 @@ async function saveEvent(overlay, mode, eventId) {
       if (idx !== -1) state.events[idx] = res.data;
     }
 
-    closeEventModal();
+    closeModal();
     renderView();
     window.oikos?.showToast(mode === 'create' ? 'Termin erstellt' : 'Termin gespeichert', 'success');
   } catch (err) {

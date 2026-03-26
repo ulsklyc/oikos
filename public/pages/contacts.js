@@ -5,6 +5,7 @@
  */
 
 import { api } from '/api.js';
+import { openModal as openSharedModal, closeModal } from '/components/modal.js';
 
 // --------------------------------------------------------
 // Konstanten
@@ -95,7 +96,7 @@ export async function render(container, { user }) {
   });
 
   // Neu
-  const addHandler = () => openModal({ mode: 'create' });
+  const addHandler = () => openContactModal({ mode: 'create' });
   _container.querySelector('#contacts-add-btn').addEventListener('click', addHandler);
   _container.querySelector('#fab-new-contact').addEventListener('click', addHandler);
 }
@@ -168,7 +169,7 @@ function renderList() {
     const item = e.target.closest('.contact-item[data-id]');
     if (item && !e.target.closest('a') && !e.target.closest('[data-action]')) {
       const c = state.contacts.find((c) => c.id === parseInt(item.dataset.id, 10));
-      if (c) openModal({ mode: 'edit', contact: c });
+      if (c) openContactModal({ mode: 'edit', contact: c });
     }
   });
 }
@@ -200,9 +201,7 @@ function renderContactItem(c) {
 // Modal
 // --------------------------------------------------------
 
-function openModal({ mode, contact = null }) {
-  document.querySelector('#contact-modal-overlay')?.remove();
-
+function openContactModal({ mode, contact = null }) {
   const isEdit = mode === 'edit';
   const v      = (field) => escHtml(isEdit && contact[field] ? contact[field] : '');
 
@@ -210,107 +209,94 @@ function openModal({ mode, contact = null }) {
     `<option value="${c}" ${isEdit && contact.category === c ? 'selected' : ''}>${c}</option>`
   ).join('');
 
-  const overlay = document.createElement('div');
-  overlay.id        = 'contact-modal-overlay';
-  overlay.className = 'contact-modal-overlay';
-  overlay.innerHTML = `
-    <div class="contact-modal" role="dialog" aria-modal="true">
-      <div class="contact-modal__header">
-        <h2 class="contact-modal__title">${isEdit ? 'Kontakt bearbeiten' : 'Neuer Kontakt'}</h2>
-        <button class="contact-modal__close" id="cm-close" aria-label="Schließen">
-          <i data-lucide="x" style="width:16px;height:16px;"></i>
-        </button>
-      </div>
-      <div class="contact-modal__body">
-        <div class="form-group">
-          <label class="form-label" for="cm-name">Name *</label>
-          <input type="text" class="form-input" id="cm-name" placeholder="Vollständiger Name" value="${v('name')}">
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="cm-category">Kategorie</label>
-          <select class="form-input" id="cm-category">${catOpts}</select>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="cm-phone">Telefon</label>
-          <input type="tel" class="form-input" id="cm-phone" placeholder="+49 …" value="${v('phone')}">
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="cm-email">E-Mail</label>
-          <input type="email" class="form-input" id="cm-email" placeholder="name@beispiel.de" value="${v('email')}">
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="cm-address">Adresse</label>
-          <input type="text" class="form-input" id="cm-address" placeholder="Straße, PLZ Ort" value="${v('address')}">
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="cm-notes">Notizen</label>
-          <textarea class="form-input" id="cm-notes" rows="2" placeholder="Optional…">${v('notes')}</textarea>
-        </div>
-      </div>
-      <div class="contact-modal__footer">
-        ${isEdit ? `<button class="btn btn--danger btn--icon" id="cm-delete" title="Löschen">
-          <i data-lucide="trash-2" style="width:16px;height:16px;"></i>
-        </button>` : '<div></div>'}
-        <div style="display:flex;gap:var(--space-3);">
-          <button class="btn btn--secondary" id="cm-cancel">Abbrechen</button>
-          <button class="btn btn--primary" id="cm-save">${isEdit ? 'Speichern' : 'Erstellen'}</button>
-        </div>
-      </div>
+  const content = `
+    <div class="form-group">
+      <label class="form-label" for="cm-name">Name *</label>
+      <input type="text" class="form-input" id="cm-name" placeholder="Vollständiger Name" value="${v('name')}">
     </div>
-  `;
+    <div class="form-group">
+      <label class="form-label" for="cm-category">Kategorie</label>
+      <select class="form-input" id="cm-category">${catOpts}</select>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="cm-phone">Telefon</label>
+      <input type="tel" class="form-input" id="cm-phone" placeholder="+49 …" value="${v('phone')}">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="cm-email">E-Mail</label>
+      <input type="email" class="form-input" id="cm-email" placeholder="name@beispiel.de" value="${v('email')}">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="cm-address">Adresse</label>
+      <input type="text" class="form-input" id="cm-address" placeholder="Straße, PLZ Ort" value="${v('address')}">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="cm-notes">Notizen</label>
+      <textarea class="form-input" id="cm-notes" rows="2" placeholder="Optional…">${v('notes')}</textarea>
+    </div>
 
-  document.body.appendChild(overlay);
-  if (window.lucide) lucide.createIcons();
+    <div class="modal-panel__footer" style="border:none;padding:0;margin-top:var(--space-4)">
+      ${isEdit ? `<button class="btn btn--danger btn--icon" id="cm-delete" title="Löschen">
+        <i data-lucide="trash-2" style="width:16px;height:16px;"></i>
+      </button>` : '<div></div>'}
+      <div style="display:flex;gap:var(--space-3);">
+        <button class="btn btn--secondary" id="cm-cancel">Abbrechen</button>
+        <button class="btn btn--primary" id="cm-save">${isEdit ? 'Speichern' : 'Erstellen'}</button>
+      </div>
+    </div>`;
 
-  overlay.querySelector('#cm-close').addEventListener('click',  () => overlay.remove());
-  overlay.querySelector('#cm-cancel').addEventListener('click', () => overlay.remove());
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  openSharedModal({
+    title: isEdit ? 'Kontakt bearbeiten' : 'Neuer Kontakt',
+    content,
+    size: 'md',
+    onSave(panel) {
+      panel.querySelector('#cm-cancel').addEventListener('click', closeModal);
 
-  overlay.querySelector('#cm-delete')?.addEventListener('click', async () => {
-    if (!confirm(`"${contact.name}" wirklich löschen?`)) return;
-    overlay.remove();
-    await deleteContact(contact.id);
+      panel.querySelector('#cm-delete')?.addEventListener('click', async () => {
+        if (!confirm(`"${contact.name}" wirklich löschen?`)) return;
+        closeModal();
+        await deleteContact(contact.id);
+      });
+
+      panel.querySelector('#cm-save').addEventListener('click', async () => {
+        const saveBtn  = panel.querySelector('#cm-save');
+        const name     = panel.querySelector('#cm-name').value.trim();
+        const category = panel.querySelector('#cm-category').value;
+        const phone    = panel.querySelector('#cm-phone').value.trim() || null;
+        const email    = panel.querySelector('#cm-email').value.trim() || null;
+        const address  = panel.querySelector('#cm-address').value.trim() || null;
+        const notes    = panel.querySelector('#cm-notes').value.trim() || null;
+
+        if (!name) { window.oikos?.showToast('Name ist erforderlich', 'error'); return; }
+
+        saveBtn.disabled    = true;
+        saveBtn.textContent = '…';
+
+        try {
+          const body = { name, category, phone, email, address, notes };
+          if (mode === 'create') {
+            const res = await api.post('/contacts', body);
+            state.contacts.push(res.data);
+            state.contacts.sort((a, b) =>
+              CATEGORIES.indexOf(a.category) - CATEGORIES.indexOf(b.category) ||
+              a.name.localeCompare(b.name)
+            );
+          } else {
+            const res = await api.put(`/contacts/${contact.id}`, body);
+            const idx = state.contacts.findIndex((c) => c.id === contact.id);
+            if (idx !== -1) state.contacts[idx] = res.data;
+          }
+          closeModal();
+          renderList();
+          window.oikos?.showToast(mode === 'create' ? 'Kontakt gespeichert' : 'Kontakt aktualisiert', 'success');
+        } catch (err) {
+          window.oikos?.showToast(err.data?.error ?? 'Fehler', 'error');
+          saveBtn.disabled    = false;
+          saveBtn.textContent = isEdit ? 'Speichern' : 'Erstellen';
+        }
+      });
+    },
   });
-
-  overlay.querySelector('#cm-save').addEventListener('click', async () => {
-    const saveBtn  = overlay.querySelector('#cm-save');
-    const name     = overlay.querySelector('#cm-name').value.trim();
-    const category = overlay.querySelector('#cm-category').value;
-    const phone    = overlay.querySelector('#cm-phone').value.trim() || null;
-    const email    = overlay.querySelector('#cm-email').value.trim() || null;
-    const address  = overlay.querySelector('#cm-address').value.trim() || null;
-    const notes    = overlay.querySelector('#cm-notes').value.trim() || null;
-
-    if (!name) { window.oikos?.showToast('Name ist erforderlich', 'error'); return; }
-
-    saveBtn.disabled    = true;
-    saveBtn.textContent = '…';
-
-    try {
-      const body = { name, category, phone, email, address, notes };
-      if (mode === 'create') {
-        const res = await api.post('/contacts', body);
-        state.contacts.push(res.data);
-        state.contacts.sort((a, b) =>
-          CATEGORIES.indexOf(a.category) - CATEGORIES.indexOf(b.category) ||
-          a.name.localeCompare(b.name)
-        );
-      } else {
-        const res = await api.put(`/contacts/${contact.id}`, body);
-        const idx = state.contacts.findIndex((c) => c.id === contact.id);
-        if (idx !== -1) state.contacts[idx] = res.data;
-      }
-      overlay.remove();
-      renderList();
-      window.oikos?.showToast(mode === 'create' ? 'Kontakt gespeichert' : 'Kontakt aktualisiert', 'success');
-    } catch (err) {
-      window.oikos?.showToast(err.data?.error ?? 'Fehler', 'error');
-      saveBtn.disabled    = false;
-      saveBtn.textContent = isEdit ? 'Speichern' : 'Erstellen';
-    }
-  });
-
-  overlay.querySelector('#cm-name').focus();
 }
 
 async function deleteContact(id) {

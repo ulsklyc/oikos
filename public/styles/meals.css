@@ -244,102 +244,8 @@
 }
 
 /* --------------------------------------------------------
- * Modal — Mahlzeit erstellen / bearbeiten
+ * Meals-Modal Content-Styles (Overlay/Panel via shared modal.js)
  * -------------------------------------------------------- */
-.meal-modal-overlay {
-  position: fixed;
-  inset: 0;
-  background-color: var(--color-overlay);
-  z-index: var(--z-modal);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding: 0;
-  animation: fadeIn var(--transition-fast) ease;
-}
-
-@media (min-width: 768px) {
-  .meal-modal-overlay {
-    align-items: center;
-    padding: var(--space-4);
-  }
-}
-
-.meal-modal {
-  background-color: var(--color-surface);
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  width: 100%;
-  max-height: 90dvh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  animation: slideUp var(--transition-base) ease;
-}
-
-@media (min-width: 768px) {
-  .meal-modal {
-    border-radius: var(--radius-lg);
-    max-width: 520px;
-    max-height: 80dvh;
-  }
-}
-
-@keyframes slideUp {
-  from { transform: translateY(100%); opacity: 0; }
-  to   { transform: translateY(0);    opacity: 1; }
-}
-
-@media (min-width: 768px) {
-  @keyframes slideUp {
-    from { transform: translateY(20px); opacity: 0; }
-    to   { transform: translateY(0);    opacity: 1; }
-  }
-}
-
-.meal-modal__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-4);
-  border-bottom: 1px solid var(--color-border);
-  flex-shrink: 0;
-}
-
-.meal-modal__title {
-  font-size: var(--text-lg);
-  font-weight: var(--font-weight-bold);
-}
-
-.meal-modal__close {
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-full);
-  background: var(--color-border);
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-text-secondary);
-  min-height: unset;
-  flex-shrink: 0;
-}
-
-.meal-modal__body {
-  flex: 1;
-  overflow-y: auto;
-  padding: var(--space-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-/* Formular-Zeile: Datum + Typ */
-.meal-modal__row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-3);
-}
 
 /* Autocomplete im Modal */
 .meal-modal__autocomplete {
@@ -457,17 +363,6 @@
 
 .shopping-transfer__btn {
   align-self: flex-start;
-}
-
-/* Modal-Footer */
-.meal-modal__footer {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  border-top: 1px solid var(--color-border);
-  flex-shrink: 0;
 }
 
 /* --------------------------------------------------------

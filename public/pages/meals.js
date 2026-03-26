@@ -5,6 +5,7 @@
  */
 
 import { api } from '/api.js';
+import { openModal as openSharedModal, closeModal as closeSharedModal } from '/components/modal.js';
 
 // --------------------------------------------------------
 // Konstanten
@@ -248,14 +249,14 @@ function wireGrid(grid) {
     const action = btn.dataset.action;
 
     if (action === 'add-meal') {
-      openModal({ mode: 'create', date: btn.dataset.date, mealType: btn.dataset.type });
+      openMealModal({ mode: 'create', date: btn.dataset.date, mealType: btn.dataset.type });
       return;
     }
 
     if (action === 'edit-meal') {
       const mealId = parseInt(btn.dataset.mealId, 10);
       const meal   = state.meals.find((m) => m.id === mealId);
-      if (meal) openModal({ mode: 'edit', meal, date: meal.date, mealType: meal.meal_type });
+      if (meal) openMealModal({ mode: 'edit', meal, date: meal.date, mealType: meal.meal_type });
       return;
     }
 
@@ -281,109 +282,104 @@ function wireGrid(grid) {
 // Modal
 // --------------------------------------------------------
 
-function openModal(opts) {
+function openMealModal(opts) {
   state.modal = opts;
-  document.querySelector('#meal-modal-overlay')?.remove();
+  const { mode, date, mealType, meal } = opts;
+  const isEdit = mode === 'edit';
 
-  const overlay = document.createElement('div');
-  overlay.id        = 'meal-modal-overlay';
-  overlay.className = 'meal-modal-overlay';
-  overlay.innerHTML = buildModalHTML(opts);
-  document.body.appendChild(overlay);
+  const content = buildModalContent(opts);
 
-  if (window.lucide) lucide.createIcons();
+  openSharedModal({
+    title: isEdit ? 'Mahlzeit bearbeiten' : 'Mahlzeit hinzufügen',
+    content,
+    size: 'md',
+    onSave(panel) {
+      // Autocomplete
+      const titleInput = panel.querySelector('#modal-title');
+      const acDropdown = panel.querySelector('#modal-autocomplete');
+      let acIndex = -1;
+      let acTimer;
 
-  // Autocomplete
-  const titleInput = overlay.querySelector('#modal-title');
-  const acDropdown = overlay.querySelector('#modal-autocomplete');
-  let acIndex = -1;
-  let acTimer;
+      titleInput.addEventListener('input', () => {
+        clearTimeout(acTimer);
+        acTimer = setTimeout(async () => {
+          const q = titleInput.value.trim();
+          if (!q) { acDropdown.hidden = true; return; }
+          try {
+            const res = await api.get(`/meals/suggestions?q=${encodeURIComponent(q)}`);
+            if (!res.data.length) { acDropdown.hidden = true; return; }
+            acIndex = -1;
+            acDropdown.innerHTML = res.data.map((s) => `
+              <div class="meal-modal__autocomplete-item" data-title="${escHtml(s.title)}">${escHtml(s.title)}</div>
+            `).join('');
+            acDropdown.hidden = false;
+          } catch { acDropdown.hidden = true; }
+        }, 200);
+      });
 
-  titleInput.addEventListener('input', () => {
-    clearTimeout(acTimer);
-    acTimer = setTimeout(async () => {
-      const q = titleInput.value.trim();
-      if (!q) { acDropdown.hidden = true; return; }
-      try {
-        const res = await api.get(`/meals/suggestions?q=${encodeURIComponent(q)}`);
-        if (!res.data.length) { acDropdown.hidden = true; return; }
-        acIndex = -1;
-        acDropdown.innerHTML = res.data.map((s) => `
-          <div class="meal-modal__autocomplete-item" data-title="${escHtml(s.title)}">${escHtml(s.title)}</div>
-        `).join('');
-        acDropdown.hidden = false;
-      } catch { acDropdown.hidden = true; }
-    }, 200);
+      titleInput.addEventListener('keydown', (e) => {
+        const items = [...acDropdown.querySelectorAll('.meal-modal__autocomplete-item')];
+        if (!items.length) return;
+        if (e.key === 'ArrowDown') { e.preventDefault(); acIndex = Math.min(acIndex + 1, items.length - 1); items.forEach((el, i) => el.classList.toggle('meal-modal__autocomplete-item--active', i === acIndex)); }
+        if (e.key === 'ArrowUp')   { e.preventDefault(); acIndex = Math.max(acIndex - 1, 0);                items.forEach((el, i) => el.classList.toggle('meal-modal__autocomplete-item--active', i === acIndex)); }
+        if (e.key === 'Enter' && acIndex >= 0) { e.preventDefault(); titleInput.value = items[acIndex].dataset.title; acDropdown.hidden = true; acIndex = -1; }
+        if (e.key === 'Escape') acDropdown.hidden = true;
+      });
+
+      acDropdown.addEventListener('mousedown', (e) => {
+        const item = e.target.closest('.meal-modal__autocomplete-item');
+        if (item) { titleInput.value = item.dataset.title; acDropdown.hidden = true; }
+      });
+
+      // Zutaten
+      const ingList   = panel.querySelector('#ingredient-list');
+      const addIngBtn = panel.querySelector('#add-ingredient-btn');
+
+      addIngBtn.addEventListener('click', () => {
+        const tmp  = document.createElement('div');
+        tmp.innerHTML = ingredientRowHTML('', '', null);
+        const row = tmp.firstElementChild;
+        ingList.appendChild(row);
+        if (window.lucide) lucide.createIcons();
+        row.querySelector('input').focus();
+      });
+
+      ingList.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-action="remove-ingredient"]');
+        if (btn) btn.closest('.ingredient-row').remove();
+      });
+
+      // Einkaufslisten-Transfer
+      panel.querySelector('#transfer-btn')?.addEventListener('click', async () => {
+        const selectEl = panel.querySelector('#transfer-list-select');
+        const listId   = parseInt(selectEl?.value, 10);
+        if (!listId || !state.modal?.meal) return;
+        const btn = panel.querySelector('#transfer-btn');
+        btn.disabled = true;
+        try {
+          const res = await api.post(`/meals/${state.modal.meal.id}/to-shopping-list`, { listId });
+          if (res.data.transferred > 0) {
+            window.oikos?.showToast(`${res.data.transferred} Zutat${res.data.transferred !== 1 ? 'en' : ''} übertragen`, 'success');
+            await loadWeek(state.currentWeek);
+            closeModal();
+            renderWeekGrid();
+          } else {
+            window.oikos?.showToast('Alle Zutaten bereits übertragen', 'info');
+            btn.disabled = false;
+          }
+        } catch (err) {
+          window.oikos?.showToast(err.data?.error ?? 'Fehler', 'error');
+          btn.disabled = false;
+        }
+      });
+
+      panel.querySelector('#modal-cancel').addEventListener('click', closeModal);
+      panel.querySelector('#modal-save').addEventListener('click', () => saveModal(panel));
+    },
   });
-
-  titleInput.addEventListener('keydown', (e) => {
-    const items = [...acDropdown.querySelectorAll('.meal-modal__autocomplete-item')];
-    if (!items.length) return;
-    if (e.key === 'ArrowDown') { e.preventDefault(); acIndex = Math.min(acIndex + 1, items.length - 1); items.forEach((el, i) => el.classList.toggle('meal-modal__autocomplete-item--active', i === acIndex)); }
-    if (e.key === 'ArrowUp')   { e.preventDefault(); acIndex = Math.max(acIndex - 1, 0);                items.forEach((el, i) => el.classList.toggle('meal-modal__autocomplete-item--active', i === acIndex)); }
-    if (e.key === 'Enter' && acIndex >= 0) { e.preventDefault(); titleInput.value = items[acIndex].dataset.title; acDropdown.hidden = true; acIndex = -1; }
-    if (e.key === 'Escape') acDropdown.hidden = true;
-  });
-
-  acDropdown.addEventListener('mousedown', (e) => {
-    const item = e.target.closest('.meal-modal__autocomplete-item');
-    if (item) { titleInput.value = item.dataset.title; acDropdown.hidden = true; }
-  });
-
-  // Zutaten
-  const ingList   = overlay.querySelector('#ingredient-list');
-  const addIngBtn = overlay.querySelector('#add-ingredient-btn');
-
-  addIngBtn.addEventListener('click', () => {
-    const tmp  = document.createElement('div');
-    tmp.innerHTML = ingredientRowHTML('', '', null);
-    const row = tmp.firstElementChild;
-    ingList.appendChild(row);
-    if (window.lucide) lucide.createIcons();
-    row.querySelector('input').focus();
-  });
-
-  ingList.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-action="remove-ingredient"]');
-    if (btn) btn.closest('.ingredient-row').remove();
-  });
-
-  // Einkaufslisten-Transfer Button im Modal
-  overlay.querySelector('#transfer-btn')?.addEventListener('click', async () => {
-    const selectEl = overlay.querySelector('#transfer-list-select');
-    const listId   = parseInt(selectEl?.value, 10);
-    if (!listId || !state.modal?.meal) return;
-    const btn = overlay.querySelector('#transfer-btn');
-    btn.disabled = true;
-    try {
-      const res = await api.post(`/meals/${state.modal.meal.id}/to-shopping-list`, { listId });
-      if (res.data.transferred > 0) {
-        window.oikos?.showToast(`${res.data.transferred} Zutat${res.data.transferred !== 1 ? 'en' : ''} übertragen`, 'success');
-        await loadWeek(state.currentWeek);
-        closeModal();
-        renderWeekGrid();
-      } else {
-        window.oikos?.showToast('Alle Zutaten bereits übertragen', 'info');
-        btn.disabled = false;
-      }
-    } catch (err) {
-      window.oikos?.showToast(err.data?.error ?? 'Fehler', 'error');
-      btn.disabled = false;
-    }
-  });
-
-  // Schließen
-  overlay.querySelector('#modal-close').addEventListener('click',  closeModal);
-  overlay.querySelector('#modal-cancel').addEventListener('click', closeModal);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
-
-  // Speichern
-  overlay.querySelector('#modal-save').addEventListener('click', () => saveModal(overlay));
-
-  titleInput.focus();
 }
 
-function buildModalHTML({ mode, date, mealType, meal }) {
+function buildModalContent({ mode, date, mealType, meal }) {
   const isEdit   = mode === 'edit';
   const typeOpts = MEAL_TYPES.map((t) =>
     `<option value="${t.key}" ${t.key === mealType ? 'selected' : ''}>${t.label}</option>`
@@ -400,67 +396,57 @@ function buildModalHTML({ mode, date, mealType, meal }) {
   const hasIngOpen = isEdit && meal.ingredients?.some((i) => !i.on_shopping_list);
 
   return `
-    <div class="meal-modal" role="dialog" aria-modal="true">
-      <div class="meal-modal__header">
-        <h2 class="meal-modal__title">${isEdit ? 'Mahlzeit bearbeiten' : 'Mahlzeit hinzufügen'}</h2>
-        <button class="meal-modal__close" id="modal-close" aria-label="Schließen">
-          <i data-lucide="x" style="width:16px;height:16px;"></i>
-        </button>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)">
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label" for="modal-date">Datum</label>
+        <input type="date" class="form-input" id="modal-date" value="${date}">
       </div>
-      <div class="meal-modal__body">
-        <div class="meal-modal__row">
-          <div class="form-group">
-            <label class="form-label" for="modal-date">Datum</label>
-            <input type="date" class="form-input" id="modal-date" value="${date}">
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="modal-type">Mahlzeit</label>
-            <select class="form-input" id="modal-type">${typeOpts}</select>
-          </div>
-        </div>
-
-        <div class="form-group" style="position:relative;">
-          <label class="form-label" for="modal-title">Titel *</label>
-          <input type="text" class="form-input" id="modal-title"
-                 placeholder="z.B. Spaghetti Bolognese"
-                 value="${escHtml(isEdit ? meal.title : '')}"
-                 autocomplete="off">
-          <div id="modal-autocomplete" class="meal-modal__autocomplete" hidden></div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="modal-notes">Notizen</label>
-          <textarea class="form-input" id="modal-notes" rows="2"
-                    placeholder="Optional…">${escHtml(isEdit && meal.notes ? meal.notes : '')}</textarea>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Zutaten</label>
-          <div class="ingredient-list" id="ingredient-list">${ingRows}</div>
-          <button class="add-ingredient-btn" id="add-ingredient-btn" type="button">
-            <i data-lucide="plus" style="width:14px;height:14px;"></i>
-            Zutat hinzufügen
-          </button>
-        </div>
-
-        ${isEdit && hasIngOpen ? `
-        <div class="shopping-transfer">
-          <div class="shopping-transfer__label">
-            <i data-lucide="shopping-cart" style="width:14px;height:14px;"></i>
-            Zutaten auf Einkaufsliste übertragen
-          </div>
-          <select class="shopping-transfer__select" id="transfer-list-select">${listOpts}</select>
-          <button class="btn btn--secondary shopping-transfer__btn" id="transfer-btn" type="button">
-            Jetzt übertragen
-          </button>
-        </div>` : ''}
-      </div>
-      <div class="meal-modal__footer">
-        <button class="btn btn--secondary" id="modal-cancel">Abbrechen</button>
-        <button class="btn btn--primary" id="modal-save">${isEdit ? 'Speichern' : 'Hinzufügen'}</button>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label" for="modal-type">Mahlzeit</label>
+        <select class="form-input" id="modal-type">${typeOpts}</select>
       </div>
     </div>
-  `;
+
+    <div class="form-group" style="position:relative;">
+      <label class="form-label" for="modal-title">Titel *</label>
+      <input type="text" class="form-input" id="modal-title"
+             placeholder="z.B. Spaghetti Bolognese"
+             value="${escHtml(isEdit ? meal.title : '')}"
+             autocomplete="off">
+      <div id="modal-autocomplete" class="meal-modal__autocomplete" hidden></div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="modal-notes">Notizen</label>
+      <textarea class="form-input" id="modal-notes" rows="2"
+                placeholder="Optional…">${escHtml(isEdit && meal.notes ? meal.notes : '')}</textarea>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Zutaten</label>
+      <div class="ingredient-list" id="ingredient-list">${ingRows}</div>
+      <button class="add-ingredient-btn" id="add-ingredient-btn" type="button">
+        <i data-lucide="plus" style="width:14px;height:14px;"></i>
+        Zutat hinzufügen
+      </button>
+    </div>
+
+    ${isEdit && hasIngOpen ? `
+    <div class="shopping-transfer">
+      <div class="shopping-transfer__label">
+        <i data-lucide="shopping-cart" style="width:14px;height:14px;"></i>
+        Zutaten auf Einkaufsliste übertragen
+      </div>
+      <select class="shopping-transfer__select" id="transfer-list-select">${listOpts}</select>
+      <button class="btn btn--secondary shopping-transfer__btn" id="transfer-btn" type="button">
+        Jetzt übertragen
+      </button>
+    </div>` : ''}
+
+    <div class="modal-panel__footer" style="border:none;padding:0;margin-top:var(--space-4)">
+      <button class="btn btn--secondary" id="modal-cancel">Abbrechen</button>
+      <button class="btn btn--primary" id="modal-save">${isEdit ? 'Speichern' : 'Hinzufügen'}</button>
+    </div>`;
 }
 
 function ingredientRowHTML(name, qty, id) {
@@ -476,7 +462,7 @@ function ingredientRowHTML(name, qty, id) {
 }
 
 function closeModal() {
-  document.querySelector('#meal-modal-overlay')?.remove();
+  closeSharedModal();
   state.modal = null;
 }
 

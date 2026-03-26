@@ -5,6 +5,7 @@
  */
 
 import { api } from '/api.js';
+import { openModal as openSharedModal, closeModal } from '/components/modal.js';
 
 // --------------------------------------------------------
 // Konstanten
@@ -71,7 +72,7 @@ export async function render(container, { user }) {
   }
   renderGrid();
 
-  const addHandler = () => openModal({ mode: 'create' });
+  const addHandler = () => openNoteModal({ mode: 'create' });
   _container.querySelector('#notes-add-btn').addEventListener('click', addHandler);
   _container.querySelector('#fab-new-note').addEventListener('click', addHandler);
 }
@@ -112,7 +113,7 @@ function renderGrid() {
     const card = e.target.closest('.note-card[data-id]');
     if (card) {
       const note = state.notes.find((n) => n.id === parseInt(card.dataset.id, 10));
-      if (note) openModal({ mode: 'edit', note });
+      if (note) openNoteModal({ mode: 'edit', note });
     }
   });
 }
@@ -152,110 +153,93 @@ function renderNoteCard(note) {
 // Modal
 // --------------------------------------------------------
 
-function openModal({ mode, note = null }) {
-  document.querySelector('#note-modal-overlay')?.remove();
-
-  const overlay = document.createElement('div');
-  overlay.id        = 'note-modal-overlay';
-  overlay.className = 'note-modal-overlay';
-
+function openNoteModal({ mode, note = null }) {
   const isEdit    = mode === 'edit';
   const selColor  = isEdit ? note.color : NOTE_COLORS[0];
 
-  overlay.innerHTML = `
-    <div class="note-modal" role="dialog" aria-modal="true">
-      <div class="note-modal__header">
-        <h2 class="note-modal__title">${isEdit ? 'Notiz bearbeiten' : 'Neue Notiz'}</h2>
-        <button class="note-modal__close" id="note-modal-close" aria-label="Schließen">
-          <i data-lucide="x" style="width:16px;height:16px;"></i>
-        </button>
-      </div>
-      <div class="note-modal__body">
-        <div class="form-group">
-          <label class="form-label" for="note-title">Titel (optional)</label>
-          <input type="text" class="form-input" id="note-title"
-                 placeholder="Kein Titel" value="${escHtml(isEdit && note.title ? note.title : '')}">
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="note-content">Inhalt *</label>
-          <textarea class="form-input" id="note-content" rows="6"
-                    placeholder="Notiz eingeben… (** fett **, * kursiv *, - Liste)"
-                    style="resize:vertical;">${escHtml(isEdit ? note.content : '')}</textarea>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Farbe</label>
-          <div class="note-color-picker">
-            ${NOTE_COLORS.map((c) => `
-              <div class="note-color-swatch ${c === selColor ? 'note-color-swatch--active' : ''}"
-                   data-color="${c}"
-                   style="background-color:${c};border:2px solid ${c === '#FFFFFF' ? '#E5E5EA' : c};"
-                   role="radio" tabindex="0" aria-label="Farbe ${c}"></div>
-            `).join('')}
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="allday-toggle">
-            <input type="checkbox" id="note-pinned" ${isEdit && note.pinned ? 'checked' : ''}>
-            <span class="allday-toggle__label">Anpinnen (erscheint auf Dashboard)</span>
-          </label>
-        </div>
-      </div>
-      <div class="note-modal__footer">
-        <button class="btn btn--secondary" id="note-modal-cancel">Abbrechen</button>
-        <button class="btn btn--primary" id="note-modal-save">${isEdit ? 'Speichern' : 'Erstellen'}</button>
+  const content = `
+    <div class="form-group">
+      <label class="form-label" for="note-title">Titel (optional)</label>
+      <input type="text" class="form-input" id="note-title"
+             placeholder="Kein Titel" value="${escHtml(isEdit && note.title ? note.title : '')}">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="note-content">Inhalt *</label>
+      <textarea class="form-input" id="note-content" rows="6"
+                placeholder="Notiz eingeben… (** fett **, * kursiv *, - Liste)"
+                style="resize:vertical;">${escHtml(isEdit ? note.content : '')}</textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Farbe</label>
+      <div class="note-color-picker">
+        ${NOTE_COLORS.map((c) => `
+          <div class="note-color-swatch ${c === selColor ? 'note-color-swatch--active' : ''}"
+               data-color="${c}"
+               style="background-color:${c};border:2px solid ${c === '#FFFFFF' ? '#E5E5EA' : c};"
+               role="radio" tabindex="0" aria-label="Farbe ${c}"></div>
+        `).join('')}
       </div>
     </div>
-  `;
+    <div class="form-group">
+      <label class="allday-toggle">
+        <input type="checkbox" id="note-pinned" ${isEdit && note.pinned ? 'checked' : ''}>
+        <span class="allday-toggle__label">Anpinnen (erscheint auf Dashboard)</span>
+      </label>
+    </div>
 
-  document.body.appendChild(overlay);
-  if (window.lucide) lucide.createIcons();
+    <div class="modal-panel__footer" style="border:none;padding:0;margin-top:var(--space-4)">
+      <button class="btn btn--secondary" id="note-modal-cancel">Abbrechen</button>
+      <button class="btn btn--primary" id="note-modal-save">${isEdit ? 'Speichern' : 'Erstellen'}</button>
+    </div>`;
 
-  // Farb-Swatch
-  overlay.querySelectorAll('.note-color-swatch').forEach((sw) => {
-    sw.addEventListener('click', () => {
-      overlay.querySelectorAll('.note-color-swatch').forEach((s) => s.classList.remove('note-color-swatch--active'));
-      sw.classList.add('note-color-swatch--active');
-    });
+  openSharedModal({
+    title: isEdit ? 'Notiz bearbeiten' : 'Neue Notiz',
+    content,
+    size: 'md',
+    onSave(panel) {
+      // Farb-Swatch
+      panel.querySelectorAll('.note-color-swatch').forEach((sw) => {
+        sw.addEventListener('click', () => {
+          panel.querySelectorAll('.note-color-swatch').forEach((s) => s.classList.remove('note-color-swatch--active'));
+          sw.classList.add('note-color-swatch--active');
+        });
+      });
+
+      panel.querySelector('#note-modal-cancel').addEventListener('click', closeModal);
+
+      panel.querySelector('#note-modal-save').addEventListener('click', async () => {
+        const saveBtn = panel.querySelector('#note-modal-save');
+        const title   = panel.querySelector('#note-title').value.trim() || null;
+        const cnt     = panel.querySelector('#note-content').value.trim();
+        const color   = panel.querySelector('.note-color-swatch--active')?.dataset.color || NOTE_COLORS[0];
+        const pinned  = panel.querySelector('#note-pinned').checked ? 1 : 0;
+
+        if (!cnt) { window.oikos?.showToast('Inhalt ist erforderlich', 'error'); return; }
+
+        saveBtn.disabled    = true;
+        saveBtn.textContent = '…';
+
+        try {
+          if (mode === 'create') {
+            const res = await api.post('/notes', { title, content: cnt, color, pinned });
+            state.notes.unshift(res.data);
+          } else {
+            const res = await api.put(`/notes/${note.id}`, { title, content: cnt, color, pinned });
+            const idx = state.notes.findIndex((n) => n.id === note.id);
+            if (idx !== -1) state.notes[idx] = res.data;
+            state.notes.sort((a, b) => b.pinned - a.pinned);
+          }
+          closeModal();
+          renderGrid();
+          window.oikos?.showToast(mode === 'create' ? 'Notiz erstellt' : 'Notiz gespeichert', 'success');
+        } catch (err) {
+          window.oikos?.showToast(err.data?.error ?? 'Fehler', 'error');
+          saveBtn.disabled    = false;
+          saveBtn.textContent = isEdit ? 'Speichern' : 'Erstellen';
+        }
+      });
+    },
   });
-
-  overlay.querySelector('#note-modal-close').addEventListener('click',  () => overlay.remove());
-  overlay.querySelector('#note-modal-cancel').addEventListener('click', () => overlay.remove());
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
-
-  overlay.querySelector('#note-modal-save').addEventListener('click', async () => {
-    const saveBtn = overlay.querySelector('#note-modal-save');
-    const title   = overlay.querySelector('#note-title').value.trim() || null;
-    const content = overlay.querySelector('#note-content').value.trim();
-    const color   = overlay.querySelector('.note-color-swatch--active')?.dataset.color || NOTE_COLORS[0];
-    const pinned  = overlay.querySelector('#note-pinned').checked ? 1 : 0;
-
-    if (!content) { window.oikos?.showToast('Inhalt ist erforderlich', 'error'); return; }
-
-    saveBtn.disabled    = true;
-    saveBtn.textContent = '…';
-
-    try {
-      if (mode === 'create') {
-        const res = await api.post('/notes', { title, content, color, pinned });
-        state.notes.unshift(res.data);
-      } else {
-        const res = await api.put(`/notes/${note.id}`, { title, content, color, pinned });
-        const idx = state.notes.findIndex((n) => n.id === note.id);
-        if (idx !== -1) state.notes[idx] = res.data;
-        // Angepinnte nach oben sortieren
-        state.notes.sort((a, b) => b.pinned - a.pinned);
-      }
-      overlay.remove();
-      renderGrid();
-      window.oikos?.showToast(mode === 'create' ? 'Notiz erstellt' : 'Notiz gespeichert', 'success');
-    } catch (err) {
-      window.oikos?.showToast(err.data?.error ?? 'Fehler', 'error');
-      saveBtn.disabled    = false;
-      saveBtn.textContent = isEdit ? 'Speichern' : 'Erstellen';
-    }
-  });
-
-  overlay.querySelector('#note-content').focus();
 }
 
 // --------------------------------------------------------
