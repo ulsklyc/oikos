@@ -12,6 +12,8 @@ services:
     environment:
       - NODE_ENV=production
       - DB_PATH=/data/oikos.db
+      # Auf false setzen wenn kein HTTPS/Reverse-Proxy (direkter HTTP-Zugriff)
+      - SESSION_SECURE=false
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', r => process.exit(r.statusCode === 200 ? 0 : 1))"]
       interval: 30s
