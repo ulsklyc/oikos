@@ -33,3 +33,4 @@ dist/
 # Textdateien mit Tokens/Keys (Sicherheitsnetz)
 *.txt
 !public/robots.txt
+CLAUDE.md

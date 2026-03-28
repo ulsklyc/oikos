@@ -25,15 +25,72 @@
 
 ---
 
-<!-- Screenshots: Add 2–3 screenshots here once available.
-     Recommended: Dashboard (desktop), Mobile view, Calendar view.
-     Format: PNG or WebP, max width 800px.
-     Tools: CleanShot X (macOS), Flameshot (Linux), or browser DevTools for responsive shots.
-     Place files in /docs/screenshots/ and reference as:
-     <p align="center">
-       <img src="docs/screenshots/dashboard.png" alt="Dashboard" width="800">
-     </p>
--->
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/tablet-dark/tablet-dark-dashboard.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/tablet-light/tablet-light-dashboard.png">
+    <img src="docs/screenshots/tablet-light/tablet-light-dashboard.png" alt="Dashboard" width="800">
+  </picture>
+</p>
+
+<table>
+  <tr>
+    <td align="center" width="33%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/mobile-dark/mobile-dark-tasks.png">
+        <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/mobile-light/mobile-light-tasks.png">
+        <img src="docs/screenshots/mobile-light/mobile-light-tasks.png" alt="Tasks" width="240">
+      </picture>
+      <br><strong>Tasks</strong>
+    </td>
+    <td align="center" width="33%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/mobile-dark/mobile-dark-household.png">
+        <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/mobile-light/mobile-light-household.png">
+        <img src="docs/screenshots/mobile-light/mobile-light-household.png" alt="Shopping" width="240">
+      </picture>
+      <br><strong>Shopping</strong>
+    </td>
+    <td align="center" width="33%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/mobile-dark/mobile-dark-budget.png">
+        <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/mobile-light/mobile-light-budget.png">
+        <img src="docs/screenshots/mobile-light/mobile-light-budget.png" alt="Budget" width="240">
+      </picture>
+      <br><strong>Budget</strong>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/mobile-dark/mobile-dark-notes.png">
+        <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/mobile-light/mobile-light-notes.png">
+        <img src="docs/screenshots/mobile-light/mobile-light-notes.png" alt="Notes" width="240">
+      </picture>
+      <br><strong>Notes</strong>
+    </td>
+    <td align="center">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/mobile-dark/mobile-dark-contacts.png">
+        <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/mobile-light/mobile-light-contacts.png">
+        <img src="docs/screenshots/mobile-light/mobile-light-contacts.png" alt="Contacts" width="240">
+      </picture>
+      <br><strong>Contacts</strong>
+    </td>
+    <td align="center">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/tablet-dark/tablet-dark-notes.png">
+        <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/tablet-light/tablet-light-notes.png">
+        <img src="docs/screenshots/tablet-light/tablet-light-notes.png" alt="Tablet View" width="240">
+      </picture>
+      <br><strong>Tablet View</strong>
+    </td>
+  </tr>
+</table>
+
+<p align="center">
+  <sub>Screenshots adapt to your GitHub theme — switch between light and dark mode to see both variants.</sub>
+</p>
 
 ## Features
 
