@@ -124,6 +124,8 @@
   background-color: var(--color-surface);
   display: flex;
   flex-direction: column;
+  align-items: stretch;
+  text-align: left;
   overflow: hidden;
   transition: border-color var(--transition-fast);
 }
@@ -189,8 +191,9 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-align: left;
   line-height: 1.4;
-  width: 100%;
+  align-self: stretch;
 }
 
 .meal-card__meta {
@@ -198,7 +201,8 @@
   display: flex;
   align-items: center;
   gap: var(--space-1);
-  width: 100%;
+  align-self: stretch;
+  text-align: left;
 }
 
 .meal-card__ingredients-count {
@@ -215,6 +219,7 @@
   display: flex;
   gap: var(--space-1);
   margin-top: var(--space-1);
+  align-self: stretch;
   opacity: 0;
   transition: opacity var(--transition-fast);
 }
