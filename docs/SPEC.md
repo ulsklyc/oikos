@@ -273,12 +273,17 @@ Benutzerverwaltung und App-Konfiguration. Nur für eingeloggte Nutzer.
 - Caption: 13px, `var(--color-text-secondary)`
 
 ### Komponenten
-- **Cards:** `var(--color-surface)`, `var(--radius-md)`, `var(--shadow-sm)`
-- **Buttons:** Primär = Accent + weiß. Sekundär = Outline. Min-Höhe 44px
-- **Inputs:** `var(--radius-sm)`, 1.5px border, padding 12px 16px
-- **Navigation:** Bottom Tab Bar mobil (Dashboard, Aufgaben, Kalender, Essen, Mehr). Sidebar Desktop
-- **Transitions:** `all 0.2s ease`. Seiten: Slide-Animation
-- **Empty States:** Illustration + CTA in jeder Liste
+- **Cards:** `var(--color-surface)`, `var(--radius-md)`, `var(--shadow-sm)`. Einheitliches Padding `var(--space-4)` (16px) in allen Modulen.
+- **Buttons:** Primär = Accent + weiß. Sekundär = Outline. Min-Höhe 44px. Submit-Buttons zeigen Erfolg (Checkmark, 700ms grün via `.btn--success`) und Fehler (Shake via `.btn--shaking`).
+- **Inputs:** `var(--radius-sm)`, 1.5px border, padding 12px 16px. `[required]`-Felder erhalten bei Blur Validierungsstatus (`.form-field--error` / `.form-field--valid`). Enter navigiert zum nächsten Feld; Enter im letzten Feld löst Submit aus.
+- **FAB (Floating Action Button):** Farbe folgt dem Modul-Akzent-Token (`--module-accent`) — jedes Modul definiert seine eigene Akzentfarbe.
+- **Navigation:** Bottom Tab Bar mobil (Dashboard, Aufgaben, Kalender, Essen, Mehr). Sidebar Desktop.
+- **Transitions:** Direktionale Slide-X-Animation bei Seitenwechsel (vorwärts = von rechts, rückwärts = von links, 200ms). Respektiert `prefers-reduced-motion`.
+- **Empty States:** Einheitliche `.empty-state`-Klasse in allen Modulen (Icon + Titel + Beschreibung, zentriert). Kompakte Variante `.empty-state--compact` für Mahlzeiten-Slots.
+- **Modals:** Auf Desktop zentriertes Panel. Auf Mobile (< 768px) Bottom Sheet — fährt von unten ein, Sheet-Handle sichtbar, Swipe-to-Close (> 80px nach unten). `focusin` scrollt Inputs bei virtueller Tastatur in den sichtbaren Bereich.
+- **Listen-Animation:** Staggered Fade-In beim Laden (`stagger()` aus `public/utils/ux.js`) — max. 5 Elemente gestaffelt (30ms Abstand), Rest sofort.
+- **Vibration:** `vibrate()` aus `public/utils/ux.js` — kurze Impulse bei leichten Aktionen (10–40ms), Muster `[30, 50, 30]` bei destructiven Aktionen (Löschen). Respektiert `prefers-reduced-motion`.
+- **PWA Install Prompt:** Erscheint erst nach 2 Nutzer-Interaktionen. Dismiss-Fenster 7 Tage; nach Dismiss wird der Interaktionszähler zurückgesetzt.
 
 ### Breakpoints
 - Mobil: < 768px (1 Spalte, Bottom Nav)

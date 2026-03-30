@@ -7,6 +7,7 @@
 import { api } from '/api.js';
 import { renderRRuleFields, bindRRuleEvents, getRRuleValues } from '/rrule-ui.js';
 import { openModal as openSharedModal, closeModal } from '/components/modal.js';
+import { stagger } from '/utils/ux.js';
 
 // --------------------------------------------------------
 // Konstanten
@@ -596,6 +597,8 @@ function renderAgendaView(container) {
       }
     </div>
   `;
+
+  stagger(container.querySelectorAll('.agenda-event'));
 
   container.querySelector('#agenda-view').addEventListener('click', (e) => {
     const evEl = e.target.closest('.agenda-event');

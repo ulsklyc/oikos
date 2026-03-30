@@ -6,6 +6,7 @@
 
 import { api } from '/api.js';
 import { openModal as openSharedModal, closeModal } from '/components/modal.js';
+import { stagger, vibrate } from '/utils/ux.js';
 
 // --------------------------------------------------------
 // Konstanten
@@ -87,10 +88,16 @@ function renderGrid() {
 
   if (!state.notes.length) {
     grid.innerHTML = `
-      <div class="notes-empty">
-        <i data-lucide="sticky-note" class="notes-empty__icon" aria-hidden="true"></i>
-        <div style="font-size:var(--text-lg);font-weight:600;margin-bottom:var(--space-2);">Noch keine Notizen</div>
-        <div style="font-size:var(--text-sm);">Klicke auf „Neue Notiz" um loszulegen.</div>
+      <div class="empty-state" style="column-span:all;">
+        <svg class="empty-state__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+          <polyline points="10 9 9 9 8 9"/>
+        </svg>
+        <div class="empty-state__title">Noch keine Notizen</div>
+        <div class="empty-state__description">Neue Notiz über den + Button erstellen.</div>
       </div>
     `;
     if (window.lucide) lucide.createIcons();
@@ -99,6 +106,7 @@ function renderGrid() {
 
   grid.innerHTML = state.notes.map((n) => renderNoteCard(n)).join('');
   if (window.lucide) lucide.createIcons();
+  stagger(grid.querySelectorAll('.note-card'));
 
   grid.addEventListener('click', async (e) => {
     // Pin
@@ -451,6 +459,7 @@ async function deleteNote(id) {
     await api.delete(`/notes/${id}`);
     state.notes = state.notes.filter((n) => n.id !== id);
     renderGrid();
+    vibrate([30, 50, 30]);
     window.oikos?.showToast('Notiz gelöscht', 'success');
   } catch (err) {
     window.oikos?.showToast(err.data?.error ?? 'Fehler', 'error');

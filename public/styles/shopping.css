@@ -5,6 +5,11 @@
  */
 
 /* --------------------------------------------------------
+ * Modul-Akzent
+ * -------------------------------------------------------- */
+.shopping-page { --module-accent: var(--module-shopping); }
+
+/* --------------------------------------------------------
  * Seiten-Layout
  * -------------------------------------------------------- */
 .shopping-page {
@@ -411,36 +416,6 @@
 
 .item-delete:hover { color: var(--color-danger); }
 
-/* --------------------------------------------------------
- * Leer-Zustand
- * -------------------------------------------------------- */
-.shopping-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-12) var(--space-6);
-  text-align: center;
-  flex: 1;
-}
-
-.shopping-empty__icon {
-  width: 56px;
-  height: 56px;
-  color: var(--color-text-disabled);
-  margin-bottom: var(--space-4);
-}
-
-.shopping-empty__title {
-  font-size: var(--text-lg);
-  font-weight: var(--font-weight-semibold);
-  margin-bottom: var(--space-2);
-}
-
-.shopping-empty__desc {
-  font-size: var(--text-sm);
-  color: var(--color-text-secondary);
-}
 
 /* --------------------------------------------------------
  * No-Lists-Zustand

@@ -5,6 +5,11 @@
  */
 
 /* --------------------------------------------------------
+ * Modul-Akzent
+ * -------------------------------------------------------- */
+.notes-page { --module-accent: var(--module-notes); }
+
+/* --------------------------------------------------------
  * Seiten-Layout
  * -------------------------------------------------------- */
 .notes-page {
@@ -206,26 +211,6 @@
   color: var(--color-danger);
 }
 
-/* --------------------------------------------------------
- * Leer-Zustand
- * -------------------------------------------------------- */
-.notes-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-12) var(--space-6);
-  text-align: center;
-  color: var(--color-text-secondary);
-  column-span: all;              /* Multicolumn: volle Breite */
-}
-
-.notes-empty__icon {
-  width: 56px;
-  height: 56px;
-  color: var(--color-text-disabled);
-  margin-bottom: var(--space-4);
-}
 
 /* --------------------------------------------------------
  * Notes-Modal Content-Styles (Overlay/Panel via shared modal.js)

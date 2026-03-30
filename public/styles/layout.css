@@ -44,21 +44,50 @@
 }
 
 /* --------------------------------------------------------
- * Seiten-Übergangs-Animation
+ * Seiten-Übergangs-Animation (direktional)
  * -------------------------------------------------------- */
-@keyframes page-in {
-  from { opacity: 0; transform: translateY(4px); }
-  to   { opacity: 1; transform: translateY(0); }
+@keyframes page-slide-in-right {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes page-slide-in-left {
+  from { opacity: 0; transform: translateX(-20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes page-out-left {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(-20px); }
+}
+@keyframes page-out-right {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(20px); }
 }
 
-@keyframes page-out {
-  from { opacity: 1; }
-  to   { opacity: 0; }
+.page-transition--in-right {
+  animation: page-slide-in-right 0.2s var(--ease-out) forwards;
 }
-
-.page-transition--out {
-  animation: page-out 0.12s ease forwards;
+.page-transition--in-left {
+  animation: page-slide-in-left 0.2s var(--ease-out) forwards;
+}
+.page-transition--out-left {
+  animation: page-out-left 0.12s ease forwards;
   pointer-events: none;
+}
+.page-transition--out-right {
+  animation: page-out-right 0.12s ease forwards;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-transition--in-right,
+  .page-transition--in-left {
+    animation: none;
+    opacity: 1;
+  }
+  .page-transition--out-left,
+  .page-transition--out-right {
+    animation: none;
+  }
 }
 
 /* --------------------------------------------------------
@@ -192,7 +221,7 @@
   width: 52px;
   height: 52px;
   border-radius: var(--radius-full);
-  background-color: var(--module-accent, var(--color-btn-primary));
+  background-color: var(--module-accent, var(--color-accent));
   color: #ffffff;
   box-shadow: var(--shadow-lg);
   display: flex;
@@ -206,7 +235,7 @@
 }
 
 .page-fab:hover {
-  background-color: color-mix(in srgb, var(--module-accent, var(--color-btn-primary)) 85%, black);
+  background-color: color-mix(in srgb, var(--module-accent, var(--color-accent)) 85%, black);
 }
 
 .page-fab:active {
@@ -674,6 +703,45 @@
   to   { opacity: 1; transform: scale(1); }
 }
 
+/* ── Bottom Sheet: Handle + Closing Animation (Mobile < 768px) ── */
+@media (max-width: 767px) {
+  .modal-panel {
+    /* Extra top padding for the drag handle */
+    padding-top: calc(var(--space-4) + 20px);
+    position: relative;
+  }
+
+  .modal-panel::before {
+    content: '';
+    position: absolute;
+    top: var(--space-3);
+    left: 50%;
+    transform: translateX(-50%);
+    width: 36px;
+    height: 4px;
+    background: var(--color-border);
+    border-radius: var(--radius-full);
+  }
+
+  .modal-panel--closing {
+    animation: sheet-out 0.2s ease forwards;
+  }
+}
+
+@keyframes sheet-out {
+  from { transform: translateY(0); }
+  to   { transform: translateY(100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-panel {
+    animation: none;
+  }
+  .modal-panel--closing {
+    animation: none;
+  }
+}
+
 /* --------------------------------------------------------
  * Buttons
  * -------------------------------------------------------- */
@@ -774,7 +842,7 @@
   width: 52px;
   height: 52px;
   border-radius: var(--radius-full);
-  background-color: var(--color-accent);
+  background-color: var(--module-accent, var(--color-btn-primary));
   color: #ffffff;
   box-shadow: var(--shadow-lg);
   display: flex;
@@ -788,6 +856,7 @@
 }
 
 .fab:hover {
+  background-color: color-mix(in srgb, var(--module-accent, var(--color-btn-primary)) 85%, black);
   transform: scale(1.05);
 }
 
@@ -854,6 +923,35 @@
   margin-bottom: var(--space-4);
 }
 
+/* ── Inline-Validierung ── */
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.form-field--error .input,
+.form-field--error .form-input {
+  border-color: var(--color-danger);
+}
+
+.form-field--valid .input,
+.form-field--valid .form-input {
+  border-color: var(--color-success);
+}
+
+.form-field__error {
+  display: none;
+  font-size: var(--text-sm);
+  color: var(--color-danger);
+  gap: var(--space-1);
+  align-items: center;
+}
+
+.form-field--error .form-field__error {
+  display: flex;
+}
+
 /* --------------------------------------------------------
  * Skeleton-Loading
  * -------------------------------------------------------- */
@@ -904,6 +1002,14 @@
   color: var(--color-text-secondary);
   max-width: 280px;
   line-height: var(--line-height-base);
+}
+
+.empty-state--compact {
+  padding: var(--space-4) var(--space-3);
+  gap: var(--space-2);
+}
+.empty-state--compact .empty-state__description {
+  font-size: var(--text-sm);
 }
 
 /* --------------------------------------------------------
@@ -1207,6 +1313,25 @@
 .rrule-day--active:hover {
   background: var(--color-accent-hover);
   border-color: var(--color-accent-hover);
+}
+
+/* ── Submit-Feedback Animationen ── */
+@keyframes btn-shake {
+  0%, 100% { transform: translateX(0); }
+  20%       { transform: translateX(-4px); }
+  40%       { transform: translateX(4px); }
+  60%       { transform: translateX(-4px); }
+  80%       { transform: translateX(4px); }
+}
+
+.btn--shaking {
+  animation: btn-shake 0.3s ease;
+}
+
+.btn--success {
+  background-color: var(--color-success) !important;
+  color: #fff !important;
+  pointer-events: none;
 }
 
 /* --------------------------------------------------------

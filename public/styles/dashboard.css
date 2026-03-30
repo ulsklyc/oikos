@@ -5,6 +5,13 @@
  */
 
 /* --------------------------------------------------------
+ * Modul-Akzent
+ * -------------------------------------------------------- */
+.dashboard {
+  --module-accent: var(--module-dashboard);
+}
+
+/* --------------------------------------------------------
  * Dashboard-Layout
  * -------------------------------------------------------- */
 .dashboard {
@@ -761,7 +768,7 @@
   width: 52px;
   height: 52px;
   border-radius: var(--radius-full);
-  background-color: var(--module-accent, var(--color-btn-primary));
+  background-color: var(--module-accent, var(--color-accent));
   color: #ffffff;
   box-shadow: var(--shadow-lg);
   display: flex;
@@ -783,7 +790,7 @@
 }
 
 .fab-main:hover {
-  background-color: color-mix(in srgb, var(--module-accent, var(--color-btn-primary)) 85%, black);
+  background-color: color-mix(in srgb, var(--module-accent, var(--color-accent)) 85%, black);
 }
 
 .fab-main:active {

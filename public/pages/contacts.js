@@ -6,6 +6,7 @@
 
 import { api } from '/api.js';
 import { openModal as openSharedModal, closeModal } from '/components/modal.js';
+import { stagger, vibrate } from '/utils/ux.js';
 
 // --------------------------------------------------------
 // Konstanten
@@ -133,9 +134,15 @@ function renderList() {
 
   if (!contacts.length) {
     container.innerHTML = `
-      <div class="contacts-empty">
-        <i data-lucide="users" style="width:48px;height:48px;color:var(--color-text-disabled);margin-bottom:var(--space-3);" aria-hidden="true"></i>
-        <div style="font-size:var(--text-base);font-weight:600;">Keine Kontakte gefunden</div>
+      <div class="empty-state">
+        <svg class="empty-state__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+        <div class="empty-state__title">Noch keine Kontakte</div>
+        <div class="empty-state__description">Neue Kontakte über den + Button hinzufügen.</div>
       </div>
     `;
     if (window.lucide) lucide.createIcons();
@@ -159,6 +166,7 @@ function renderList() {
     `).join('');
 
   if (window.lucide) lucide.createIcons();
+  stagger(container.querySelectorAll('.contact-item'));
 
   // Event-Delegation
   container.addEventListener('click', async (e) => {
@@ -306,6 +314,7 @@ async function deleteContact(id) {
     await api.delete(`/contacts/${id}`);
     state.contacts = state.contacts.filter((c) => c.id !== id);
     renderList();
+    vibrate([30, 50, 30]);
     window.oikos?.showToast('Kontakt gelöscht', 'success');
   } catch (err) {
     window.oikos?.showToast(err.data?.error ?? 'Fehler', 'error');

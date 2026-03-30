@@ -6,7 +6,8 @@
 
 import { api } from '/api.js';
 import { renderRRuleFields, bindRRuleEvents, getRRuleValues } from '/rrule-ui.js';
-import { openModal as openSharedModal, closeModal } from '/components/modal.js';
+import { openModal as openSharedModal, closeModal, wireBlurValidation, btnSuccess, btnError } from '/components/modal.js';
+import { stagger, vibrate } from '/utils/ux.js';
 
 // --------------------------------------------------------
 // Konstanten
@@ -194,10 +195,13 @@ function renderTaskCard(task, opts = {}) {
 
 function renderTaskGroups(tasks, groupMode) {
   if (!tasks.length) {
-    return `<div class="tasks-empty">
-      <i data-lucide="check-circle-2" class="tasks-empty__icon" aria-hidden="true"></i>
-      <div class="tasks-empty__title">Keine Aufgaben</div>
-      <div class="tasks-empty__desc">Erstelle eine neue Aufgabe mit dem + Button.</div>
+    return `<div class="empty-state">
+      <svg class="empty-state__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+        <polyline points="22 4 12 14.01 9 11.01"/>
+      </svg>
+      <div class="empty-state__title">Keine Aufgaben — alles erledigt?</div>
+      <div class="empty-state__description">Neue Aufgaben über den + Button erstellen.</div>
     </div>`;
   }
 
@@ -236,10 +240,19 @@ function renderModalContent({ task = null, users = [] } = {}) {
       <input type="hidden" id="task-id" value="${task?.id ?? ''}">
 
       <div class="form-group">
-        <label class="label" for="task-title">Titel *</label>
-        <input class="input" type="text" id="task-title" name="title"
-               value="${task?.title ?? ''}" placeholder="Was muss erledigt werden?"
-               required autocomplete="off">
+        <div class="form-field">
+          <label class="label" for="task-title">Titel *</label>
+          <input class="input" type="text" id="task-title" name="title"
+                 value="${task?.title ?? ''}" placeholder="Was muss erledigt werden?"
+                 required autocomplete="off">
+          <div class="form-field__error">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/>
+                 <line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12" y2="16.01"/>
+            </svg>
+            Dieses Feld ist erforderlich.
+          </div>
+        </div>
       </div>
 
       <div class="form-group">
@@ -369,6 +382,9 @@ function openTaskModal({ task = null, users = [] } = {}, container) {
       // RRULE-Events binden
       bindRRuleEvents(document, 'task');
 
+      // Blur-Validierung für required-Felder aktivieren
+      wireBlurValidation(panel);
+
       // Form-Events
       panel.querySelector('#task-form')
         ?.addEventListener('submit', (e) => handleFormSubmit(e, container));
@@ -394,6 +410,8 @@ async function handleFormSubmit(e, container) {
   submitBtn.disabled = true;
   submitBtn.textContent = 'Wird gespeichert…';
 
+  const originalLabel = taskId ? 'Speichern' : 'Erstellen';
+
   const rrule = getRRuleValues(document, 'task');
   const body = {
     title:           form.title.value.trim(),
@@ -416,13 +434,15 @@ async function handleFormSubmit(e, container) {
       await api.post('/tasks', body);
       window.oikos.showToast('Aufgabe erstellt.', 'success');
     }
-    closeModal();
+    btnSuccess(submitBtn, originalLabel);
+    setTimeout(() => closeModal(), 700);
     await loadTasks(container);
   } catch (err) {
     errorEl.textContent = err.message;
     errorEl.hidden = false;
     submitBtn.disabled = false;
-    submitBtn.textContent = taskId ? 'Speichern' : 'Erstellen';
+    submitBtn.textContent = originalLabel;
+    btnError(submitBtn);
   }
 }
 
@@ -605,6 +625,7 @@ function renderTaskList(container) {
   if (!listEl) return;
   listEl.innerHTML = renderTaskGroups(state.tasks, state.groupMode);
   if (window.lucide) window.lucide.createIcons();
+  stagger(listEl.querySelectorAll('.swipe-row, .kanban-card'));
   updateOverdueBadge();
   wireSwipeGestures(container);
 }
@@ -761,7 +782,7 @@ function wireSwipeGestures(container) {
         // Swipe links → Status-Toggle (offen ↔ erledigt)
         card.style.transition = 'transform 0.2s ease';
         card.style.transform  = 'translateX(-110%)';
-        if (navigator.vibrate) navigator.vibrate(40);
+        vibrate(40);
         setTimeout(async () => {
           resetCard(false);
           try {
@@ -776,7 +797,7 @@ function wireSwipeGestures(container) {
       } else if (dx > SWIPE_THRESHOLD) {
         // Swipe rechts → Bearbeiten-Modal
         resetCard(true);
-        if (navigator.vibrate) navigator.vibrate(20);
+        vibrate(20);
         try {
           const task = await loadTaskForEdit(taskId);
           openTaskModal({ task, users: state.users }, container);

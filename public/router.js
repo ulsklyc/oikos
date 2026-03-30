@@ -80,10 +80,21 @@ async function importPage(pagePath) {
 // --------------------------------------------------------
 let currentUser = null;
 let currentPath = null;
+let isNavigating = false;
 
 // --------------------------------------------------------
 // Router
 // --------------------------------------------------------
+
+const ROUTE_ORDER = ['/', '/tasks', '/calendar', '/meals', '/shopping',
+                     '/notes', '/contacts', '/budget', '/settings'];
+
+function getDirection(fromPath, toPath) {
+  const fromIdx = ROUTE_ORDER.indexOf(fromPath ?? '/');
+  const toIdx   = ROUTE_ORDER.indexOf(toPath);
+  if (fromIdx === -1 || toIdx === -1 || fromPath === toPath) return 'right';
+  return toIdx > fromIdx ? 'right' : 'left';
+}
 
 /**
  * Navigiert zu einem Pfad und rendert die entsprechende Seite.
@@ -93,49 +104,61 @@ let currentPath = null;
  * @param {boolean} pushState - false beim initialen Load und popstate
  */
 async function navigate(path, userOrPushState = true, pushState = true) {
-  // Überlastung: navigate(path, user) nach Login vs navigate(path, false) beim Init
-  if (typeof userOrPushState === 'object' && userOrPushState !== null) {
-    currentUser = userOrPushState;
-  } else {
-    pushState = userOrPushState;
-  }
+  if (isNavigating) return;
+  isNavigating = true;
 
-  currentPath = path;
+  try {
+    // Überlastung: navigate(path, user) nach Login vs navigate(path, false) beim Init
+    if (typeof userOrPushState === 'object' && userOrPushState !== null) {
+      currentUser = userOrPushState;
+    } else {
+      pushState = userOrPushState;
+    }
 
-  const route = ROUTES.find((r) => r.path === path) ?? ROUTES.find((r) => r.path === '/');
+    // Alten Pfad merken, bevor currentPath aktualisiert wird — für Richtungsberechnung
+    const previousPath = currentPath;
+    currentPath = path;
 
-  // Auth-Guard
-  if (route.requiresAuth && !currentUser) {
-    try {
-      const result = await auth.me();
-      currentUser = result.user;
-    } catch {
-      currentPath = null; // Reset damit navigate('/login') nicht geblockt wird
-      navigate('/login');
+    const route = ROUTES.find((r) => r.path === path) ?? ROUTES.find((r) => r.path === '/');
+
+    // Auth-Guard
+    if (route.requiresAuth && !currentUser) {
+      try {
+        const result = await auth.me();
+        currentUser = result.user;
+      } catch {
+        currentPath = null; // Reset damit navigate('/login') nicht geblockt wird
+        isNavigating = false;
+        navigate('/login');
+        return;
+      }
+    }
+
+    if (!route.requiresAuth && currentUser && path === '/login') {
+      currentPath = null;
+      isNavigating = false;
+      navigate('/');
       return;
     }
-  }
 
-  if (!route.requiresAuth && currentUser && path === '/login') {
-    currentPath = null;
-    navigate('/');
-    return;
-  }
+    if (pushState) {
+      history.pushState({ path }, '', path);
+    }
 
-  if (pushState) {
-    history.pushState({ path }, '', path);
+    await renderPage(route, previousPath);
+    updateNav(path);
+    updateThemeColorForRoute(route);
+  } finally {
+    isNavigating = false;
   }
-
-  await renderPage(route);
-  updateNav(path);
-  updateThemeColorForRoute(route);
 }
 
 /**
  * Lädt und rendert eine Seite dynamisch.
  * @param {{ path: string, page: string }} route
+ * @param {string|null} previousPath - Pfad vor der Navigation (für Richtungsberechnung)
  */
-async function renderPage(route) {
+async function renderPage(route, previousPath = null) {
   const app = document.getElementById('app');
   const loading = document.getElementById('app-loading');
 
@@ -158,18 +181,22 @@ async function renderPage(route) {
 
     const content = document.getElementById('page-content') || app;
 
+    // Richtung bestimmen (previousPath ist der alte Pfad vor der Navigation)
+    const direction = getDirection(previousPath, route.path);
+    const outClass  = direction === 'right' ? 'page-transition--out-left' : 'page-transition--out-right';
+    const inClass   = direction === 'right' ? 'page-transition--in-right' : 'page-transition--in-left';
+
     // Alte Seite kurz ausfaden, falls vorhanden
     const oldPage = content.querySelector('.page-transition');
     if (oldPage) {
-      oldPage.classList.add('page-transition--out');
+      oldPage.classList.add(outClass);
       await new Promise(r => setTimeout(r, 120));
     }
 
     // Seiten-Wrapper bereits jetzt in den DOM einfügen, damit
     // document.getElementById() in render() die richtigen Elemente findet.
     const pageWrapper = document.createElement('div');
-    pageWrapper.className = 'page-transition';
-    pageWrapper.style.animation = 'page-in 0.2s ease forwards';
+    pageWrapper.className = `page-transition ${inClass}`;
     content.replaceChildren(pageWrapper);
 
     await module.render(pageWrapper, { user: currentUser });

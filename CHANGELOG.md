@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-03-30
+
+### Changed
+- Directional slide-x page transitions (forward = right, backward = left) with race condition guard
+- PWA install prompt delayed until 2 user interactions; dismiss window reduced from 30 to 7 days; interaction counter resets on dismiss
+- Unified card padding to 16px (`--space-4`) across tasks, contacts, budget, and meals modules
+
+### Added
+- Staggered fade-in animation for list items on page load across all modules (tasks, shopping, meals, contacts, budget, notes, calendar agenda)
+- Unified empty states using shared `.empty-state` class across all modules (replaces per-module CSS)
+- `stagger()` and `vibrate()` UX utilities in `public/utils/ux.js` with full test coverage
+- Proportional opacity on swipe-reveal action areas in tasks (already implemented, confirmed)
+- FAB colors tied to per-module accent tokens via CSS custom properties
+- `scrollIntoView` for focused inputs when virtual keyboard opens in modals (300ms delay)
+- Consistent vibration feedback via `vibrate()` utility across tasks, shopping, contacts, budget, and notes
+- Bottom sheet modal on mobile (< 768px) with drag handle, slide-in animation, and swipe-to-close
+- Enter-key navigation between form fields in modals; Enter on last field triggers submit
+- Blur-triggered inline validation for required fields with error/success border states
+- `wireBlurValidation()`, `btnSuccess()`, and `btnError()` exported from `modal.js`
+- Submit button checkmark-success (700ms) and shake-error feedback animations
+
 ## [0.1.0] - 2026-03-29
 
 Initial release of Oikos — a self-hosted family planner for 2–6 person households. Runs as a Docker container behind Nginx with SSL, no cloud dependency.

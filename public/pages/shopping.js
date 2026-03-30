@@ -5,6 +5,7 @@
  */
 
 import { api } from '/api.js';
+import { stagger, vibrate } from '/utils/ux.js';
 
 // --------------------------------------------------------
 // Konstanten
@@ -151,6 +152,7 @@ function renderListContent(container) {
   `;
 
   if (window.lucide) window.lucide.createIcons();
+  stagger(content.querySelectorAll('.shopping-item'));
   wireAutocomplete(container);
   wireQuickAdd(container);
 }
@@ -158,10 +160,13 @@ function renderListContent(container) {
 function renderItems() {
   if (!state.items.length) {
     return `
-      <div class="shopping-empty">
-        <i data-lucide="check-circle" class="shopping-empty__icon" aria-hidden="true"></i>
-        <div class="shopping-empty__title">Liste ist leer</div>
-        <div class="shopping-empty__desc">Füge Artikel mit dem Eingabefeld oben hinzu.</div>
+      <div class="empty-state">
+        <svg class="empty-state__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+          <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+        </svg>
+        <div class="empty-state__title">Die Liste ist leer</div>
+        <div class="empty-state__description">Artikel über das Eingabefeld oben hinzufügen.</div>
       </div>`;
   }
 
@@ -311,6 +316,7 @@ function updateItemsList(container) {
   if (listEl) {
     listEl.innerHTML = renderItems();
     if (window.lucide) window.lucide.createIcons();
+    stagger(listEl.querySelectorAll('.shopping-item'));
   }
   // clear-checked Button aktualisieren
   const checkedCount = state.items.filter((i) => i.is_checked).length;
@@ -435,6 +441,7 @@ function wireListContentEvents(container) {
 
       try {
         await api.patch(`/shopping/items/${id}`, { is_checked: newVal });
+        vibrate(10);
       } catch (err) {
         // Zurückrollen
         if (item) item.is_checked = checked;

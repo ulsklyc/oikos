@@ -5,6 +5,11 @@
  */
 
 /* --------------------------------------------------------
+ * Modul-Akzent
+ * -------------------------------------------------------- */
+.tasks-page { --module-accent: var(--module-tasks); }
+
+/* --------------------------------------------------------
  * Seiten-Layout
  * -------------------------------------------------------- */
 .tasks-page {
@@ -248,7 +253,7 @@
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
-  padding: var(--space-3);
+  padding: var(--space-4);
 }
 
 /* Status-Checkbox */
@@ -624,29 +629,4 @@
   opacity: 0.5;
 }
 
-/* --------------------------------------------------------
- * Leer-Zustand
- * -------------------------------------------------------- */
-.tasks-empty {
-  padding: var(--space-12) var(--space-4);
-  text-align: center;
-}
 
-.tasks-empty__icon {
-  width: 56px;
-  height: 56px;
-  color: var(--color-text-disabled);
-  margin: 0 auto var(--space-4);
-}
-
-.tasks-empty__title {
-  font-size: var(--text-lg);
-  font-weight: var(--font-weight-semibold);
-  margin-bottom: var(--space-2);
-}
-
-.tasks-empty__desc {
-  font-size: var(--text-sm);
-  color: var(--color-text-secondary);
-  margin-bottom: var(--space-6);
-}

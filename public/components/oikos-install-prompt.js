@@ -7,11 +7,15 @@
  *   - Chrome/Android: Fängt beforeinstallprompt ab, zeigt Install-Banner
  *   - iOS (Safari): Zeigt Anleitung "Zum Home-Bildschirm"
  *   - Standalone-Modus: Zeigt nichts an
- *   - Dismiss: 30 Tage via localStorage gespeichert
+ *   - Dismiss: 7 Tage via localStorage gespeichert
+ *   - Timing: Banner erst nach 2 Nutzer-Interaktionen anzeigen
  */
 
 const DISMISS_KEY = 'oikos-install-dismissed';
-const DISMISS_DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 Tage
+const DISMISS_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 Tage
+
+const INTERACTION_KEY = 'oikos-install-interactions';
+const INTERACTION_THRESHOLD = 2;
 
 class OikosInstallPrompt extends HTMLElement {
   constructor() {
@@ -35,6 +39,13 @@ class OikosInstallPrompt extends HTMLElement {
       return;
     }
 
+    // Noch nicht genug Interaktionen
+    const interactions = Number(localStorage.getItem(INTERACTION_KEY) || '0');
+    if (interactions < INTERACTION_THRESHOLD) {
+      this._waitForInteractions();
+      return;
+    }
+
     if (this._isIOS()) {
       this._showIOSPrompt();
     } else {
@@ -44,6 +55,25 @@ class OikosInstallPrompt extends HTMLElement {
 
   disconnectedCallback() {
     window.removeEventListener('beforeinstallprompt', this._onBeforeInstall);
+    if (this._offInteraction) this._offInteraction();
+  }
+
+  _waitForInteractions() {
+    const onInteraction = () => {
+      const count = Number(localStorage.getItem(INTERACTION_KEY) || '0') + 1;
+      localStorage.setItem(INTERACTION_KEY, String(count));
+
+      if (count >= INTERACTION_THRESHOLD) {
+        document.removeEventListener('click', onInteraction);
+        if (this._isIOS()) {
+          this._showIOSPrompt();
+        } else {
+          this._listenForInstallPrompt();
+        }
+      }
+    };
+    document.addEventListener('click', onInteraction);
+    this._offInteraction = () => document.removeEventListener('click', onInteraction);
   }
 
   /** iOS Safari erkennen (kein beforeinstallprompt-Support) */
@@ -307,9 +337,10 @@ class OikosInstallPrompt extends HTMLElement {
     this._deferredPrompt = null;
   }
 
-  /** Dismiss: 30 Tage merken, Banner entfernen */
+  /** Dismiss: 7 Tage merken, Interaction-Counter zurücksetzen, Banner entfernen */
   _dismiss() {
     localStorage.setItem(DISMISS_KEY, String(Date.now()));
+    localStorage.removeItem(INTERACTION_KEY);
     this._remove();
   }
 
