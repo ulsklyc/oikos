@@ -305,6 +305,11 @@
     --module-tasks:     #4ADE80;
     --module-calendar:  #A78BFA;
     --module-meals:     #F59E0B;
+    --module-shopping:  #FB923C;
+    --module-notes:     #FCD34D;
+    --module-contacts:  #60A5FA;
+    --module-budget:    #34D399;
+    --module-settings:  #94A3B8;
 
     /* Mahlzeit-Typ — Dark Mode */
     --meal-breakfast: #F59E0B;
@@ -382,6 +387,11 @@
   --module-tasks:     #4ADE80;
   --module-calendar:  #A78BFA;
   --module-meals:     #F59E0B;
+  --module-shopping:  #FB923C;
+  --module-notes:     #FCD34D;
+  --module-contacts:  #60A5FA;
+  --module-budget:    #34D399;
+  --module-settings:  #94A3B8;
 
   /* Mahlzeit-Typ — Dark Mode */
   --meal-breakfast: #F59E0B;
