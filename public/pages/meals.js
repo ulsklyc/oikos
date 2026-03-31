@@ -197,7 +197,7 @@ function renderSlot(date, type, mealsForDay) {
   const canTransfer  = ingCount > 0 && ingDone < ingCount;
 
   return `
-    <div class="meal-slot meal-slot--has-meal" data-meal-id="${meal.id}" data-type="${type.key}">
+    <div class="meal-slot meal-slot--has-meal" data-meal-id="${meal.id}" data-date="${meal.date}" data-type="${type.key}">
       <div class="meal-slot__type-label">${type.label}</div>
       <div class="meal-card"
            data-action="edit-meal"
@@ -282,6 +282,139 @@ function wireGrid(grid) {
       if (card) { e.preventDefault(); card.click(); }
     }
   });
+
+  wireDragDrop(grid);
+}
+
+// --------------------------------------------------------
+// Drag & Drop
+// --------------------------------------------------------
+
+let _suppressNextClick = false;
+
+function wireDragDrop(grid) {
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let dragging = null; // { mealId, sourceDate, sourceType, ghost, startX, startY }
+
+  grid.addEventListener('pointerdown', (e) => {
+    const card = e.target.closest('.meal-card');
+    if (!card) return;
+    if (e.target.closest('[data-action="delete-meal"], [data-action="transfer-meal"]')) return;
+
+    const slot = card.closest('.meal-slot');
+    if (!slot) return;
+
+    const mealId     = parseInt(slot.dataset.mealId, 10);
+    const sourceDate = slot.dataset.date;
+    const sourceType = slot.dataset.type;
+
+    e.preventDefault();
+    card.setPointerCapture(e.pointerId);
+
+    let ghost = null;
+    if (!reducedMotion) {
+      ghost = card.cloneNode(true);
+      ghost.classList.add('meal-card--ghost');
+      ghost.style.width  = card.offsetWidth + 'px';
+      ghost.style.height = card.offsetHeight + 'px';
+      ghost.style.left   = (e.clientX - card.offsetWidth / 2) + 'px';
+      ghost.style.top    = (e.clientY - card.offsetHeight / 2) + 'px';
+      document.body.appendChild(ghost);
+    }
+
+    slot.classList.add('meal-slot--dragging');
+    dragging = { mealId, sourceDate, sourceType, ghost, card, slot };
+
+    let lastTarget = null;
+
+    function onMove(ev) {
+      if (!dragging) return;
+      if (ghost) {
+        ghost.style.left = (ev.clientX - ghost.offsetWidth / 2) + 'px';
+        ghost.style.top  = (ev.clientY - ghost.offsetHeight / 2) + 'px';
+      }
+      if (ghost) ghost.style.display = 'none';
+      const el = document.elementFromPoint(ev.clientX, ev.clientY);
+      if (ghost) ghost.style.display = '';
+
+      const targetSlot = el?.closest('.meal-slot');
+      if (targetSlot !== lastTarget) {
+        lastTarget?.classList.remove('meal-slot--drop-target');
+        if (targetSlot && targetSlot !== dragging.slot) {
+          targetSlot.classList.add('meal-slot--drop-target');
+        }
+        lastTarget = targetSlot;
+      }
+    }
+
+    async function onUp(ev) {
+      if (!dragging) return;
+      cleanup();
+
+      if (ghost) ghost.style.display = 'none';
+      const el = document.elementFromPoint(ev.clientX, ev.clientY);
+      if (ghost) ghost.style.display = '';
+
+      const targetSlot = el?.closest('.meal-slot');
+      if (targetSlot && targetSlot !== dragging.slot) {
+        const targetDate    = targetSlot.dataset.date;
+        const targetType    = targetSlot.dataset.type;
+        const targetMealId  = targetSlot.dataset.mealId ? parseInt(targetSlot.dataset.mealId, 10) : null;
+        _suppressNextClick = true;
+        setTimeout(() => { _suppressNextClick = false; }, 300);
+        await moveMeal(dragging.mealId, dragging.sourceDate, dragging.sourceType, targetDate, targetType, targetMealId);
+      }
+    }
+
+    function onCancel() { cleanup(); }
+
+    function cleanup() {
+      ghost?.remove();
+      dragging?.slot?.classList.remove('meal-slot--dragging');
+      lastTarget?.classList.remove('meal-slot--drop-target');
+      dragging = null;
+      card.removeEventListener('pointermove',   onMove);
+      card.removeEventListener('pointerup',     onUp);
+      card.removeEventListener('pointercancel', onCancel);
+    }
+
+    card.addEventListener('pointermove',   onMove);
+    card.addEventListener('pointerup',     onUp);
+    card.addEventListener('pointercancel', onCancel);
+  });
+
+  // Suppress click after a completed drag
+  grid.addEventListener('click', (e) => {
+    if (_suppressNextClick) {
+      e.stopImmediatePropagation();
+      _suppressNextClick = false;
+    }
+  }, true);
+}
+
+async function moveMeal(mealId, sourceDate, sourceType, targetDate, targetType, targetMealId) {
+  try {
+    if (targetMealId) {
+      // Swap: move both meals to each other's slots
+      await Promise.all([
+        api.put(`/meals/${mealId}`,       { date: targetDate, meal_type: targetType }),
+        api.put(`/meals/${targetMealId}`, { date: sourceDate, meal_type: sourceType }),
+      ]);
+      const m1 = state.meals.find((m) => m.id === mealId);
+      const m2 = state.meals.find((m) => m.id === targetMealId);
+      if (m1) { m1.date = targetDate; m1.meal_type = targetType; }
+      if (m2) { m2.date = sourceDate; m2.meal_type = sourceType; }
+    } else {
+      // Move to empty slot
+      await api.put(`/meals/${mealId}`, { date: targetDate, meal_type: targetType });
+      const m = state.meals.find((m) => m.id === mealId);
+      if (m) { m.date = targetDate; m.meal_type = targetType; }
+    }
+    renderWeekGrid();
+  } catch {
+    // Re-render to restore visual state
+    renderWeekGrid();
+  }
 }
 
 // --------------------------------------------------------

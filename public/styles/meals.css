@@ -416,3 +416,32 @@
 .meal-slot--empty {
   opacity: 0.6;
 }
+
+/* --------------------------------------------------------
+ * Drag & Drop
+ * -------------------------------------------------------- */
+.meal-card--ghost {
+  position: fixed;
+  z-index: var(--z-modal);
+  pointer-events: none;
+  opacity: 0.85;
+  box-shadow: var(--shadow-lg);
+  transform: rotate(2deg) scale(1.03);
+  transition: none;
+}
+
+.meal-slot--dragging {
+  opacity: 0.35;
+}
+
+.meal-slot--drop-target {
+  outline: 2px dashed var(--color-accent);
+  outline-offset: 2px;
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .meal-card--ghost {
+    transform: none;
+  }
+}

@@ -37,7 +37,7 @@ SPEC: „Monatsvergleich (aktuell vs. Vormonat)". Derzeit zeigt die Budget-Seite
 
 ### BL-03 — Essensplan: Drag & Drop zwischen Slots und Tagen
 
-**Status:** Offen
+**Status:** Erledigt (v0.3.0)
 **Aufwand:** M (2–4 Tage)
 
 SPEC: „Drag & Drop zwischen Tagen/Slots". Die Wochenansicht zeigt Mahlzeit-Karten aber unterstützt kein Drag & Drop. Mahlzeiten können nur gelöscht und neu angelegt, nicht verschoben werden.
