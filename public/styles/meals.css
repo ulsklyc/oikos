@@ -34,6 +34,7 @@
   align-items: center;
   justify-content: space-between;
   padding: var(--space-3) var(--space-4);
+  border-top: 3px solid var(--module-accent);
   border-bottom: 1px solid var(--color-border);
   background-color: var(--color-surface);
   flex-shrink: 0;
