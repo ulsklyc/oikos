@@ -168,16 +168,10 @@
 }
 
 /* --------------------------------------------------------
- * Swipe-Wrapper (Mobil-Gesten)
+ * Swipe-Wrapper — Task-spezifische Styles
+ * Basis-Styles (.swipe-row, .swipe-reveal, .swipe-reveal--done)
+ * liegen in layout.css
  * -------------------------------------------------------- */
-.swipe-row {
-  position: relative;
-  overflow: hidden;
-  border-radius: var(--radius-md);
-  margin-bottom: var(--space-2);
-  /* Verhindert ungewolltes Flackern auf iOS */
-  -webkit-backface-visibility: hidden;
-}
 
 /* Kein Margin mehr am Task-Card selbst (übernimmt swipe-row) */
 .swipe-row .task-card {
@@ -186,33 +180,6 @@
   position: relative;
   z-index: 1;
   will-change: transform;
-}
-
-/* Reveal-Panels hinter der Karte */
-.swipe-reveal {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 50%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-1);
-  font-size: var(--text-xs);
-  font-weight: var(--font-weight-semibold);
-  opacity: 0;
-  pointer-events: none;
-  z-index: 0;
-  transition: opacity 0.05s linear;
-}
-
-/* Links hinter der Karte = Erledigt (Swipe nach links) */
-.swipe-reveal--done {
-  right: 0;
-  background-color: var(--color-success);
-  color: #fff;
-  border-radius: 0 var(--radius-md) var(--radius-md) 0;
 }
 
 /* Rechts hinter der Karte = Bearbeiten (Swipe nach rechts) */

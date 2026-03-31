@@ -1344,6 +1344,47 @@
 }
 
 /* --------------------------------------------------------
+ * Swipe-Wrapper — Gemeinsame Basis (Tasks + Shopping)
+ * Modul-spezifische Styles (.swipe-reveal--edit, .swipe-reveal--delete,
+ * .swipe-row .task-card, .swipe-row .shopping-item) liegen in den Modul-CSS.
+ * -------------------------------------------------------- */
+.swipe-row {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-2);
+  /* Verhindert ungewolltes Flackern auf iOS */
+  -webkit-backface-visibility: hidden;
+}
+
+/* Reveal-Panels hinter der Karte */
+.swipe-reveal {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 0;
+  transition: opacity 0.05s linear;
+}
+
+/* Gemeinsam: Erledigt / Abhaken (Swipe nach links) */
+.swipe-reveal--done {
+  right: 0;
+  background-color: var(--color-success);
+  color: #fff;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+
+/* --------------------------------------------------------
  * Print-Styles
  * -------------------------------------------------------- */
 @media print {
