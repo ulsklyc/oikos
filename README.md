@@ -57,6 +57,14 @@ Oikos is designed for **one family on one server** — not a SaaS product, not a
   <tr>
     <td align="center" width="33%">
       <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/mobile-dark/mobile-dark-dashboard.png">
+        <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/mobile-light/mobile-light-dashboard.png">
+        <img src="docs/screenshots/mobile-light/mobile-light-dashboard.png" alt="Dashboard" width="240">
+      </picture>
+      <br><strong>Dashboard</strong>
+    </td>
+    <td align="center" width="33%">
+      <picture>
         <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/mobile-dark/mobile-dark-tasks.png">
         <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/mobile-light/mobile-light-tasks.png">
         <img src="docs/screenshots/mobile-light/mobile-light-tasks.png" alt="Tasks" width="240">
@@ -65,11 +73,29 @@ Oikos is designed for **one family on one server** — not a SaaS product, not a
     </td>
     <td align="center" width="33%">
       <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/mobile-dark/mobile-dark-household.png">
-        <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/mobile-light/mobile-light-household.png">
-        <img src="docs/screenshots/mobile-light/mobile-light-household.png" alt="Shopping" width="240">
+        <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/mobile-dark/mobile-dark-calendar.png">
+        <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/mobile-light/mobile-light-calendar.png">
+        <img src="docs/screenshots/mobile-light/mobile-light-calendar.png" alt="Calendar" width="240">
+      </picture>
+      <br><strong>Calendar</strong>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="33%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/mobile-dark/mobile-dark-shopping.png">
+        <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/mobile-light/mobile-light-shopping.png">
+        <img src="docs/screenshots/mobile-light/mobile-light-shopping.png" alt="Shopping" width="240">
       </picture>
       <br><strong>Shopping</strong>
+    </td>
+    <td align="center" width="33%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/mobile-dark/mobile-dark-meal.png">
+        <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/mobile-light/mobile-light-meal.png">
+        <img src="docs/screenshots/mobile-light/mobile-light-meal.png" alt="Meals" width="240">
+      </picture>
+      <br><strong>Meals</strong>
     </td>
     <td align="center" width="33%">
       <picture>
@@ -99,11 +125,11 @@ Oikos is designed for **one family on one server** — not a SaaS product, not a
     </td>
     <td align="center" width="33%">
       <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/mobile-dark/mobile-dark-dashboard.png">
-        <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/mobile-light/mobile-light-dashboard.png">
-        <img src="docs/screenshots/mobile-light/mobile-light-dashboard.png" alt="Dashboard Mobile" width="240">
+        <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/mobile-dark/mobile-dark-settings.png">
+        <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/mobile-light/mobile-light-settings.png">
+        <img src="docs/screenshots/mobile-light/mobile-light-settings.png" alt="Settings" width="240">
       </picture>
-      <br><strong>Dashboard</strong>
+      <br><strong>Settings</strong>
     </td>
   </tr>
 </table>
@@ -115,17 +141,35 @@ Oikos is designed for **one family on one server** — not a SaaS product, not a
   <tr>
     <td align="center" width="50%">
       <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/tablet-dark/tablet-dark-dashboard.png">
+        <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/tablet-light/tablet-light-dashboard.png">
+        <img src="docs/screenshots/tablet-light/tablet-light-dashboard.png" alt="Dashboard — Tablet" width="480">
+      </picture>
+      <br><strong>Dashboard</strong>
+    </td>
+    <td align="center" width="50%">
+      <picture>
         <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/tablet-dark/tablet-dark-tasks.png">
         <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/tablet-light/tablet-light-tasks.png">
         <img src="docs/screenshots/tablet-light/tablet-light-tasks.png" alt="Tasks — Tablet" width="480">
       </picture>
       <br><strong>Tasks</strong>
     </td>
+  </tr>
+  <tr>
     <td align="center" width="50%">
       <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/tablet-dark/tablet-dark-household.png">
-        <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/tablet-light/tablet-light-household.png">
-        <img src="docs/screenshots/tablet-light/tablet-light-household.png" alt="Shopping — Tablet" width="480">
+        <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/tablet-dark/tablet-dark-calendar.png">
+        <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/tablet-light/tablet-light-calendar.png">
+        <img src="docs/screenshots/tablet-light/tablet-light-calendar.png" alt="Calendar — Tablet" width="480">
+      </picture>
+      <br><strong>Calendar</strong>
+    </td>
+    <td align="center" width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/tablet-dark/tablet-dark-shopping.png">
+        <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/tablet-light/tablet-light-shopping.png">
+        <img src="docs/screenshots/tablet-light/tablet-light-shopping.png" alt="Shopping — Tablet" width="480">
       </picture>
       <br><strong>Shopping</strong>
     </td>
@@ -133,11 +177,11 @@ Oikos is designed for **one family on one server** — not a SaaS product, not a
   <tr>
     <td align="center" width="50%">
       <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/tablet-dark/tablet-dark-notes.png">
-        <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/tablet-light/tablet-light-notes.png">
-        <img src="docs/screenshots/tablet-light/tablet-light-notes.png" alt="Notes — Tablet" width="480">
+        <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/tablet-dark/tablet-dark-meal.png">
+        <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/tablet-light/tablet-light-meal.png">
+        <img src="docs/screenshots/tablet-light/tablet-light-meal.png" alt="Meals — Tablet" width="480">
       </picture>
-      <br><strong>Notes</strong>
+      <br><strong>Meals</strong>
     </td>
     <td align="center" width="50%">
       <picture>
@@ -151,13 +195,20 @@ Oikos is designed for **one family on one server** — not a SaaS product, not a
   <tr>
     <td align="center" width="50%">
       <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/tablet-dark/tablet-dark-notes.png">
+        <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/tablet-light/tablet-light-notes.png">
+        <img src="docs/screenshots/tablet-light/tablet-light-notes.png" alt="Notes — Tablet" width="480">
+      </picture>
+      <br><strong>Notes</strong>
+    </td>
+    <td align="center" width="50%">
+      <picture>
         <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/tablet-dark/tablet-dark-contacts.png">
         <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/tablet-light/tablet-light-contacts.png">
         <img src="docs/screenshots/tablet-light/tablet-light-contacts.png" alt="Contacts — Tablet" width="480">
       </picture>
       <br><strong>Contacts</strong>
     </td>
-    <td></td>
   </tr>
 </table>
 </details>
