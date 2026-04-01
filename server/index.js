@@ -106,7 +106,11 @@ app.use(express.static(path.join(__dirname, '..', 'public'), {
   lastModified: true,
   setHeaders(res, filePath) {
     const ext = path.extname(filePath).toLowerCase();
-    if (['.png', '.jpg', '.jpeg', '.ico', '.svg', '.webp', '.woff2', '.woff'].includes(ext)) {
+    const isPwaIcon = /\/icons\/(icon-|apple-touch-icon|favicon)/.test(filePath);
+    if (isPwaIcon) {
+      // PWA-Icons müssen bei Deployments sofort aktualisiert werden
+      res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+    } else if (['.png', '.jpg', '.jpeg', '.ico', '.svg', '.webp', '.woff2', '.woff'].includes(ext)) {
       res.setHeader('Cache-Control', 'public, max-age=2592000, immutable'); // 30 Tage
     } else {
       // HTML, JS, CSS, JSON, manifest, sw — immer revalidieren
