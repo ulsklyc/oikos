@@ -12,7 +12,6 @@ node_modules
 # Documentation & screenshots (not needed at runtime)
 docs/screenshots/
 docs/superpowers/
-docs/social-preview.html
 docs/social-preview.png
 docs/logo.svg
 
