@@ -1,0 +1,82 @@
+# Oikos — Claude Code Guide
+
+Self-hosted family planner PWA. Node.js/Express, Vanilla JS (ES modules, no build step), SQLite/SQLCipher, Docker.
+
+## Quick Reference
+
+```bash
+npm start              # Production server (PORT from .env, default 3000)
+npm run dev            # Development with --watch
+npm test               # All test suites (requires Node ≥22)
+docker compose up -d   # Production deployment
+```
+
+## Hard Constraints
+
+These are non-negotiable. Every violation is a bug.
+
+- **No frameworks, no build tools.** Never add frontend frameworks (React, Vue, Svelte), bundlers (Webpack, Vite), transpilers (TypeScript, Babel), or CSS libraries (Tailwind, Bootstrap). This is a permanent architectural decision.
+- **No external frontend dependencies.** The only exception is Lucide Icons (`public/lucide.min.js`, self-hosted). No CDN links at runtime.
+- **ES modules everywhere.** `import`/`export` in all JS files. Never `require()`.
+- **No `eval()`, no `innerHTML` with user data.** Use `textContent` or DOM API.
+- **All UI text via i18n.** Call `t('key')` for every user-facing string. Never hardcode text in components. German (`de`) is the reference locale.
+- **Migrations are append-only.** Add new entries to the `migrations` array in `server/db.js`. Never modify or reorder existing entries.
+- **No unhandled promise rejections.** Every route handler wrapped in `try/catch`.
+- **Design tokens from CSS only.** Never hardcode colors, radii, shadows, or font sizes — use variables from `public/styles/tokens.css`.
+
+## Project Structure
+
+```
+server/
+  index.js             # Express entry, middleware, static serving
+  db.js                # SQLite connection + migrations (append-only array)
+  auth.js              # Session auth + user management routes
+  middleware/           # csrf.js, validate.js
+  routes/              # One file per module (tasks, shopping, meals, calendar, notes, contacts, budget, dashboard, weather)
+  services/            # google-calendar.js, apple-calendar.js, recurrence.js
+public/
+  index.html           # SPA shell (single entry point)
+  router.js            # History API router (no library)
+  api.js               # Fetch wrapper (auth, CSRF, error handling)
+  i18n.js              # i18n system — t(), formatDate(), formatTime(), SUPPORTED_LOCALES
+  locales/             # de.json (reference), en.json
+  utils/ux.js          # Shared UI utilities (used by most pages)
+  styles/              # tokens.css (design tokens), reset.css, layout.css, [module].css
+  components/          # Web Components: modal.js, oikos-install-prompt.js, oikos-locale-picker.js
+  pages/               # Page modules — each exports render() (dashboard, tasks, shopping, meals, calendar, notes, contacts, budget, settings, login)
+  offline.html         # Offline fallback (served by service worker)
+  sw.js, sw-register.js, manifest.json
+test-[module].js       # Test files (project root, one per module)
+```
+
+**Pages are ES modules** that export a `render()` function. No side effects on import. Web Components use the `oikos-` prefix, one component per file.
+
+## Conventions
+
+- Semicolons: yes
+- Header comment in every file: purpose, module, dependencies
+- API responses: `{ data: ... }` on success, `{ error: string, code: number }` on failure
+- DB schema: every table has `id INTEGER PRIMARY KEY`, `created_at TEXT`, `updated_at TEXT`
+- Dates/times: use `formatDate()`/`formatTime()` from `i18n.js` — never manual formatting
+- Tests: Node.js built-in test runner with `--experimental-sqlite`. Add new tests as `test-[module].js` in root + add `test:[module]` script to `package.json`
+- Commits: [Conventional Commits](https://www.conventionalcommits.org/) — see `CONTRIBUTING.md` for format
+- Changelog: update `CHANGELOG.md` `[Unreleased]` for every user-facing change. Keep a Changelog categories. English, imperative, user-oriented.
+
+## Reference Documents
+
+| What | Where | When to consult |
+|------|-------|-----------------|
+| Data model, UI specs, design system | `docs/SPEC.md` | Before modifying any module |
+| Design tokens (colors, spacing, radii) | `public/styles/tokens.css` | When styling anything |
+| Contribution workflow, code conventions | `CONTRIBUTING.md` | For detailed style rules and PR process |
+| DB schema (source of truth) | `server/db.js` | Before any DB change |
+| i18n keys | `public/locales/de.json` | When adding/changing UI text |
+| Available locale functions | `public/i18n.js` | When formatting dates, times, or translating |
+
+## Request Flow
+
+Client → Express static (`public/`) or `/api/v1/*` → auth middleware (session check) → route handler → better-sqlite3 (sync) → JSON response.
+
+## Current State
+
+All core modules are implemented and stable: Dashboard, Tasks, Shopping, Meals, Calendar, Notes, Contacts, Budget, Settings, Login. PWA shell (service worker, manifest, icons) is in place. Security hardening (CSRF, rate limiting, CSP, input validation) is active.
