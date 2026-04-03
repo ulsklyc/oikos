@@ -17,8 +17,10 @@ const DAY_MAP = { MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6, SU: 0 };
  */
 function parseRRule(rule) {
   if (!rule) return null;
+  // Strip "RRULE:" prefix if present (ICS stores rules as "RRULE:FREQ=...")
+  const raw = rule.startsWith('RRULE:') ? rule.slice(6) : rule;
   const parts = {};
-  for (const segment of rule.split(';')) {
+  for (const segment of raw.split(';')) {
     const eq = segment.indexOf('=');
     if (eq === -1) continue;
     parts[segment.slice(0, eq).toUpperCase()] = segment.slice(eq + 1);
@@ -31,7 +33,7 @@ function parseRRule(rule) {
     .filter((d) => d !== undefined);
   const until    = parts.UNTIL ? parseUntilDate(parts.UNTIL) : null;
 
-  if (!['DAILY', 'WEEKLY', 'MONTHLY'].includes(freq)) return null;
+  if (!['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'].includes(freq)) return null;
 
   return { freq, interval, byday, until };
 }
@@ -87,6 +89,15 @@ function nextOccurrence(baseDateStr, rrule) {
     next.setUTCMonth(next.getUTCMonth() + interval);
     // Monatsüberlauf korrigieren (z.B. 31. März + 1 Monat → 30. April)
     const lastDay = new Date(Date.UTC(next.getUTCFullYear(), next.getUTCMonth() + 1, 0)).getUTCDate();
+    next.setUTCDate(Math.min(targetDay, lastDay));
+
+  } else if (freq === 'YEARLY') {
+    const targetMonth = base.getUTCMonth();
+    const targetDay   = base.getUTCDate();
+    next.setUTCFullYear(next.getUTCFullYear() + interval);
+    // Feb 29 in non-leap year → Feb 28
+    next.setUTCMonth(targetMonth);
+    const lastDay = new Date(Date.UTC(next.getUTCFullYear(), targetMonth + 1, 0)).getUTCDate();
     next.setUTCDate(Math.min(targetDay, lastDay));
   }
 

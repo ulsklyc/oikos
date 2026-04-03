@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.7] - 2026-04-03
+
+### Fixed
+- Fix recurring calendar events not expanding - RRULE parser now strips the `RRULE:` prefix used by ICS/CalDAV, which previously caused all recurrence rules to be silently ignored
+- Fix recurring multi-day events not appearing when their start date falls before the view window but the event spans into it
+- Fix all-day recurring event instances getting datetime end values instead of date-only format
+- Add YEARLY recurrence frequency support for birthday and anniversary events
+
 ## [0.5.6] - 2026-04-03
 
 ### Fixed

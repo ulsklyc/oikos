@@ -43,6 +43,9 @@ function expandRecurringEvents(events, from, to) {
     const startMs    = new Date(event.start_datetime).getTime();
     const endMs      = event.end_datetime ? new Date(event.end_datetime).getTime() : null;
     const durationMs = endMs !== null ? endMs - startMs : null;
+    // Duration in days for all-day events (for date-only end calculation)
+    const isAllDay     = !!event.all_day;
+    const durationDays = isAllDay && durationMs !== null ? Math.round(durationMs / 86400000) : 0;
 
     // Original-Zeit-Teil erhalten (z.B. 'T14:30:00' oder '' bei All-Day)
     const timeSuffix = event.start_datetime.slice(10);
@@ -54,13 +57,28 @@ function expandRecurringEvents(events, from, to) {
     while (currentDate <= to && iterations < MAX_ITER) {
       iterations++;
 
-      if (currentDate >= from) {
+      // For multi-day events, check if the instance end reaches into [from, to]
+      let instanceEnd = currentDate;
+      if (isAllDay && durationDays > 0) {
+        const d = new Date(currentDate + 'T00:00:00');
+        d.setDate(d.getDate() + durationDays);
+        instanceEnd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      }
+
+      if (currentDate >= from || instanceEnd >= from) {
         const newStart = currentDate + timeSuffix;
         let newEnd = event.end_datetime;
         if (durationMs !== null) {
-          newEnd = new Date(new Date(newStart).getTime() + durationMs)
-            .toISOString()
-            .replace('.000Z', 'Z');
+          if (isAllDay) {
+            // Keep date-only format for all-day events
+            const d = new Date(currentDate + 'T00:00:00');
+            d.setDate(d.getDate() + durationDays);
+            newEnd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          } else {
+            newEnd = new Date(new Date(newStart).getTime() + durationMs)
+              .toISOString()
+              .replace('.000Z', 'Z');
+          }
         }
 
         result.push({
