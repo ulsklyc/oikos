@@ -72,7 +72,7 @@ docker compose up -d --build
 docker compose exec oikos node setup.js
 ```
 
-Then open `http://localhost:3000` and log in. Add family members from Settings.
+Then open `http://localhost:3000` and log in with the admin credentials you set in the previous step. Add family members from Settings.
 
 > **New to Docker?** The **[Installation Guide](docs/installation.md)** walks you through every step: From installing Docker to HTTPS setup, backups, and troubleshooting.
 

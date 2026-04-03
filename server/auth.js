@@ -93,10 +93,10 @@ const sessionStore = new BetterSQLiteStore();
  */
 if (!process.env.SESSION_SECRET) {
   if (process.env.NODE_ENV === 'production') {
-    throw new Error('[Auth] SESSION_SECRET muss in der .env gesetzt sein (Produktion).');
+    throw new Error('[Auth] SESSION_SECRET must be set in .env (production).');
   }
   process.env.SESSION_SECRET = randomBytes(32).toString('hex');
-  log.warn('SESSION_SECRET nicht gesetzt - zufaelliges Einmal-Secret generiert (Sessions ueberleben keinen Neustart).');
+  log.warn('SESSION_SECRET not set - generated ephemeral random secret (sessions will not survive restarts).');
 }
 
 const sessionMiddleware = session({
