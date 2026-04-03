@@ -6,7 +6,6 @@
 
 'use strict';
 
-require('dotenv').config();
 const express = require('express');
 const bcrypt = require('bcrypt');
 const session = require('express-session');
@@ -164,6 +163,10 @@ router.post('/login', loginLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Benutzername und Passwort erforderlich.', code: 400 });
     }
 
+    if (username.length > 64 || password.length > 1024) {
+      return res.status(400).json({ error: 'Eingabe zu lang.', code: 400 });
+    }
+
     const user = db.get().prepare('SELECT * FROM users WHERE username = ?').get(username);
 
     if (!user) {
@@ -279,6 +282,18 @@ router.post('/users', requireAuth, requireAdmin, csrfMiddleware, async (req, res
       return res.status(400).json({ error: 'Benutzername, Anzeigename und Passwort erforderlich.', code: 400 });
     }
 
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Passwort muss mindestens 8 Zeichen haben.', code: 400 });
+    }
+
+    if (username.length > 64) {
+      return res.status(400).json({ error: 'Benutzername darf maximal 64 Zeichen lang sein.', code: 400 });
+    }
+
+    if (display_name.length > 128) {
+      return res.status(400).json({ error: 'Anzeigename darf maximal 128 Zeichen lang sein.', code: 400 });
+    }
+
     if (!['admin', 'member'].includes(role)) {
       return res.status(400).json({ error: 'Ungültige Rolle.', code: 400 });
     }
@@ -329,6 +344,19 @@ router.patch('/me/password', requireAuth, csrfMiddleware, async (req, res) => {
 
     const hash = await bcrypt.hash(new_password, 12);
     db.get().prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, req.session.userId);
+
+    // Alle anderen Sessions dieses Users invalidieren (aktuelle behalten)
+    const currentSid = req.sessionID;
+    const allSessions = db.get().prepare('SELECT sid, sess FROM sessions').all();
+    for (const row of allSessions) {
+      if (row.sid === currentSid) continue;
+      try {
+        const sess = JSON.parse(row.sess);
+        if (sess.userId === req.session.userId) {
+          db.get().prepare('DELETE FROM sessions WHERE sid = ?').run(row.sid);
+        }
+      } catch { /* ignore malformed session */ }
+    }
 
     res.json({ ok: true });
   } catch (err) {

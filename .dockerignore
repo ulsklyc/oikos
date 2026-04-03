@@ -9,11 +9,8 @@ node_modules
 .gitignore
 .dockerignore
 
-# Documentation & screenshots (not needed at runtime)
-docs/screenshots/
-docs/superpowers/
-docs/social-preview.png
-docs/logo.svg
+# Documentation (not needed at runtime)
+docs/
 
 # Tests
 test-*.js

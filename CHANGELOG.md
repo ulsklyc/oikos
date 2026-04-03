@@ -7,8 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-04-03
+
 ### Security
+- Fix SQLCipher PRAGMA key interpolation — encryption keys containing single quotes no longer crash on startup; key is now hex-encoded
+- Enforce minimum password length (8 characters) when admin creates new users — previously any 1-character password was accepted
+- Add length bounds on username (64 chars) and display_name (128 chars) to prevent unbounded input
+- Add input length bounds on login (username 64 chars, password 1024 chars)
+- Invalidate all other sessions when a user changes their password — previously active sessions survived password reset
 - Session and CSRF cookies now have `secure: true` by default; HTTP is only allowed when `SESSION_SECURE=false` is explicitly set in `.env` — previously cookies were sent without `Secure` flag in non-production environments
+- Document authorization model in SECURITY.md — clarify that all family members share read/write access to all data by design
+
+### Changed
+- Use multi-stage Docker build to exclude build tools (python3, make, g++) from runtime image
+- Exclude `docs/` directory from Docker image via `.dockerignore`
+- Consolidate `dotenv.config()` to single call in `server/index.js` — remove duplicate calls from `server/db.js` and `server/auth.js`
 
 ## [0.5.2] - 2026-04-01
 

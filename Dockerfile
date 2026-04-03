@@ -1,4 +1,4 @@
-FROM node:22-slim
+FROM node:22-slim AS build
 
 # SQLCipher-Abhängigkeiten
 RUN apt-get update && apt-get install -y \
@@ -6,7 +6,6 @@ RUN apt-get update && apt-get install -y \
     make \
     g++ \
     libsqlcipher-dev \
-    gosu \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -15,7 +14,20 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev
 
-# Anwendungscode
+# ---- Runtime stage ----
+FROM node:22-slim
+
+RUN apt-get update && apt-get install -y \
+    libsqlcipher0 \
+    gosu \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Node modules aus Build-Stage kopieren
+COPY --from=build /app/node_modules ./node_modules
+
+# Anwendungscode (docs/ wird via .dockerignore ausgeschlossen)
 COPY . .
 
 # Daten-Volume-Verzeichnis anlegen (Permissions werden zur Laufzeit gesetzt)

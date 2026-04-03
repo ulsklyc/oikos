@@ -36,6 +36,15 @@ Vulnerabilities that require physical access to the host or root on the server a
 - Optional SQLCipher AES-256 database encryption
 - No API endpoint accessible without session auth (except login)
 
+## Authorization Model
+
+Oikos uses a flat family authorization model:
+
+- **Admin** can create, edit, and delete all user accounts and all shared data.
+- **Member** can read and write all shared data (tasks, shopping lists, meals, calendar events, notes, contacts, budget entries) but cannot manage user accounts.
+
+There is no per-user data isolation — all family members see and can edit all data. This is intentional: Oikos is a shared family planner, not a multi-tenant application.
+
 ## Supported Versions
 
 Only the latest version on `main` receives security updates. There are no LTS branches.

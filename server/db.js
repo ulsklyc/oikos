@@ -1,7 +1,7 @@
 /**
  * Modul: Datenbank (Database)
  * Zweck: SQLite/SQLCipher Verbindung, Schema-Migration (versioniert) und Query-Helfer
- * Abhängigkeiten: better-sqlite3, dotenv
+ * Abhängigkeiten: better-sqlite3
  *
  * SQLCipher-Hinweis:
  *   Verschlüsselung funktioniert nur wenn better-sqlite3 gegen SQLCipher kompiliert wurde.
@@ -11,7 +11,6 @@
 
 'use strict';
 
-require('dotenv').config();
 const Database = require('better-sqlite3');
 const path = require('path');
 
@@ -34,7 +33,7 @@ function init() {
 
   if (DB_KEY) {
     // Nur wirksam wenn Binary gegen SQLCipher kompiliert ist (Docker)
-    db.pragma(`key='${DB_KEY}'`);
+    db.pragma(`key=x'${Buffer.from(DB_KEY, 'utf8').toString('hex')}'`);
     // Sicherstellen dass die Datenbank tatsächlich entschlüsselbar ist
     try {
       db.prepare('SELECT count(*) FROM sqlite_master').get();
