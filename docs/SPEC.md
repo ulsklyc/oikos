@@ -23,7 +23,7 @@ Every table: `id INTEGER PRIMARY KEY`, `created_at TEXT`, `updated_at TEXT` (ISO
 | title | TEXT | NOT NULL |
 | description | TEXT | |
 | category | TEXT | Household, School, Shopping, Repairs, Other |
-| priority | TEXT | low, medium, high, urgent |
+| priority | TEXT | none (default), low, medium, high, urgent |
 | status | TEXT | open, in_progress, done |
 | due_date | TEXT | DATE, nullable |
 | due_time | TEXT | TIME, nullable |
@@ -153,6 +153,7 @@ Skeleton loading instead of spinners. Clicking any widget navigates to that modu
 **Views:**
 - List view (default): grouped by category or due date (toggleable), filter: person, priority, status
 - Kanban: columns Open → In Progress → Done, drag & drop
+- View mode persisted in localStorage; URL parameter `?view=kanban` overrides (useful for tablet kiosk setups)
 
 **Features:**
 - CRUD + subtasks (max 2 levels, checkbox list, progress bar)
@@ -265,6 +266,7 @@ User management and app configuration. Logged-in users only.
   --color-warning: #FF9500;
   --color-danger: #FF3B30;
   --color-info: #5AC8FA;
+  --color-priority-none: var(--neutral-400);
   --color-priority-low: #8E8E93;
   --color-priority-medium: #FF9500;
   --color-priority-high: #FF6B35;
