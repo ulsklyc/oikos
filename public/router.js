@@ -70,9 +70,11 @@ function updateThemeColorForRoute(route) {
 let activePageStyle = null;
 
 function loadPageStyle(moduleName) {
-  if (!moduleName) return Promise.resolve();
+  if (!moduleName) return { ready: Promise.resolve(), cleanup: () => {} };
   const href = `/styles/${moduleName}.css`;
-  if (activePageStyle?.getAttribute('href') === href) return Promise.resolve();
+  if (activePageStyle?.getAttribute('href') === href) {
+    return { ready: Promise.resolve(), cleanup: () => {} };
+  }
 
   const link = document.createElement('link');
   link.rel = 'stylesheet';
@@ -80,20 +82,18 @@ function loadPageStyle(moduleName) {
 
   const oldLink = activePageStyle;
 
-  const loaded = new Promise((resolve) => {
-    link.onload = () => {
-      if (oldLink) oldLink.remove();
-      resolve();
-    };
-    link.onerror = () => {
-      if (oldLink) oldLink.remove();
-      resolve();
-    };
+  const ready = new Promise((resolve) => {
+    link.onload = resolve;
+    link.onerror = resolve;
   });
 
   document.head.appendChild(link);
   activePageStyle = link;
-  return loaded;
+
+  return {
+    ready,
+    cleanup: () => { if (oldLink) oldLink.remove(); },
+  };
 }
 
 // --------------------------------------------------------
@@ -202,9 +202,10 @@ async function renderPage(route, previousPath = null) {
   if (loading) loading.hidden = true;
 
   try {
+    const style = loadPageStyle(route.module);
     const [module] = await Promise.all([
       importPage(route.page),
-      loadPageStyle(route.module),
+      style.ready,
     ]);
 
     if (typeof module.render !== 'function') {
@@ -232,12 +233,12 @@ async function renderPage(route, previousPath = null) {
       await new Promise(r => setTimeout(r, 120));
     }
 
-    // Seiten-Wrapper unsichtbar in den DOM einfügen, damit
-    // document.getElementById() in render() die richtigen Elemente findet.
+    // Alter Inhalt ist jetzt weg - altes Stylesheet kann entfernt werden
     const pageWrapper = document.createElement('div');
     pageWrapper.className = 'page-transition';
     pageWrapper.style.opacity = '0';
     content.replaceChildren(pageWrapper);
+    style.cleanup();
 
     await module.render(pageWrapper, { user: currentUser });
 
