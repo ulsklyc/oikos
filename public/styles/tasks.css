@@ -254,12 +254,6 @@
   animation: check-pop 0.2s var(--ease-out);
 }
 
-@keyframes check-pop {
-  0%   { transform: scale(1); }
-  50%  { transform: scale(1.2); }
-  100% { transform: scale(1); }
-}
-
 .task-status-btn--in_progress {
   border-color: var(--color-warning);
 }
@@ -425,6 +419,7 @@
 .subtask-item__checkbox--done {
   background-color: var(--color-success);
   border-color: var(--color-success);
+  animation: check-pop 0.15s var(--ease-out);
 }
 
 .subtask-item__title {

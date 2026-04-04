@@ -216,6 +216,11 @@
  * Mobile: über der Bottom-Nav. Desktop: unten rechts im Content.
  * Toolbar-"Neu"-Buttons werden überall versteckt.
  * -------------------------------------------------------- */
+@keyframes fab-in {
+  from { transform: scale(0.6) translateY(8px); opacity: 0; }
+  to   { transform: scale(1)   translateY(0);   opacity: 1; }
+}
+
 .page-fab {
   position: fixed;
   bottom: calc(var(--nav-bottom-height) + 24px + var(--safe-area-inset-bottom));
@@ -234,6 +239,7 @@
   z-index: calc(var(--z-nav) - 1);
   transition: transform var(--transition-base), background-color var(--transition-fast);
   -webkit-tap-highlight-color: transparent;
+  animation: fab-in 0.35s var(--ease-out) backwards;
 }
 
 .page-fab:hover {
@@ -882,6 +888,7 @@
     transform var(--transition-fast),
     background-color var(--transition-fast),
     box-shadow var(--transition-fast);
+  animation: fab-in 0.35s var(--ease-out) backwards;
 }
 
 .fab:hover {
@@ -1043,6 +1050,10 @@
 }
 
 .toggle input:checked + .toggle__track::after {
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.toggle input:checked + .toggle__track::after {
   transform: translateX(18px);
 }
 
@@ -1061,6 +1072,15 @@
   .toggle__track::after {
     transition: none;
   }
+
+  .fab,
+  .page-fab { animation: none; }
+
+  .list-stagger > * { animation: none; }
+
+  .swipe-row--hint > :first-child { animation: none; }
+
+  .btn--loading::after { animation: none; }
 }
 
 /* --------------------------------------------------------
@@ -1446,6 +1466,16 @@
 }
 
 /* ── Submit-Feedback Animationen ── */
+
+/* Checkbox-Pop: kanonische Definition - shopping.css + tasks.css verwenden diese */
+@keyframes check-pop {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(0.8); }
+  60%  { transform: scale(1.3); }
+  80%  { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+
 @keyframes btn-shake {
   0%, 100% { transform: translateX(0); }
   20%       { transform: translateX(-4px); }
@@ -1462,6 +1492,39 @@
   background-color: var(--color-success) !important;
   color: #fff !important;
   pointer-events: none;
+}
+
+/* Button loading state: hides text, shows spinner */
+@keyframes btn-spin {
+  to { transform: rotate(360deg); }
+}
+
+.btn--loading {
+  position: relative;
+  color: transparent !important;
+  pointer-events: none;
+}
+
+.btn--loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  margin-top: -7px;
+  margin-left: -7px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: var(--radius-full);
+  animation: btn-spin 0.55s linear infinite;
+}
+
+/* For non-primary buttons (secondary, ghost) */
+.btn--secondary.btn--loading::after,
+.btn--ghost.btn--loading::after {
+  border-color: var(--color-border);
+  border-top-color: var(--color-accent);
 }
 
 /* --------------------------------------------------------
@@ -1495,6 +1558,45 @@
   pointer-events: none;
   z-index: 0;
   transition: opacity 0.05s linear;
+}
+
+/* --------------------------------------------------------
+ * List Stagger
+ * Füge .list-stagger zum Container hinzu.
+ * Items erscheinen sequenziell beim ersten Rendern.
+ * -------------------------------------------------------- */
+@keyframes list-item-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.list-stagger > * {
+  animation: list-item-in 0.2s var(--ease-out) both;
+}
+
+.list-stagger > *:nth-child(1) { animation-delay: 0ms; }
+.list-stagger > *:nth-child(2) { animation-delay: 35ms; }
+.list-stagger > *:nth-child(3) { animation-delay: 70ms; }
+.list-stagger > *:nth-child(4) { animation-delay: 105ms; }
+.list-stagger > *:nth-child(5) { animation-delay: 140ms; }
+.list-stagger > *:nth-child(n+6) { animation-delay: 175ms; }
+
+/* --------------------------------------------------------
+ * Swipe Affordance Hint
+ * Einmalig per JS: .swipe-row--hint auf das erste Element.
+ * Gibt nach Seitenladezeit einen kurzen Nudge-Hinweis.
+ * -------------------------------------------------------- */
+@keyframes swipe-nudge {
+  0%   { transform: translateX(0); }
+  20%  { transform: translateX(-18px); }
+  45%  { transform: translateX(0); }
+  60%  { transform: translateX(-9px); }
+  80%  { transform: translateX(0); }
+  100% { transform: translateX(0); }
+}
+
+.swipe-row--hint > :first-child {
+  animation: swipe-nudge 0.8s var(--ease-out) 1.2s both;
 }
 
 /* Gemeinsam: Erledigt / Abhaken (Swipe nach links) */

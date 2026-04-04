@@ -175,6 +175,7 @@ function renderListContent(container) {
   stagger(content.querySelectorAll('.shopping-item'));
   wireAutocomplete(container);
   wireQuickAdd(container);
+  maybeShowSwipeHint(container);
 }
 
 function renderItems() {
@@ -307,6 +308,35 @@ function wireAutocomplete(container) {
 // Quick-Add Form
 // --------------------------------------------------------
 
+/**
+ * Zeigt kurzes Checkmark-Feedback auf dem +-Button (700ms).
+ * Verwendet DOM-API statt innerHTML um XSS-Risiken zu vermeiden.
+ * @param {HTMLButtonElement|null} btn
+ */
+function _flashAddBtn(btn) {
+  if (!btn) return;
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('width', '16');
+  svg.setAttribute('height', '16');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('stroke-width', '2.5');
+  svg.setAttribute('aria-hidden', 'true');
+  const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+  poly.setAttribute('points', '20 6 9 17 4 12');
+  svg.appendChild(poly);
+
+  const saved = [...btn.childNodes];
+  btn.classList.add('btn--success');
+  btn.replaceChildren(svg);
+  setTimeout(() => {
+    btn.classList.remove('btn--success');
+    btn.replaceChildren(...saved);
+    if (window.lucide) window.lucide.createIcons();
+  }, 700);
+}
+
 function wireQuickAdd(container) {
   const form = container.querySelector('#quick-add-form');
   if (!form) return;
@@ -332,11 +362,37 @@ function wireQuickAdd(container) {
       renderTabs(container);
       nameInput.value = '';
       qtyInput.value  = '';
+      // Erfolgs-Feedback auf dem +-Button (DOM-API, kein innerHTML)
+      _flashAddBtn(form.querySelector('.quick-add__btn'));
       nameInput.focus();
     } catch (err) {
       window.oikos.showToast(err.message, 'danger');
     }
   });
+}
+
+// --------------------------------------------------------
+// Swipe-Affordance Hint (Long Loop)
+// Zeigt den Nudge-Hinweis maximal 3x (gespeichert in localStorage).
+// --------------------------------------------------------
+
+const SWIPE_HINT_KEY  = 'oikos:swipeHintSeen';
+const SWIPE_HINT_MAX  = 3;
+
+function maybeShowSwipeHint(container) {
+  if (window.innerWidth >= 1024) return; // Desktop: Swipe nicht relevant
+  const count = parseInt(localStorage.getItem(SWIPE_HINT_KEY) ?? '0', 10);
+  if (count >= SWIPE_HINT_MAX) return;
+
+  const firstRow = container.querySelector('.swipe-row');
+  if (!firstRow) return;
+
+  firstRow.classList.add('swipe-row--hint');
+  firstRow.addEventListener('animationend', () => {
+    firstRow.classList.remove('swipe-row--hint');
+  }, { once: true });
+
+  localStorage.setItem(SWIPE_HINT_KEY, String(count + 1));
 }
 
 // --------------------------------------------------------
@@ -487,6 +543,7 @@ function updateItemsList(container) {
     if (window.lucide) window.lucide.createIcons();
     stagger(listEl.querySelectorAll('.shopping-item'));
     wireSwipeGestures(container);
+    maybeShowSwipeHint(container);
   }
   // clear-checked Button aktualisieren
   const checkedCount = state.items.filter((i) => i.is_checked).length;
