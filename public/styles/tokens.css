@@ -114,12 +114,14 @@
   /* --------------------------------------------------------
    * 6. Farben - Prioritäten
    * -------------------------------------------------------- */
+  --color-priority-none:   var(--neutral-400);
   --color-priority-low:    var(--neutral-500);
   --color-priority-medium: #B45309;
   --color-priority-high:   #D4511E;
   --color-priority-urgent: #DC2626;
 
   /* Hintergrundfarben für Priority-Badges */
+  --color-priority-none-bg:   rgba(142, 141, 137, 0.08);
   --color-priority-low-bg:    rgba(142, 141, 137, 0.12);
   --color-priority-medium-bg: rgba(180, 83, 9, 0.12);
   --color-priority-high-bg:   rgba(212, 81, 30, 0.12);
@@ -328,6 +330,7 @@
     --meal-snack-light:     #3D2010;
 
     /* Priority-Badge Hintergründe */
+    --color-priority-none-bg:   rgba(142, 141, 137, 0.12);
     --color-priority-low-bg:    rgba(142, 141, 137, 0.18);
     --color-priority-medium-bg: rgba(230, 147, 10, 0.18);
     --color-priority-high-bg:   rgba(212, 81, 30, 0.18);
@@ -408,6 +411,7 @@
   --meal-dinner-light:    #1A2D4D;
   --meal-snack-light:     #3D2010;
 
+  --color-priority-none-bg:   rgba(142, 141, 137, 0.12);
   --color-priority-low-bg:    rgba(142, 141, 137, 0.18);
   --color-priority-medium-bg: rgba(230, 147, 10, 0.18);
   --color-priority-high-bg:   rgba(212, 81, 30, 0.18);

@@ -20,6 +20,7 @@ const PRIORITIES = () => [
   { value: 'high',   label: t('tasks.priorityHigh'),   color: 'var(--color-priority-high)'   },
   { value: 'medium', label: t('tasks.priorityMedium'), color: 'var(--color-priority-medium)' },
   { value: 'low',    label: t('tasks.priorityLow'),    color: 'var(--color-priority-low)'    },
+  { value: 'none',   label: t('tasks.priorityNone'),   color: 'var(--color-priority-none)'   },
 ];
 
 const STATUSES = () => [
@@ -110,6 +111,7 @@ function groupBy(tasks, mode) {
 // --------------------------------------------------------
 
 function renderPriorityBadge(priority) {
+  if (priority === 'none') return '';
   return `<span class="priority-badge priority-badge--${priority}">
     <span class="priority-dot priority-dot--${priority}"></span>
     ${PRIORITY_LABELS()[priority] ?? priority}
@@ -254,7 +256,7 @@ function renderModalContent({ task = null, users = [] } = {}) {
   ).join('');
 
   const priorityOptions = PRIORITIES().map((p) =>
-    `<option value="${p.value}" ${(task?.priority ?? 'medium') === p.value ? 'selected' : ''}>${p.label}</option>`
+    `<option value="${p.value}" ${(task?.priority ?? 'none') === p.value ? 'selected' : ''}>${p.label}</option>`
   ).join('');
 
   return `

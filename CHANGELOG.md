@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-04-04
+
+### Added
+- Optional task priority: new "None" level allows tasks without urgency, reducing visual noise for routine tasks (#15)
+- "None" is now the default priority for new tasks
+- Tasks with no priority hide the priority badge entirely in list and dashboard views
+- DB migration v4 extends priority CHECK constraint to include 'none'
+- i18n keys for "None" priority in de, en, it locales
+
 ## [0.8.2] - 2026-04-04
 
 ### Fixed

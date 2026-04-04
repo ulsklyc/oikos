@@ -100,6 +100,7 @@
     "priorityHigh": "Hoch",
     "priorityMedium": "Mittel",
     "priorityLow": "Niedrig",
+    "priorityNone": "Keine",
     "statusOpen": "Offen",
     "statusInProgress": "In Bearbeitung",
     "statusDone": "Erledigt",

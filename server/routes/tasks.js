@@ -18,7 +18,7 @@ const router = express.Router();
 // Konstanten
 // --------------------------------------------------------
 
-const VALID_PRIORITIES = ['low', 'medium', 'high', 'urgent'];
+const VALID_PRIORITIES = ['none', 'low', 'medium', 'high', 'urgent'];
 const VALID_STATUSES   = ['open', 'in_progress', 'done'];
 const VALID_CATEGORIES = ['Haushalt', 'Schule', 'Einkauf', 'Reparatur',
                           'Gesundheit', 'Finanzen', 'Freizeit', 'Sonstiges'];
@@ -96,7 +96,7 @@ router.get('/', (req, res) => {
       ORDER BY
         CASE t.status WHEN 'done' THEN 1 ELSE 0 END,
         CASE t.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1
-                        WHEN 'medium' THEN 2 ELSE 3 END,
+                        WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END,
         t.due_date ASC NULLS LAST,
         t.created_at DESC
     `;
@@ -148,7 +148,7 @@ router.post('/', (req, res) => {
       title,
       description     = null,
       category        = 'Sonstiges',
-      priority        = 'medium',
+      priority        = 'none',
       due_date        = null,
       due_time        = null,
       assigned_to     = null,
