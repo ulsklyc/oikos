@@ -254,7 +254,7 @@ function renderCategoryBars(byCategory) {
 
     return `
       <div class="budget-bar-row">
-        <div class="budget-bar-row__label" title="${esc(c.category)}">${esc(c.category)}</div>
+        <div class="budget-bar-row__label" title="${esc(CATEGORY_LABELS()[c.category] ?? c.category)}">${esc(CATEGORY_LABELS()[c.category] ?? c.category)}</div>
         <div class="budget-bar-row__track">
           <div class="budget-bar-row__fill ${cls}" style="width:${pct}%;"></div>
         </div>
@@ -291,7 +291,7 @@ function renderEntries() {
         <div class="budget-entry__indicator ${indClass}"></div>
         <div class="budget-entry__body">
           <div class="budget-entry__title">${esc(e.title)}</div>
-          <div class="budget-entry__meta">${date} · ${esc(e.category)}${recurTag}</div>
+          <div class="budget-entry__meta">${date} · ${esc(CATEGORY_LABELS()[e.category] ?? e.category)}${recurTag}</div>
         </div>
         <div class="budget-entry__amount ${amtClass}">${sign}${formatAmount(e.amount)}</div>
         <button class="budget-entry__delete" data-action="delete" data-id="${e.id}" aria-label="${t('budget.deleteLabel')}">

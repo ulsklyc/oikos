@@ -226,10 +226,11 @@ function renderTaskGroups(tasks, groupMode) {
   }
 
   const groups = groupBy(tasks, groupMode);
+  const catLabelsMap = CATEGORY_LABELS();
   return groups.map(([name, groupTasks]) => `
     <div class="task-group">
       <div class="task-group__header">
-        <span class="task-group__title">${name}</span>
+        <span class="task-group__title">${catLabelsMap[name] ?? name}</span>
         <span class="task-group__count">${groupTasks.length}</span>
       </div>
       ${groupTasks.map((t) => renderSwipeRow(t, renderTaskCard(t))).join('')}
