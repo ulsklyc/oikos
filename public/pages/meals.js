@@ -31,10 +31,11 @@ const DAY_NAMES = () => [
 // --------------------------------------------------------
 
 let state = {
-  currentWeek: null,   // YYYY-MM-DD (Montag)
-  meals:       [],
-  lists:       [],     // Einkaufslisten für Transfer-Dropdown
-  modal:       null,
+  currentWeek:      null,   // YYYY-MM-DD (Montag)
+  meals:            [],
+  lists:            [],     // Einkaufslisten für Transfer-Dropdown
+  modal:            null,
+  visibleMealTypes: ['breakfast', 'lunch', 'dinner', 'snack'],
 };
 
 // Container-Referenz für Hilfsfunktionen (wird in render() gesetzt)
@@ -97,6 +98,15 @@ async function loadLists() {
   }
 }
 
+async function loadPreferences() {
+  try {
+    const res = await api.get('/preferences');
+    state.visibleMealTypes = res.data.visible_meal_types ?? state.visibleMealTypes;
+  } catch {
+    // Default beibehalten
+  }
+}
+
 // --------------------------------------------------------
 // Render
 // --------------------------------------------------------
@@ -127,7 +137,7 @@ export async function render(container, { user }) {
   const today  = new Date().toISOString().slice(0, 10);
   const monday = getMondayOf(today);
 
-  await Promise.all([loadWeek(monday), loadLists()]);
+  await Promise.all([loadWeek(monday), loadLists(), loadPreferences()]);
   renderWeekGrid();
   wireNav();
 }
@@ -157,7 +167,7 @@ function renderWeekGrid() {
           <span class="day-header__date">${formatDayDate(date)}</span>
         </div>
         <div class="day-slots">
-          ${MEAL_TYPES().map((type) => renderSlot(date, type, mealsForDay)).join('')}
+          ${MEAL_TYPES().filter((type) => state.visibleMealTypes.includes(type.key)).map((type) => renderSlot(date, type, mealsForDay)).join('')}
         </div>
       </div>
     `;

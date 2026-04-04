@@ -513,7 +513,12 @@
     "appleDisconnectConfirm": "Disconnect Apple Calendar?",
     "localeSystem": "System",
     "localeLabel": "Language",
-    "languageTitle": "Language"
+    "languageTitle": "Language",
+    "sectionMeals": "Meal Plan",
+    "mealTypesLabel": "Visible meals",
+    "mealTypesHint": "Only selected meal types are shown in the meal planner.",
+    "mealTypesSaved": "Meal plan settings saved.",
+    "mealTypesMinOne": "At least one meal type must be active."
   },
 
   "login": {

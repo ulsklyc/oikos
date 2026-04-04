@@ -183,6 +183,7 @@ Weekly view (Mon–Sun), slots: breakfast / lunch / dinner / snack.
 - Week navigation forward/back
 - Drag & drop between days/slots
 - Autocomplete from meal history
+- **Customizable meal visibility:** In Settings, users can toggle which meal types (breakfast, lunch, dinner, snack) are shown in the planner. Stored as household-wide preference in `sync_config` (key: `visible_meal_types`). At least one type must remain active.
 
 ### Calendar (`/calendar`)
 

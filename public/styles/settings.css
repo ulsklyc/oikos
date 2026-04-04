@@ -317,6 +317,45 @@
 }
 
 /* --------------------------------------------------------
+   Meal-Type-Toggles
+   -------------------------------------------------------- */
+
+.meal-type-toggles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+  min-height: var(--target-lg);
+}
+
+.toggle-row:hover {
+  background-color: var(--color-surface-2);
+}
+
+.toggle-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.toggle-row span {
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+/* --------------------------------------------------------
    Abmelden
    -------------------------------------------------------- */
 

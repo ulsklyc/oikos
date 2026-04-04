@@ -23,16 +23,19 @@ export async function render(container, { user }) {
   let users        = [];
   let googleStatus = { configured: false, connected: false, lastSync: null };
   let appleStatus  = { configured: false, lastSync: null };
+  let prefs        = { visible_meal_types: ['breakfast', 'lunch', 'dinner', 'snack'] };
 
   try {
-    const [usersRes, gStatus, aStatus] = await Promise.allSettled([
+    const [usersRes, gStatus, aStatus, prefsRes] = await Promise.allSettled([
       user.role === 'admin' ? auth.getUsers() : Promise.resolve({ data: [] }),
       api.get('/calendar/google/status'),
       api.get('/calendar/apple/status'),
+      api.get('/preferences'),
     ]);
     if (usersRes.status === 'fulfilled')  users        = usersRes.value.data  ?? [];
     if (gStatus.status  === 'fulfilled')  googleStatus = gStatus.value;
     if (aStatus.status  === 'fulfilled')  appleStatus  = aStatus.value;
+    if (prefsRes.status === 'fulfilled')  prefs        = prefsRes.value.data  ?? prefs;
   } catch (_) { /* non-critical */ }
 
   const googleStatusText = googleStatus.connected
@@ -81,6 +84,33 @@ export async function render(container, { user }) {
         <h2 class="settings-section__title">${t('settings.languageTitle')}</h2>
         <div class="settings-card">
           <oikos-locale-picker></oikos-locale-picker>
+        </div>
+      </section>
+
+      <!-- Essensplan -->
+      <section class="settings-section">
+        <h2 class="settings-section__title">${t('settings.sectionMeals')}</h2>
+        <div class="settings-card">
+          <h3 class="settings-card__title">${t('settings.mealTypesLabel')}</h3>
+          <p class="form-hint" style="margin-bottom:var(--space-3)">${t('settings.mealTypesHint')}</p>
+          <div class="meal-type-toggles" id="meal-type-toggles">
+            <label class="toggle-row">
+              <input type="checkbox" value="breakfast" checked>
+              <span>${t('meals.typeBreakfast')}</span>
+            </label>
+            <label class="toggle-row">
+              <input type="checkbox" value="lunch" checked>
+              <span>${t('meals.typeLunch')}</span>
+            </label>
+            <label class="toggle-row">
+              <input type="checkbox" value="dinner" checked>
+              <span>${t('meals.typeDinner')}</span>
+            </label>
+            <label class="toggle-row">
+              <input type="checkbox" value="snack" checked>
+              <span>${t('meals.typeSnack')}</span>
+            </label>
+          </div>
         </div>
       </section>
 
@@ -251,6 +281,14 @@ export async function render(container, { user }) {
     </div>
   `;
 
+  // Meal-Type-Checkboxen initialisieren
+  const toggles = container.querySelector('#meal-type-toggles');
+  if (toggles) {
+    toggles.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+      cb.checked = prefs.visible_meal_types.includes(cb.value);
+    });
+  }
+
   bindEvents(container, user);
 }
 
@@ -269,6 +307,26 @@ function bindEvents(container, user) {
       applyTheme(value);
       themeToggle.querySelectorAll('.theme-toggle__btn').forEach(b => b.classList.remove('theme-toggle__btn--active'));
       btn.classList.add('theme-toggle__btn--active');
+    });
+  }
+
+  // Meal-Type-Toggles
+  const mealToggles = container.querySelector('#meal-type-toggles');
+  if (mealToggles) {
+    mealToggles.addEventListener('change', async () => {
+      const checked = [...mealToggles.querySelectorAll('input:checked')].map((cb) => cb.value);
+      if (checked.length === 0) {
+        window.oikos?.showToast(t('settings.mealTypesMinOne'), 'error');
+        // Revert: re-check all
+        mealToggles.querySelectorAll('input').forEach((cb) => { cb.checked = true; });
+        return;
+      }
+      try {
+        await api.put('/preferences', { visible_meal_types: checked });
+        window.oikos?.showToast(t('settings.mealTypesSaved'), 'success');
+      } catch (err) {
+        window.oikos?.showToast(err.message ?? t('common.errorGeneric'), 'danger');
+      }
     });
   }
 

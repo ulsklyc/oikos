@@ -513,7 +513,12 @@
     "appleDisconnectConfirm": "Apple Calendar-Verbindung trennen?",
     "localeSystem": "System",
     "localeLabel": "Sprache",
-    "languageTitle": "Sprache"
+    "languageTitle": "Sprache",
+    "sectionMeals": "Essensplan",
+    "mealTypesLabel": "Sichtbare Mahlzeiten",
+    "mealTypesHint": "Nur ausgewaehlte Mahlzeit-Typen werden im Essensplan angezeigt.",
+    "mealTypesSaved": "Essensplan-Einstellungen gespeichert.",
+    "mealTypesMinOne": "Mindestens ein Mahlzeit-Typ muss aktiv sein."
   },
 
   "login": {

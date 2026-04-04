@@ -513,7 +513,12 @@
     "appleDisconnectConfirm": "Disconnettere Apple Calendar?",
     "localeSystem": "Sistema",
     "localeLabel": "Lingua",
-    "languageTitle": "Lingua"
+    "languageTitle": "Lingua",
+    "sectionMeals": "Piano pasti",
+    "mealTypesLabel": "Pasti visibili",
+    "mealTypesHint": "Solo i tipi di pasto selezionati vengono mostrati nel piano pasti.",
+    "mealTypesSaved": "Impostazioni del piano pasti salvate.",
+    "mealTypesMinOne": "Almeno un tipo di pasto deve essere attivo."
   },
 
   "login": {

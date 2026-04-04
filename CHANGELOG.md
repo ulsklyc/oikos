@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-04-04
+
+### Added
+- Customizable meal type visibility: toggle breakfast, lunch, dinner, snack on/off in Settings (#14)
+- New household-wide preferences API (`GET/PUT /api/v1/preferences`) using existing `sync_config` table
+- New "Meal Plan" section in Settings page with checkbox toggles per meal type
+- Meals page filters displayed slots based on household preference
+- i18n keys for meal visibility settings in DE, EN, IT
+
 ## [0.9.1] - 2026-04-04
 
 ### Added

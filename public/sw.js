@@ -12,7 +12,7 @@
  *   API: Immer Netzwerk (kein Caching von Nutzerdaten)
  */
 
-const SHELL_CACHE   = 'oikos-shell-v25';
+const SHELL_CACHE   = 'oikos-shell-v26';
 const PAGES_CACHE   = 'oikos-pages-v25';
 const ASSETS_CACHE  = 'oikos-assets-v25';
 const ALL_CACHES    = [SHELL_CACHE, PAGES_CACHE, ASSETS_CACHE];
