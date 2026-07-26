@@ -51,6 +51,45 @@ function assertKeysExistInEveryLocale(keys) {
   assert.deepEqual(missing, []);
 }
 
+// Splits every `callee(...)` invocation in `source` into its top-level
+// arguments. Nested calls, object literals and arrays keep their commas.
+function callArguments(source, callee) {
+  const opener = `${callee}(`;
+  const calls = [];
+
+  for (let from = source.indexOf(opener); from !== -1; from = source.indexOf(opener, from + 1)) {
+    // Skip the declaration (`function activity(...)`) and property accesses on
+    // longer identifiers that merely end with the same characters.
+    if (/[\w.$]/.test(source[from - 1] ?? '')) continue;
+    if (source.slice(Math.max(0, from - 9), from) === 'function ') continue;
+
+    const args = [];
+    let current = '';
+    let depth = 0;
+    for (let i = from + opener.length - 1; i < source.length; i += 1) {
+      const char = source[i];
+      if ('([{'.includes(char)) {
+        depth += 1;
+        if (depth === 1) continue;
+      } else if (')]}'.includes(char)) {
+        depth -= 1;
+        if (depth === 0) {
+          args.push(current);
+          break;
+        }
+      } else if (char === ',' && depth === 1) {
+        args.push(current);
+        current = '';
+        continue;
+      }
+      current += char;
+    }
+    calls.push(args.map((arg) => arg.trim()));
+  }
+
+  return calls;
+}
+
 function cssRuleBody(css, selector) {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const match = css.match(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`, 'm'));
@@ -2504,6 +2543,38 @@ test('search fields keep visible labels after users enter a query', () => {
       `${file} must expose a persistent visible label for #${id}`,
     );
   }
+});
+
+test('every emitted split-expenses activity type has a translated label', () => {
+  // renderActivity() prints t(`splitExpenses.activityType.${item.type}`) with the
+  // raw type as fallback, so an unknown type leaks the bare key into the feed.
+  // Position of the `type` argument in each emitter's signature:
+  const emitters = [
+    ['../server/routes/split-expenses.js', 'activity', 2],
+    ['../server/services/split-expenses-scheduler.js', 'insertActivity', 3],
+    ['../scripts/seed-demo.js', 'insertActivity.run', 2],
+  ];
+
+  const types = new Set();
+  for (const [file, callee, index] of emitters) {
+    const calls = callArguments(read(file), callee);
+    assert.ok(calls.length > 0, `${file} must emit activity rows via ${callee}()`);
+    for (const args of calls) {
+      const argument = args[index] ?? '';
+      // A ternary (recurring_paused/_resumed) contributes both literals.
+      const literals = [...argument.matchAll(/'([a-z_]+)'/g)].map((match) => match[1]);
+      assert.ok(
+        literals.length > 0,
+        `${file}: activity type must be a string literal so it can be audited, got "${argument}"`,
+      );
+      for (const type of literals) types.add(type);
+    }
+  }
+
+  // Guards the extraction itself — a broken signature match would silently
+  // shrink this set and make the locale assertion vacuous.
+  assert.ok(types.size >= 15, `expected at least 15 activity types, extracted ${types.size}`);
+  assertKeysExistInEveryLocale([...types].map((type) => `splitExpenses.activityType.${type}`));
 });
 
 test('German housekeeping visit copy contains no English fallback strings', () => {

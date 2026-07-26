@@ -618,7 +618,7 @@ function addExpense(groupId, payerId, memberIds, title, description, euros, cate
   // Ledger: payer +full, each member -their share
   insertLedger.run(groupId, expId, payerId, null, amount, title, payerId);
   for (const s of shares) insertLedger.run(groupId, expId, s.uid, payerId, -s.amount_minor, title, payerId);
-  insertActivity.run(groupId, payerId, 'expense_added', 'expense', expId, JSON.stringify({ title, amount_minor: amount }));
+  insertActivity.run(groupId, payerId, 'expense_created', 'expense', expId, JSON.stringify({ title, amount_minor: amount }));
   return expId;
 }
 
@@ -660,7 +660,7 @@ db.prepare(`
   INSERT INTO expense_ledger_entries (group_id, source_type, source_id, user_id, counterparty_id, amount_minor, currency, memo, created_by)
   VALUES (?, 'settlement', ?, ?, ?, ?, 'EUR', ?, ?)
 `).run(houseGroup, settlementId, alexId, lindaId, -5000, 'Settle-up', lindaId);
-insertActivity.run(houseGroup, lindaId, 'settlement_added', 'settlement', settlementId, JSON.stringify({ amount_minor: 5000 }));
+insertActivity.run(houseGroup, lindaId, 'payment_registered', 'settlement', settlementId, JSON.stringify({ amount_minor: 5000 }));
 
 // ── Health: Vitals ───────────────────────────────────────────────────────────
 // All health data belongs to Linda (the demo login) so it renders on her own
