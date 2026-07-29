@@ -124,6 +124,11 @@ test('tools/list: listet die sechs Kern-Tools plus die drei OpenAPI-Brücken-Too
   assert.equal(res.result.tools.length, TOOL_DEFINITIONS.length);
   for (const t of res.result.tools) {
     assert.equal(t.inputSchema.type, 'object', `${t.name} braucht ein object-Schema`);
+    // Issue #599: Properties ohne `type` werden von manchen Clients zu Strings
+    // koerziert — jede Property muss ihren Typ deklarieren.
+    for (const [prop, schema] of Object.entries(t.inputSchema.properties || {})) {
+      assert.ok(schema.type, `${t.name}.${prop} braucht ein deklariertes type`);
+    }
   }
 });
 
@@ -290,6 +295,41 @@ test('call_api_operation POST: sendet JSON-Payload mit Content-Type', async () =
     assert.equal(calls[0].options.method, 'POST');
     assert.equal(calls[0].options.headers['Content-Type'], 'application/json');
     assert.deepEqual(JSON.parse(calls[0].options.body), { title: 'Neu' });
+  } finally {
+    global.fetch = realFetch;
+  }
+});
+
+// Issue #599: Clients, die Tool-Argumente typkoerzieren, schicken das Payload als
+// JSON-String. Ohne Durchreichen entstünde ein doppelt kodiertes String-Primitive,
+// das `express.json({ strict: true })` mit „Invalid JSON in request body" ablehnt.
+test('call_api_operation POST: string-serialisiertes Payload wird nicht doppelt kodiert', async () => {
+  const calls = installFetchMock(() => jsonResponse({ data: { id: 8, title: 'Neu' } }));
+  try {
+    const res = await toolCallWithHeaders(
+      'call_api_operation',
+      { operation_key: 'post_tasks', payload: '{"title":"Neu"}' },
+      { authorization: 'Bearer test-token' },
+    );
+    assert.equal(res.result.isError, false, res.result.content?.[0]?.text);
+    assert.equal(calls[0].options.headers['Content-Type'], 'application/json');
+    assert.deepEqual(JSON.parse(calls[0].options.body), { title: 'Neu' });
+  } finally {
+    global.fetch = realFetch;
+  }
+});
+
+test('call_api_operation POST: unparsbares String-Payload → isError (kein fetch)', async () => {
+  const calls = installFetchMock(() => jsonResponse({}));
+  try {
+    const res = await toolCallWithHeaders(
+      'call_api_operation',
+      { operation_key: 'post_tasks', payload: 'Neu' },
+      { authorization: 'Bearer test-token' },
+    );
+    assert.equal(res.result.isError, true);
+    assert.match(res.result.content[0].text, /payload must be a JSON object/i);
+    assert.equal(calls.length, 0, 'ungültiges Payload darf keinen Request auslösen');
   } finally {
     global.fetch = realFetch;
   }

@@ -309,6 +309,26 @@ function contentBytes(contentData) {
   return Buffer.from(raw, 'base64');
 }
 
+// Serialisiert den JSON-Body. MCP-Clients, die Tool-Argumente typkoerzieren,
+// schicken das Payload bereits als JSON-Text — der wird durchgereicht statt ein
+// zweites Mal kodiert, sonst käme beim Server ein String-Primitive an, das
+// `express.json({ strict: true })` ablehnt.
+function jsonBody(payload) {
+  if (typeof payload !== 'string') return JSON.stringify(payload ?? {});
+  const trimmed = payload.trim();
+  if (!trimmed) return '{}';
+  let parsed;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    throw new ToolError('payload must be a JSON object (or a string containing one).');
+  }
+  if (!parsed || typeof parsed !== 'object') {
+    throw new ToolError('payload must be a JSON object (or a string containing one).');
+  }
+  return JSON.stringify(parsed);
+}
+
 function internalBaseUrl() {
   return (
     process.env.MCP_INTERNAL_BASE_URL
@@ -394,7 +414,7 @@ async function internalApiRequest(ctx, method, path, { query, payload, contentDa
     options.body = contentBytes(contentData);
     headers['Content-Type'] = contentType || 'application/octet-stream';
   } else if (!['GET', 'HEAD'].includes(method.toUpperCase()) && payload !== undefined) {
-    options.body = JSON.stringify(payload ?? {});
+    options.body = jsonBody(payload);
     headers['Content-Type'] = 'application/json';
   }
 
@@ -579,7 +599,7 @@ const OPENAPI_TOOLS = [
         path: { type: 'string', description: 'OpenAPI path, used with method when operation_key is omitted.' },
         path_params: { type: 'object', description: 'Values for path template parameters.' },
         query: { type: 'object', description: 'Query string parameters.' },
-        payload: { description: 'JSON request body.' },
+        payload: { type: 'object', description: 'JSON request body.' },
         content_data: { type: 'string', description: 'Base64 or base64 data URL for binary uploads.' },
       },
     },
