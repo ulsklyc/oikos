@@ -23,6 +23,7 @@ const { default: recipesRouter } = await import('../server/routes/recipes.js');
 // ihn läuft (POST /shopping/items/undo-transfer) - ohne ihn wäre nur die halbe
 // Handlung getestet.
 const { default: shoppingRouter } = await import('../server/routes/shopping.js');
+const mealieSync = await import('../server/services/mealie-sync.js');
 const db = dbmod.get();
 
 const OWNER = db.prepare(`INSERT INTO users (username, display_name, avatar_color, password_hash, role) VALUES ('owner','Owner','#112233','x','member')`).run().lastInsertRowid;
@@ -421,4 +422,73 @@ test('POST /:id/to-shopping-list: funktioniert unverändert für gespiegelte Rez
   assert.equal(r.status, 200);
   assert.equal(r.body.data.transferred, 1);
   assert.equal(r.body.data.added_ids.length, 1);
+});
+
+// --------------------------------------------------------------------------
+// GET /:id/mealie-thumbnail: proxied Bild-Bytes (kein direkter Browser-Link,
+// der Bearer-Token darf den Client nie erreichen)
+// --------------------------------------------------------------------------
+test.after(() => mealieSync._setAdapterFactory(null));
+
+test('GET /:id/mealie-thumbnail: natives Rezept → 404', async () => {
+  const native = await call('POST', '/', { title: 'Kein Mealie' });
+  const r = await call('GET', `/${native.body.data.id}/mealie-thumbnail`);
+  assert.equal(r.status, 404);
+});
+
+test('GET /:id/mealie-thumbnail: gespiegelt, aber mealie_has_image=0 → 404, Adapter wird nicht aufgerufen', async () => {
+  const recipeId = db.prepare(`
+    INSERT INTO recipes (title, created_by, mealie_account_id, mealie_recipe_id, mealie_has_image) VALUES (?, ?, ?, ?, 0)
+  `).run('Ohne Bild', OWNER, MEALIE_ACCOUNT_ID, 'thumb-none').lastInsertRowid;
+  mealieSync._setAdapterFactory(() => ({
+    fetchThumbnail: async () => { throw new Error('sollte nicht aufgerufen werden'); },
+  }));
+  const r = await call('GET', `/${recipeId}/mealie-thumbnail`);
+  mealieSync._setAdapterFactory(null);
+  assert.equal(r.status, 404);
+});
+
+test('GET /:id/mealie-thumbnail: proxied Bytes und Content-Type vom Fake-Adapter', async () => {
+  const recipeId = db.prepare(`
+    INSERT INTO recipes (title, created_by, mealie_account_id, mealie_recipe_id, mealie_has_image) VALUES (?, ?, ?, ?, 1)
+  `).run('Mit Bild', OWNER, MEALIE_ACCOUNT_ID, 'thumb-yes').lastInsertRowid;
+
+  const png1x1 = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
+  mealieSync._setAdapterFactory(() => ({
+    fetchThumbnail: async (mealieRecipeId) => {
+      assert.equal(mealieRecipeId, 'thumb-yes');
+      return { buffer: png1x1, mime: 'image/png' };
+    },
+  }));
+
+  const res = await fetch(`${baseUrl}/${recipeId}/mealie-thumbnail`);
+  mealieSync._setAdapterFactory(null);
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('content-type'), 'image/png');
+  const buf = Buffer.from(await res.arrayBuffer());
+  assert.equal(buf.length, png1x1.length);
+});
+
+test('GET /:id/mealie-thumbnail: Bild seit letztem Sync in Mealie gelöscht (404 vom Adapter) → 404 statt 500', async () => {
+  const recipeId = db.prepare(`
+    INSERT INTO recipes (title, created_by, mealie_account_id, mealie_recipe_id, mealie_has_image) VALUES (?, ?, ?, ?, 1)
+  `).run('Geloescht', OWNER, MEALIE_ACCOUNT_ID, 'thumb-gone').lastInsertRowid;
+  mealieSync._setAdapterFactory(() => ({
+    fetchThumbnail: async () => { const err = new Error('Mealie thumbnail request failed (404)'); err.status = 404; throw err; },
+  }));
+  const r = await call('GET', `/${recipeId}/mealie-thumbnail`);
+  mealieSync._setAdapterFactory(null);
+  assert.equal(r.status, 404);
+});
+
+test('GET /:id/mealie-thumbnail: nicht in der MIME-Allowlist (z. B. SVG) → 415', async () => {
+  const recipeId = db.prepare(`
+    INSERT INTO recipes (title, created_by, mealie_account_id, mealie_recipe_id, mealie_has_image) VALUES (?, ?, ?, ?, 1)
+  `).run('SVG', OWNER, MEALIE_ACCOUNT_ID, 'thumb-svg').lastInsertRowid;
+  mealieSync._setAdapterFactory(() => ({
+    fetchThumbnail: async () => ({ buffer: Buffer.from('<svg/>'), mime: 'image/svg+xml' }),
+  }));
+  const r = await call('GET', `/${recipeId}/mealie-thumbnail`);
+  mealieSync._setAdapterFactory(null);
+  assert.equal(r.status, 415);
 });

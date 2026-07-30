@@ -4171,6 +4171,14 @@ const MIGRATIONS = [
       ALTER TABLE mealie_accounts ADD COLUMN external_url TEXT;
     `,
   },
+  {
+    version: 113,
+    description: 'Mealie integration: store the recipe slug (rebuilds recipe_url on every sync without a re-fetch, so an external_url change reaches already-mirrored recipes) and whether Mealie has an image for it',
+    up: `
+      ALTER TABLE recipes ADD COLUMN mealie_slug TEXT;
+      ALTER TABLE recipes ADD COLUMN mealie_has_image INTEGER NOT NULL DEFAULT 0;
+    `,
+  },
 ];
 
 /**

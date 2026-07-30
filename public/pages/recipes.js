@@ -416,10 +416,27 @@ function renderRecipeList() {
     toggle.dataset.action = 'toggle-detail';
     toggle.dataset.id = String(recipe.id);
 
+    // Herkunft ist Teil der Identität der Zeile, nicht erst ein Detail: wer
+    // durch eine gemischte Liste scrollt, muss vor dem Aufklappen sehen können,
+    // welche Rezepte aus Mealie kommen (und schreibgeschützt sind), nicht erst
+    // danach. Das Vorschaubild kommt nur mit, wenn Mealie eins hinterlegt hat
+    // (mealie_has_image aus dem letzten Sync) - kein Platzhalter-Icon für
+    // Rezepte ohne Bild, das wäre eine Aussage, die niemand getroffen hat.
+    if (isMirrored && recipe.mealie_has_image) {
+      const thumb = document.createElement('img');
+      thumb.className = 'recipe-row__thumb';
+      thumb.src = `/api/v1/recipes/${recipe.id}/mealie-thumbnail`;
+      thumb.alt = '';
+      thumb.loading = 'lazy';
+      toggle.appendChild(thumb);
+    }
+
     const name = document.createElement('span');
     name.className = 'kitchen-row__name';
     name.textContent = recipe.title;
     toggle.appendChild(name);
+
+    if (isMirrored) toggle.appendChild(mealieSourceBadge(recipe));
 
     // Die Zutatenzahl ersetzt das frühere „+N": dort stand ein <li> mit
     // cursor: pointer, ohne role, ohne tabindex, ohne aria-expanded, dessen
@@ -438,10 +455,21 @@ function renderRecipeList() {
       toggle.setAttribute('aria-controls', detailId);
       toggle.insertAdjacentHTML('beforeend',
         '<i data-lucide="chevron-down" class="icon-sm recipe-row__chevron" aria-hidden="true"></i>');
-    } else {
+    } else if (!isMirrored) {
       // Ohne Detail kein Versprechen: kein Chevron, kein aria-expanded. Der
       // Button öffnet dann direkt das Bearbeiten-Formular.
       toggle.dataset.action = 'edit';
+    } else {
+      // Gespiegelt UND ohne Detail (kein Slug-Link, keine Zutaten, keine
+      // Notiz - selten, aber möglich, wenn Mealies /users/self keinen
+      // groupSlug liefert): weder aufklappbar noch bearbeitbar. Der Button
+      // bliebe sonst interaktiv aussehend, ohne dass ein Klick etwas täte -
+      // oder schlimmer, er würde über den generischen edit-Handler ein
+      // Bearbeitungsformular öffnen, dessen Speichern serverseitig ohnehin
+      // mit 403 abgewiesen wird (mealie_account_id-Guard, routes/recipes.js).
+      delete toggle.dataset.action;
+      toggle.classList.remove('kitchen-row__main--interactive');
+      toggle.tabIndex = -1;
     }
 
     heading.appendChild(toggle);
@@ -510,22 +538,20 @@ function renderRecipeList() {
       const mealTypes = normalizeRecipeMealTypes(recipe.meal_types);
       // Chips nur, wenn sie unterscheiden: gilt ein Rezept für alle Mahlzeiten,
       // ist die volle Chip-Reihe reine Ornamentik (Audit A1-21). Das
-      // Mealie-Badge erscheint unabhängig davon, sobald das Rezept gespiegelt ist.
+      // Mealie-Badge sitzt jetzt schon in der Zeilenüberschrift (immer sichtbar,
+      // nicht erst nach dem Aufklappen) und wird hier nicht noch einmal gezeigt.
       const showMealTypeBadges = mealTypes.length && mealTypes.length < mealTypeOptions().length;
-      if (showMealTypeBadges || isMirrored) {
+      if (showMealTypeBadges) {
         const badges = document.createElement('div');
         badges.className = 'recipe-card__meal-types';
-        if (isMirrored) badges.appendChild(mealieSourceBadge(recipe));
-        if (showMealTypeBadges) {
-          badges.append(...mealTypeOptions()
-            .filter((option) => mealTypes.includes(option.key))
-            .map((option) => {
-              const badge = document.createElement('span');
-              badge.className = `meal-type-badge meal-type-badge--${option.key}`;
-              badge.textContent = option.label;
-              return badge;
-            }));
-        }
+        badges.append(...mealTypeOptions()
+          .filter((option) => mealTypes.includes(option.key))
+          .map((option) => {
+            const badge = document.createElement('span');
+            badge.className = `meal-type-badge meal-type-badge--${option.key}`;
+            badge.textContent = option.label;
+            return badge;
+          }));
         detail.appendChild(badges);
       }
 
@@ -614,8 +640,8 @@ function renderRecipeList() {
  * eine Karte mit role="button", die Buttons enthielt.
  *
  * Der Zweck bleibt erfüllt: Lesen erzwingt weiter kein Bearbeiten-Formular. Das
- * Mealie-Badge, das hier stand, sitzt jetzt im Aufklapp-Detail der Zeile
- * (siehe mealieSourceBadge() weiter oben).
+ * Mealie-Badge, das hier stand, sitzt jetzt in der Zeilenüberschrift selbst -
+ * sichtbar, bevor man überhaupt aufklappt (siehe mealieSourceBadge() weiter oben).
  */
 
 function openRecipeModal(mode, recipe = null) {

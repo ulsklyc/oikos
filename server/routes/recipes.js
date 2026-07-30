@@ -9,9 +9,16 @@ import express from 'express';
 import * as db from '../db.js';
 import { str, num, collectErrors, MAX_TITLE, MAX_TEXT, MAX_SHORT } from '../middleware/validate.js';
 import { normalizeRecipeMealTypes } from '../../public/utils/recipe-meal-types.js';
+import { getAdapter } from '../services/mealie-sync.js';
 
 const log = createLogger('Recipes');
 const router = express.Router();
+
+// Nicht-skriptfähige Rasterformate (kein SVG), dieselbe Allowlist wie der
+// DMS-Vorschau-Proxy (server/routes/dms.js) - dort wie hier landet ein
+// Content-Type, den ein Drittsystem liefert, direkt im Response-Header.
+const THUMBNAIL_MIME = new Set(['image/webp', 'image/jpeg', 'image/png']);
+function normalizeMime(value) { return String(value || '').split(';')[0].trim().toLowerCase(); }
 
 // Mirror-Rezepte (source: 'mealie') tragen mealie_account_id; native Rezepte
 // haben diese Spalte NULL. Das ist der einzige Unterschied, den Frontend und
@@ -194,6 +201,47 @@ router.delete('/:id', (req, res) => {
   } catch (err) {
     log.error('DELETE /:id error:', err);
     res.status(500).json({ error: 'Internal error', code: 500 });
+  }
+});
+
+/**
+ * GET /api/v1/recipes/:id/mealie-thumbnail
+ * Proxied Mealies Rezeptbild (min-original.webp). Kein direkter <img src> auf
+ * Mealie möglich: die Medien-Route dort verlangt denselben Bearer-Token wie
+ * jeder andere Endpunkt, und der darf den Client nie erreichen (siehe
+ * publicAccount() in routes/mealie.js) - also holt der Server die Bytes und
+ * reicht sie durch, wie der DMS-Vorschau-Proxy es für Paperless/Papra tut.
+ */
+router.get('/:id/mealie-thumbnail', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ error: 'Invalid recipe ID.', code: 400 });
+
+    const recipe = db.get().prepare(
+      'SELECT mealie_account_id, mealie_recipe_id, mealie_has_image FROM recipes WHERE id = ?'
+    ).get(id);
+    if (!recipe?.mealie_account_id || !recipe.mealie_has_image) {
+      return res.status(404).json({ error: 'No thumbnail available.', code: 404 });
+    }
+
+    const account = db.get().prepare('SELECT * FROM mealie_accounts WHERE id = ?').get(recipe.mealie_account_id);
+    if (!account) return res.status(404).json({ error: 'No thumbnail available.', code: 404 });
+
+    const thumb = await getAdapter(account).fetchThumbnail(recipe.mealie_recipe_id);
+    const mime = normalizeMime(thumb?.mime);
+    if (!thumb?.buffer?.length || !THUMBNAIL_MIME.has(mime)) {
+      return res.status(415).json({ error: 'Thumbnail not available.', code: 415 });
+    }
+    res.setHeader('Content-Type', mime);
+    res.setHeader('Content-Length', String(thumb.buffer.length));
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    res.setHeader('Content-Security-Policy', "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'");
+    res.end(thumb.buffer);
+  } catch (err) {
+    if (err.status === 404) return res.status(404).json({ error: 'No thumbnail available.', code: 404 });
+    log.error('GET /:id/mealie-thumbnail error:', err);
+    res.status(502).json({ error: 'Mealie thumbnail proxy failed.', code: 502 });
   }
 });
 

@@ -57,7 +57,7 @@ async function syncAccount(account) {
   }
 
   const existing = conn.prepare(
-    'SELECT id, mealie_recipe_id, mealie_updated_at FROM recipes WHERE mealie_account_id = ?'
+    'SELECT id, mealie_recipe_id, mealie_updated_at, mealie_slug, recipe_url FROM recipes WHERE mealie_account_id = ?'
   ).all(account.id);
   const existingByMealieId = new Map(existing.map((r) => [r.mealie_recipe_id, r]));
 
@@ -66,6 +66,7 @@ async function syncAccount(account) {
   // ics-subscription.js) statt einer eigenen Transaktion pro Rezept.
   const seenIds = new Set();
   const toUpsert = [];
+  const urlRefresh = [];
 
   for (const summary of summaries) {
     // Mealies stabile UUID (summary.id), NICHT der Slug: der Slug wird bei
@@ -76,7 +77,24 @@ async function syncAccount(account) {
     // Detail-Abruf und die Mealie-Web-URL gebraucht (dort verlangt Mealies API ihn).
     seenIds.add(summary.id);
     const current = existingByMealieId.get(summary.id);
-    if (current && current.mealie_updated_at === summary.updatedAt) continue; // unverändert, überspringen
+    if (current && current.mealie_updated_at === summary.updatedAt) {
+      // Unverändert in Mealie - den vollen Detail-Abruf sparen, aber recipe_url
+      // trotzdem aus dem gespeicherten Slug neu bauen: ein Sync ist der einzige
+      // Moment, in dem eine nachträgliche external_url/base_url-Änderung am
+      // Account auf schon gespiegelte Rezepte durchschlägt. Ohne das bliebe der
+      // alte (evtl. Docker-interne, im Browser blackholed) Link stehen, bis sich
+      // das Rezept in Mealie selbst wieder ändert - und genau das war der Grund,
+      // external_url überhaupt einzuführen.
+      // groupSlug-Guard: ohne ihn baut recipeUrl() null, das würde einen
+      // bestehenden guten Link überschreiben, nur weil dieser einzelne Sync-
+      // Durchlauf keinen groupSlug geliefert hat (testConnection() lieferte
+      // ok, aber ohne das Feld) - lieber den alten Link stehen lassen.
+      if (current.mealie_slug && groupSlug) {
+        const freshUrl = adapter.recipeUrl(groupSlug, current.mealie_slug);
+        if (freshUrl !== current.recipe_url) urlRefresh.push({ id: current.id, recipeUrl: freshUrl });
+      }
+      continue;
+    }
 
     let detail;
     try {
@@ -102,12 +120,13 @@ async function syncAccount(account) {
   }
 
   const insRecipe = conn.prepare(`
-    INSERT INTO recipes (title, notes, recipe_url, created_by, mealie_account_id, mealie_recipe_id, mealie_updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO recipes (title, notes, recipe_url, created_by, mealie_account_id, mealie_recipe_id, mealie_updated_at, mealie_slug, mealie_has_image)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const updRecipe = conn.prepare(`
-    UPDATE recipes SET title = ?, notes = ?, recipe_url = ?, mealie_updated_at = ? WHERE id = ?
+    UPDATE recipes SET title = ?, notes = ?, recipe_url = ?, mealie_updated_at = ?, mealie_slug = ?, mealie_has_image = ? WHERE id = ?
   `);
+  const updUrl = conn.prepare('UPDATE recipes SET recipe_url = ? WHERE id = ?');
   const delIngredients = conn.prepare('DELETE FROM recipe_ingredients WHERE recipe_id = ?');
   const insIngredient = conn.prepare(`
     INSERT INTO recipe_ingredients (recipe_id, name, quantity, category) VALUES (?, ?, ?, ?)
@@ -119,15 +138,16 @@ async function syncAccount(account) {
 
   db.transaction(() => {
     for (const { current, detail, recipeUrl, ingredients } of toUpsert) {
+      const hasImage = detail.image ? 1 : 0;
       let id;
       if (current) {
-        updRecipe.run(detail.name, detail.description || null, recipeUrl, detail.updatedAt, current.id);
+        updRecipe.run(detail.name, detail.description || null, recipeUrl, detail.updatedAt, detail.slug, hasImage, current.id);
         id = current.id;
         updated++;
       } else {
         const result = insRecipe.run(
           detail.name, detail.description || null, recipeUrl,
-          account.created_by, account.id, detail.id, detail.updatedAt,
+          account.created_by, account.id, detail.id, detail.updatedAt, detail.slug, hasImage,
         );
         id = Number(result.lastInsertRowid);
         imported++;
@@ -135,6 +155,7 @@ async function syncAccount(account) {
       delIngredients.run(id);
       for (const ing of ingredients) insIngredient.run(id, ing.name, ing.quantity, ing.category);
     }
+    for (const r of urlRefresh) updUrl.run(r.recipeUrl, r.id);
     for (const r of stale) delRecipe.run(r.id);
   });
 

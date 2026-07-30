@@ -108,4 +108,23 @@ export class MealieAdapter {
     if (!groupSlug) return null;
     return `${this.linkBase}/g/${encodeURIComponent(groupSlug)}/r/${encodeURIComponent(slug)}`;
   }
+
+  // Mealies eigenes Thumbnail (min-original.webp, eine kleinere Ableitung des
+  // Originalbilds) - über `this.base` (server-erreichbar), NICHT `this.linkBase`:
+  // dies ist ein Server-zu-Server-Abruf mit Bearer-Token, kein Browser-Link.
+  // Der Token darf den Client nie erreichen (server/routes/recipes.js proxied
+  // die Bytes), deshalb kann kein <img src> direkt auf Mealie zeigen - die
+  // Medien-Route dort verlangt denselben Bearer-Token wie jeder andere Endpunkt.
+  async fetchThumbnail(mealieRecipeId) {
+    const res = await fetch(`${this.base}/api/media/recipes/${encodeURIComponent(mealieRecipeId)}/images/min-original.webp`, {
+      headers: this.headers({ Accept: 'image/*' }),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    if (!res.ok) {
+      const err = new Error(`Mealie thumbnail request failed (${res.status})`);
+      err.status = res.status;
+      throw err;
+    }
+    return { buffer: Buffer.from(await res.arrayBuffer()), mime: res.headers.get('content-type') || 'image/webp' };
+  }
 }

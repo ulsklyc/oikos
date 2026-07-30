@@ -111,6 +111,57 @@ test('sync(): unveränderte updatedAt → überspringt Neuimport der Zutaten', a
   assert.equal(result.updated, 0);
 });
 
+test('sync(): unveränderte updatedAt, aber geänderte external_url → recipe_url wird trotzdem neu gebaut, ohne getRecipe erneut aufzurufen', async () => {
+  const accountId = newAccount('LinkWechsel');
+  const summaries = [{ id: 'uuid-tarte', slug: 'tarte', updatedAt: '2026-01-01T00:00:00Z' }];
+  const details = { tarte: {
+    id: 'uuid-tarte', name: 'Tarte', slug: 'tarte', description: null, updatedAt: '2026-01-01T00:00:00Z',
+    recipeIngredient: [],
+  } };
+  sync._setAdapterFactory(fakeAdapter(summaries, details));
+  await sync.sync();
+  const before = conn.prepare('SELECT recipe_url FROM recipes WHERE mealie_account_id = ?').get(accountId);
+  assert.equal(before.recipe_url, 'https://mealie.example.com/g/home/r/tarte');
+
+  // Zweiter Lauf simuliert eine nachträglich gesetzte external_url: derselbe
+  // Slug, aber ein anderer linkBase. getRecipe darf trotzdem nicht erneut
+  // aufgerufen werden - die URL wird nur aus dem gespeicherten Slug neu gebaut.
+  sync._setAdapterFactory(() => ({
+    testConnection: async () => ({ ok: true, status: 200, groupSlug: 'home' }),
+    listRecipeSummaries: async () => summaries,
+    getRecipe: async () => { throw new Error('sollte nicht aufgerufen werden'); },
+    recipeUrl: (g, s) => `https://cook.example.com/g/${g}/r/${s}`,
+  }));
+  await sync.sync();
+  const after = conn.prepare('SELECT recipe_url FROM recipes WHERE mealie_account_id = ?').get(accountId);
+  assert.equal(after.recipe_url, 'https://cook.example.com/g/home/r/tarte');
+});
+
+test('sync(): unveränderte updatedAt, aber kein groupSlug diesmal → alter recipe_url bleibt unangetastet statt auf null zu fallen', async () => {
+  const accountId = newAccount('KeinGroupSlug');
+  const summaries = [{ id: 'uuid-brot', slug: 'brot', updatedAt: '2026-01-01T00:00:00Z' }];
+  const details = { brot: {
+    id: 'uuid-brot', name: 'Brot', slug: 'brot', description: null, updatedAt: '2026-01-01T00:00:00Z',
+    recipeIngredient: [],
+  } };
+  sync._setAdapterFactory(fakeAdapter(summaries, details));
+  await sync.sync();
+  const before = conn.prepare('SELECT recipe_url FROM recipes WHERE mealie_account_id = ?').get(accountId);
+  assert.equal(before.recipe_url, 'https://mealie.example.com/g/home/r/brot');
+
+  // testConnection() liefert diesmal ok, aber ohne groupSlug (z. B. Mealie-
+  // Versionsunterschied) - recipeUrl(null, slug) würde null bauen.
+  sync._setAdapterFactory(() => ({
+    testConnection: async () => ({ ok: true, status: 200, groupSlug: null }),
+    listRecipeSummaries: async () => summaries,
+    getRecipe: async () => { throw new Error('sollte nicht aufgerufen werden'); },
+    recipeUrl: (g, s) => (g ? `https://mealie.example.com/g/${g}/r/${s}` : null),
+  }));
+  await sync.sync();
+  const after = conn.prepare('SELECT recipe_url FROM recipes WHERE mealie_account_id = ?').get(accountId);
+  assert.equal(after.recipe_url, 'https://mealie.example.com/g/home/r/brot');
+});
+
 test('sync(): geänderte updatedAt → aktualisiert Titel und ersetzt Zutaten', async () => {
   const accountId = newAccount('Ändert');
   sync._setAdapterFactory(fakeAdapter(

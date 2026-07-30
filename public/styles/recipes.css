@@ -35,23 +35,11 @@
   padding-block-start: var(--space-4);
 }
 
-/* .kitchen-rows (kitchen-row.css) ist ein Grid-Item von .kitchen-list und
- * dehnt sich per Default (align-items: stretch) auf die Höhe der verfügbaren
- * Spur, statt auf seine Inhaltshöhe zu wachsen - unschädlich in Vorrat/Einkauf,
- * wo jede Gruppe naturgemäß kürzer als die Spur ist. Rezepte haben aber KEINE
- * Gruppen: alle Zeilen liegen in einem einzigen .kitchen-rows. Sobald es mehr
- * Zeilen sind, als in die Spur passen, dehnt sich die Liste auf die verfügbare
- * Höhe UND schneidet den Rest über ihr eigenes `overflow: hidden` (für
- * Eckenradien gedacht) still ab - der eigentliche Scroller (.kitchen-list)
- * bekommt den Überlauf nie zu sehen, weil sein Kind schon vorher gekappt wurde.
- * Gemessen mit 50 gespiegelten Rezepten: scrollHeight 3249px, aber
- * clientHeight 657px, kein Scrollbalken, keine Möglichkeit an die übrigen
- * Zeilen zu kommen. `align-self: start` lässt die Liste auf ihre Inhaltshöhe
- * wachsen, sodass .kitchen-list (flex:1, overflow-y:auto) den echten Überlauf
- * sieht und scrollt. */
-.recipes-list .kitchen-rows {
-  align-self: start;
-}
+/* Der Stretch-und-Clip-Fix für lange, ungruppierte .kitchen-rows-Listen sitzt
+ * jetzt in kitchen-row.css selbst (align-self: start) - er galt hier zuerst
+ * nur für Rezepte, betrifft aber jede Küchenliste, deren Filter sie auf eine
+ * einzige flache Gruppe reduziert (z. B. Vorrat unter "fast leer"). Siehe
+ * dortigen Kommentar für die Messung. */
 
 /* --------------------------------------------------------
  * Rezeptzeile
@@ -81,6 +69,28 @@
 /* Zutatenzahl und Chevron bleiben beim Namen, statt an die Zeilenkante zu
  * wandern: sie beschriften, was das Aufklappen zeigt. */
 .recipe-row__toggle .kitchen-row__meta {
+  flex-shrink: 0;
+}
+
+/* Vorschaubild aus Mealie (server/routes/recipes.js proxied die Bytes, siehe
+ * dortigen Kommentar - kein direkter <img src> auf Mealie möglich, der
+ * Bearer-Token darf den Client nie erreichen). Feste Größe statt intrinsischer:
+ * Mealie liefert Originalseitenverhältnisse, eine Zeile darf davon nicht
+ * abhängen. `object-fit: cover` schneidet statt zu verzerren. */
+.recipe-row__thumb {
+  width: var(--target-md);
+  height: var(--target-md);
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  background-color: var(--color-surface-2);
+}
+
+/* Das Badge sitzt in derselben Flex-Zeile wie Name und Zutatenzahl - ohne
+ * eigenes flex-shrink würde ein langer Rezeptname es auf seine Buchstaben
+ * zusammendrücken, bevor der Name selbst umbricht (er trägt overflow-wrap
+ * bewusst, siehe .kitchen-row__name). */
+.recipe-row__toggle .source-badge {
   flex-shrink: 0;
 }
 
