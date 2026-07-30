@@ -70,20 +70,48 @@
  * wandern: sie beschriften, was das Aufklappen zeigt. */
 .recipe-row__toggle .kitchen-row__meta {
   flex-shrink: 0;
+  /* Ohne feste Mindestbreite verschiebt sich alles, was VOR ihr im Flex-Fluss
+   * steht (das Mealie-Badge), von Zeile zu Zeile: der Name wächst per
+   * flex-grow auf genau so viel Platz, wie die Geschwister danach übrig
+   * lassen, und „1 ingredient" gegen „21 ingredients" ändert diesen Rest um
+   * mehrere Zeichenbreiten. `text-align: end` + `tabular-nums` statt eines
+   * ausgeschriebenen Zeichen-Zählers: die Zahl bleibt bündig zum Chevron,
+   * unabhängig von Ziffernanzahl oder Singular/Plural-Wortlänge der
+   * jeweiligen Sprache. */
+  min-width: 15ch;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Vorschaubild aus Mealie (server/routes/recipes.js proxied die Bytes, siehe
  * dortigen Kommentar - kein direkter <img src> auf Mealie möglich, der
  * Bearer-Token darf den Client nie erreichen). Feste Größe statt intrinsischer:
  * Mealie liefert Originalseitenverhältnisse, eine Zeile darf davon nicht
- * abhängen. `object-fit: cover` schneidet statt zu verzerren. */
+ * abhängen. Der Slot ist ein <span>, das entweder ein <img> (echtes Bild) oder
+ * direkt den Platzhalter-Zustand trägt - Mealie liefert selbst KEIN
+ * generisches Platzhalterbild über die Medien-Route (die 404t bei fehlendem
+ * Bild, mealie-recipes/mealie#4804), das Icon kommt deshalb von uns. */
 .recipe-row__thumb {
   width: var(--target-md);
   height: var(--target-md);
   flex-shrink: 0;
   border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.recipe-row__thumb-img {
+  width: 100%;
+  height: 100%;
+  /* `object-fit: cover` schneidet statt zu verzerren. */
   object-fit: cover;
+}
+
+.recipe-row__thumb--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background-color: var(--color-surface-2);
+  color: var(--color-text-tertiary);
 }
 
 /* Das Badge sitzt in derselben Flex-Zeile wie Name und Zutatenzahl - ohne

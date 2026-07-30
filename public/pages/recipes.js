@@ -65,6 +65,36 @@ function mealieSourceBadge(recipe) {
   return badge;
 }
 
+// Vorschaubild für ein gespiegeltes Rezept. Ohne Bild in Mealie (kein
+// mealie_has_image aus dem letzten Sync) direkt der Platzhalter - kein
+// Thumbnail-Request, der ohnehin nur in einem 404 endet (bekannter Mealie-
+// eigener Logspam, siehe mealie-recipes/mealie#4804). Mit Bild wird echt
+// geladen, fällt aber per onerror auf denselben Platzhalter zurück, falls das
+// Bild zwischen dem letzten Sync und jetzt in Mealie gelöscht wurde - sonst
+// stünde ein kaputtes Bild-Icon in der Zeile, bis der nächste Sync es merkt.
+function recipeThumb(recipe) {
+  const slot = document.createElement('span');
+  slot.className = 'recipe-row__thumb';
+  if (!recipe.mealie_has_image) {
+    slot.classList.add('recipe-row__thumb--placeholder');
+    slot.insertAdjacentHTML('beforeend', '<i data-lucide="utensils" class="icon-sm" aria-hidden="true"></i>');
+    return slot;
+  }
+  const img = document.createElement('img');
+  img.className = 'recipe-row__thumb-img';
+  img.src = `/api/v1/recipes/${recipe.id}/mealie-thumbnail`;
+  img.alt = '';
+  img.loading = 'lazy';
+  img.addEventListener('error', () => {
+    img.remove();
+    slot.classList.add('recipe-row__thumb--placeholder');
+    slot.insertAdjacentHTML('beforeend', '<i data-lucide="utensils" class="icon-sm" aria-hidden="true"></i>');
+    if (window.lucide) window.lucide.createIcons({ el: slot });
+  }, { once: true });
+  slot.appendChild(img);
+  return slot;
+}
+
 function mealTypeOptions() {
   return [
     { key: 'breakfast', label: t('meals.typeBreakfast') },
@@ -419,17 +449,8 @@ function renderRecipeList() {
     // Herkunft ist Teil der Identität der Zeile, nicht erst ein Detail: wer
     // durch eine gemischte Liste scrollt, muss vor dem Aufklappen sehen können,
     // welche Rezepte aus Mealie kommen (und schreibgeschützt sind), nicht erst
-    // danach. Das Vorschaubild kommt nur mit, wenn Mealie eins hinterlegt hat
-    // (mealie_has_image aus dem letzten Sync) - kein Platzhalter-Icon für
-    // Rezepte ohne Bild, das wäre eine Aussage, die niemand getroffen hat.
-    if (isMirrored && recipe.mealie_has_image) {
-      const thumb = document.createElement('img');
-      thumb.className = 'recipe-row__thumb';
-      thumb.src = `/api/v1/recipes/${recipe.id}/mealie-thumbnail`;
-      thumb.alt = '';
-      thumb.loading = 'lazy';
-      toggle.appendChild(thumb);
-    }
+    // danach.
+    if (isMirrored) toggle.appendChild(recipeThumb(recipe));
 
     const name = document.createElement('span');
     name.className = 'kitchen-row__name';
