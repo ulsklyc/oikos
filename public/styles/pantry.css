@@ -87,9 +87,9 @@
 
 /* KEINE reservierte FAB-Gasse mehr. Sie stand hier und in shopping.css als
  * `padding-inline-end: var(--fab-lane)` und war kollisionsfrei um den Preis von
- * 76px in JEDER Zeile - bei 320px 24% der Viewportbreite. Der FAB fährt
- * stattdessen beim Abwärtsscrollen weg (utils/fab-scroll.js): kein horizontaler
- * Platz, sondern Zeit. */
+ * 76px in JEDER Zeile - bei 320px 24% der Viewportbreite. Stattdessen verkürzt
+ * --fab-safe-zone den Scrollport selbst (layout.css), sodass unter dem FAB bei
+ * jedem Scrollstand nichts Bedienbares mehr liegt. */
 
 .pantry-empty-hint {
   padding: var(--space-6) var(--space-4);

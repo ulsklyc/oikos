@@ -10,7 +10,6 @@ import { clearApiCache } from '/sw-register.js';
 import { initI18n, getLocale, t, formatDate, formatTime } from '/i18n.js';
 import { esc } from '/utils/html.js';
 import { wireScrollFade } from '/utils/ux.js';
-import { installFabRetract } from '/utils/fab-scroll.js';
 import { init as initReminders, stop as stopReminders } from '/reminders.js';
 import { initPush, stopPush } from '/push.js';
 import { numberLocaleFor } from '/settings/region-presets.js';
@@ -1015,14 +1014,6 @@ async function renderPage(route, previousPath = null) {
         localStorage.setItem(fabKey, String(fabCount));
       }
       document.documentElement.classList.toggle('fab-anim-done', fabCount >= FAB_SEEN_MAX);
-
-      // Der FAB fährt beim Abwärtsscrollen weg, damit er nicht über der
-      // Zeilenaktion liegt, nach der der Nutzer gerade sucht (gemessen bis 53.2%
-      // Überdeckung, Critique 2026-07-30). Idempotent und ohne Lebenszyklus: die
-      // Funktion installiert genau einen Document-Listener in der Capture-Phase
-      // und löst den aktuellen FAB erst zum Ereigniszeitpunkt auf. Deshalb hier
-      // aufrufbar, obwohl der FAB pro Seite neu entsteht.
-      installFabRetract();
     }
 
     // Read-only-Modus (#467): Bei „Nur lesen"-Modulen die Anlege-Affordance (FAB)

@@ -571,7 +571,7 @@
  * Zeichen („Broc…", „Cherr…"). 24% der Viewportbreite für einen Knopf in der
  * Ecke (Critique 2026-07-30, P0).
  *
- * Der FAB fährt jetzt beim Abwärtsscrollen weg (utils/fab-scroll.js) - eine
+ * --fab-safe-zone verkürzt stattdessen den Scrollport selbst (layout.css) - eine
  * Antwort für alle vier Tabs, statt einer Gasse hier und 14 Überdeckungen dort. */
 
 /* Der Abstand zwischen den Gruppen kommt aus dem gap von .kitchen-list. */

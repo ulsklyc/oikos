@@ -1894,16 +1894,27 @@ test('die Küchen-Listen teilen eine Zeilen-Grammatik', () => {
  * Zeichen gekürzt. Mahlzeiten und Rezepte reservierten nichts und sammelten
  * 14 Überdeckungen bis 53.2%.
  *
- * Die Antwort ist jetzt zeitlich statt räumlich: der FAB fährt beim
- * Abwärtsscrollen weg (utils/fab-scroll.js).
+ * Die Antwort war zwischenzeitlich zeitlich statt räumlich (.page-fab--retracted
+ * + utils/fab-scroll.js, Wegfahren beim Abwärtsscrollen). Das entfiel wieder
+ * (2026-07-30), als --fab-safe-zone dieselbe Kollision schon räumlich für JEDEN
+ * Scrollstand löste - der Retract kostete danach nur noch Sichtbarkeit der
+ * Primäraktion ohne verbleibenden Nutzen (gemeldet an gespiegelten
+ * Mealie-Rezeptlisten, wo Scrollen erstmals lang genug wurde, um aufzufallen).
  */
-test('der FAB weicht der Zeile, statt eine Gasse zu reservieren', () => {
+test('der FAB weicht der Zeile per Safe-Zone, nicht per Retract-Mechanik', () => {
   const layout = read('../public/styles/layout.css');
   const tokens = read('../public/styles/tokens.css');
-  const util = read('../public/utils/fab-scroll.js');
   const router = read('../public/router.js');
 
-  // Die Gasse darf nicht zurückkehren - in keinem Modul-CSS.
+  // Die Retract-Mechanik darf nicht zurückkehren.
+  assert.doesNotMatch(layout.replace(/\/\*[\s\S]*?\*\//g, ''), /\.page-fab--retracted/,
+    'layout.css darf .page-fab--retracted nicht wieder definieren - --fab-safe-zone deckt die Kollision bereits ab');
+  assert.doesNotMatch(router, /fab-scroll\.js|installFabRetract/,
+    'router.js darf den abgeschafften Retract-Mechanismus nicht wieder verdrahten');
+  assert.ok(!existsSync(new URL('../public/utils/fab-scroll.js', import.meta.url)),
+    'utils/fab-scroll.js ist abgeschafft und darf nicht wieder auftauchen');
+
+  // Die Gasse darf ebenfalls nicht zurückkehren - in keinem Modul-CSS.
   const styleDir = new URL('../public/styles/', import.meta.url);
   for (const file of readdirSync(styleDir).filter((f) => f.endsWith('.css'))) {
     const css = read(`../public/styles/${file}`);
@@ -1935,38 +1946,10 @@ test('der FAB weicht der Zeile, statt eine Gasse zu reservieren', () => {
       `${file} führt wieder ein eigenes FAB-Freiraum-Token statt --fab-safe-zone`);
   }
 
-  // Zurückgefahren heißt: unsichtbar UND nicht klickbar. Ein unsichtbarer, aber
-  // klickbarer FAB wäre genau der Defekt, den er beheben soll - er würde den Tap
-  // auf die freigelegte Zeilenaktion abfangen.
-  const retracted = layout.match(/\.page-fab--retracted\s*\{([^}]*)\}/)?.[1] ?? '';
-  assert.match(retracted, /transform:\s*translateY/, '.page-fab--retracted muss per transform wegfahren');
-  assert.match(retracted, /opacity:\s*0/, '.page-fab--retracted muss ausblenden');
-  assert.match(retracted, /pointer-events:\s*none/,
-    '.page-fab--retracted muss pointer-events: none setzen, sonst frisst der unsichtbare FAB den Tap');
-  assert.doesNotMatch(retracted, /visibility:\s*hidden/,
-    '.page-fab--retracted darf visibility nicht anfassen: der FAB bleibt per Tab und per n-Shortcut erreichbar');
-  assert.match(layout, /\.page-fab\s*\{[\s\S]*?transition:[^;]*opacity/,
-    '.page-fab muss opacity mit-transitionen, sonst gleitet er und blendet hart aus');
-
-  // Funktionale Bewegung, nicht dekorative: unter reduzierter Bewegung entfällt
-  // die Transition, nicht das Wegfahren.
-  assert.match(layout, /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]{0,400}?\.page-fab--retracted\s*\{[^}]*transition:\s*none/,
-    'unter prefers-reduced-motion muss .page-fab--retracted ohne Transition schalten');
-
-  // Rückweg: kein Timer, sondern Hochscrollen / Anfang / Ende.
-  assert.match(util, /atTop\s*\|\|\s*atBottom\s*\|\|\s*delta\s*<\s*0/,
-    'der FAB muss beim Hochscrollen, am Anfang und am Ende zurückkommen');
-  assert.doesNotMatch(util, /setTimeout|setInterval/,
-    'kein Idle-Timer: er brächte den FAB genau dann zurück, wenn der Nutzer nach der Zeilenaktion greift');
-  assert.match(util, /capture:\s*true/,
-    'scroll steigt nicht auf - der Listener muss in der Capture-Phase hängen');
-  assert.match(util, /passive:\s*true/, 'Scroll-Listener muss passive sein');
-  assert.match(util, /document\.activeElement === fab|aria-expanded/,
-    'der FAB darf nicht wegfahren, während er benutzt wird');
-
-  assert.match(router, /import \{ installFabRetract \} from '\/utils\/fab-scroll\.js'/,
-    'router.js muss den Mechanismus importieren');
-  assert.match(router, /installFabRetract\(\)/, 'router.js muss ihn verdrahten');
+  // Der FAB bleibt immer sichtbar und bedienbar - keine Opacity-/Transform-Regel
+  // schaltet ihn beim Scrollen weg.
+  assert.doesNotMatch(layout.replace(/\/\*[\s\S]*?\*\//g, ''), /page-fab[\s\S]{0,80}opacity:\s*0/,
+    'kein Scroll-Zustand darf den FAB per opacity ausblenden - --fab-safe-zone macht das überflüssig');
 });
 
 // --------------------------------------------------------

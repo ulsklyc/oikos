@@ -997,8 +997,6 @@ html:has(.search-overlay--visible) yuvomi-install-prompt {
   cursor: pointer;
   border: none;
   z-index: calc(var(--z-nav) - 1);
-  /* `opacity` gehört dazu, seit .page-fab--retracted sie mitschaltet - ohne sie
-   * würde der FAB beim Wegfahren gleiten und gleichzeitig hart ausblenden. */
   transition: transform var(--transition-base), opacity var(--transition-base), background-color var(--transition-fast);
   -webkit-tap-highlight-color: transparent;
   animation: fab-in 420ms var(--ease-out) backwards;
@@ -1030,36 +1028,19 @@ html.fab-anim-done .page-fab {
   animation: none;
 }
 
-/* Zurückgefahren beim Abwärtsscrollen (utils/fab-scroll.js).
+/* KEIN Zurückfahren beim Abwärtsscrollen mehr (entfernt 2026-07-30).
  *
- * Er weicht der Zeile, über der er sonst liegt: gemessen bis 53.2% Überdeckung
- * einer Zeilenaktion (Critique 2026-07-30). Die frühere Antwort war eine 76px
- * breite Gasse in jeder Zeile - kollisionsfrei, aber bei 320px 24% der
- * Viewportbreite und Artikelnamen auf vier lesbare Zeichen gekürzt.
+ * Stand hier als .page-fab--retracted + utils/fab-scroll.js: der FAB wich der
+ * Zeile, über der er sonst lag (gemessen bis 53.2% Überdeckung, Critique
+ * 2026-07-30). Seine Rechtfertigung entfiel, als --fab-safe-zone eingeführt
+ * wurde (tokens.css §7c): die Zone verkürzt den Scrollport selbst, sodass unter
+ * dem FAB bei JEDEM Scrollstand nichts Bedienbares mehr liegen kann - der
+ * Retract löste ein Kollisionsproblem, das nicht mehr existierte, und kostete
+ * dafür Sichtbarkeit der Primäraktion beim Suchen in langen Listen (gemeldet an
+ * gespiegelten Mealie-Rezeptlisten, wo Scrollen erstmals üblich wurde).
  *
- * `transform` plus `opacity`, keine Layout-Property: der FAB ist fixiert, ein
- * Wegfahren darf keinen Reflow der Liste auslösen. `pointer-events: none`, damit
- * die verdeckte Zeilenaktion im zurückgefahrenen Zustand wirklich erreichbar ist
- * und nicht ein unsichtbarer Knopf den Tap frisst - dieselbe Kopplung, die der
- * opacity-Guard in test-frontend-audit.js projektweit erzwingt.
- *
- * `visibility` bleibt bewusst unangetastet: der FAB behält seinen Platz in der
- * Fokusreihenfolge, damit Tastaturnutzer ihn per Tab und per `n`-Shortcut
- * erreichen, unabhängig von der Scrollposition. */
-.page-fab--retracted {
-  transform: translateY(calc(var(--fab-size) + var(--space-6))) scale(0.9);
-  opacity: 0;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  /* Kein sanftes Wegfahren, aber sehr wohl ein Wegfahren: die Bewegung ist hier
-   * funktional (sie gibt eine Bedienung frei), nicht dekorativ. Reduzierte
-   * Bewegung heißt weniger Animation, nicht weniger Bedienbarkeit. */
-  .page-fab--retracted {
-    transition: none;
-  }
-}
+ * Wer das wieder einführen will: erst neu messen, ob --fab-safe-zone bei der
+ * fraglichen Route/Viewport-Kombination tatsächlich eine Lücke lässt. */
 
 /* Desktop: FAB Position anpassen (keine Bottom-Nav) und etwas kleiner */
 @media (min-width: 1024px) {
