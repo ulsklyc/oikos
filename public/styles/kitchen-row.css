@@ -67,19 +67,13 @@
   display: grid;
   gap: var(--space-5);
   align-content: start;
-  /* Beide Küchen-Checklisten zeigen eine Liste benannter Dinge mit einem
-   * Steuerelement am Ende und teilen deshalb das Lesemaß. Linksbündig, nicht
-   * zentriert: der Listentitel im Kopf darüber steht an derselben Kante. */
-  max-width: var(--content-max-width-narrow);
-  /* content-box, nicht das globale border-box: die Kappung soll die LESESPALTE
-   * messen, nicht die Spalte plus Polster.
-   *
-   * Sonst zahlt der Tab, der den Spalten-Träger selbst trägt, den Gutter zwei
-   * Mal: gemessen 718px im Einkauf (Träger ist #list-content darüber) gegen
-   * 654px im Vorrat und in den Rezepten (Träger ist die Liste selbst) - gleiche
-   * linke Kante bei x=252, aber 64px Unterschied an der rechten. Mit content-box
-   * ergeben beide Wege dieselbe Spalte 252..972. */
-  box-sizing: content-box;
+  /* KEIN max-width hier (mehr). Der Scroller selbst muss die volle verfügbare
+   * Breite einnehmen, sonst reicht sein eigener Trefferbereich für
+   * Mausrad-Scrollen nur bis zur Lesespalten-Kante - rechts davon (auf einem
+   * breiten Desktop-Fenster spürbar viel Fläche) griff das Rad ins Leere.
+   * Die Kappung aufs Lesemaß trägt jetzt .kitchen-rows selbst (und bei
+   * gruppierten Tabs zusätzlich .kitchen-group, siehe dort): das Kind bleibt
+   * schmal und linksbündig, der Scroller drumherum reicht bis zum Fensterrand. */
   -webkit-overflow-scrolling: touch;
 }
 
@@ -143,6 +137,10 @@
 .kitchen-group {
   display: grid;
   gap: var(--space-2);
+  /* Trägt jetzt selbst das Lesemaß (.kitchen-list ist absichtlich unbegrenzt,
+   * siehe dort) - linksbündig, nicht zentriert: der Listentitel im Kopf
+   * darüber steht an derselben Kante. */
+  max-width: var(--content-max-width-narrow);
 }
 
 /* Label-Rolle, keine Titel-Rolle: die Überschrift ordnet, sie konkurriert nicht
@@ -189,6 +187,11 @@
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
   overflow: hidden;
+  /* Trägt das Lesemaß direkt, für den Fall, dass keine .kitchen-group darüber
+   * liegt (Rezepte: .kitchen-rows ist dort direktes Kind von .kitchen-list).
+   * Bei gruppierten Tabs kappt schon .kitchen-group - dieselbe Zahl hier ist
+   * dann redundant, aber unschädlich (verengt nichts weiter). */
+  max-width: var(--content-max-width-narrow);
   /* Ein Grid-Item von .kitchen-list dehnt sich per Default (align-items:
    * stretch) auf die Höhe der verfügbaren Spur, statt auf seine Inhaltshöhe zu
    * wachsen - unschädlich, solange mehrere kurze Gruppen dieselbe Spur teilen

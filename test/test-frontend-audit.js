@@ -1814,6 +1814,23 @@ test('die Küchen-Listen teilen eine Zeilen-Grammatik', () => {
       `${file} darf align-self für .kitchen-rows nicht erneut seitenspezifisch setzen - der Fix gehört in kitchen-row.css`);
   }
 
+  // .kitchen-list ist der Scroller (overflow-y: auto) und muss die volle
+  // verfügbare Breite einnehmen, sonst reicht sein Trefferbereich für
+  // Mausrad-Scrollen nur bis zur schmaleren Lesespalte darunter - rechts davon
+  // (auf einem breiten Fenster spürbar viel Fläche) greift das Rad ins Leere.
+  // Die Kappung aufs Lesemaß gehört auf die Kinder (.kitchen-rows/.kitchen-group),
+  // die sichtbar schmal bleiben, während der unsichtbare Scroller drumherum bis
+  // zum Fensterrand reicht.
+  const listBlock = shared.match(/\.kitchen-list\s*\{([^}]*)\}/)?.[1] ?? '';
+  assert.match(listBlock, /overflow-y:\s*auto/, '.kitchen-list muss der Scroller sein');
+  assert.doesNotMatch(listBlock.replace(/\/\*[\s\S]*?\*\//g, ''), /max-width/,
+    '.kitchen-list darf keine max-width tragen, sonst reicht der Mausrad-Trefferbereich nicht bis zum Fensterrand');
+  const groupBlock = shared.match(/\.kitchen-group\s*\{([^}]*)\}/)?.[1] ?? '';
+  assert.match(groupBlock, /max-width:\s*var\(--content-max-width-narrow\)/,
+    '.kitchen-group muss das Lesemaß tragen, seit .kitchen-list es nicht mehr tut');
+  assert.match(rowsBlock, /max-width:\s*var\(--content-max-width-narrow\)/,
+    '.kitchen-rows muss das Lesemaß tragen (Rezepte haben keine .kitchen-group darüber)');
+
   // Keine Zeilenaktion an der rechten Zeilenkante: das ist die Ecke, die der
   // fixierte FAB besetzt (87% Überdeckung auf dem Vorrats-Warenkorb im
   // Ruhezustand, Critique 2026-07-30). Kontextuelle Aktionen sitzen in einem
