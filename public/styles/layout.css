@@ -1370,12 +1370,17 @@ html.fab-anim-done .page-fab {
  * `display: flex` und ist nur bei abgehakten Artikeln gefüllt - ohne diese Zeile
  * blieb bei null Treffern ein leerer, gerahmter und getönter Streifen über der
  * Liste stehen. Vierte Fundstelle derselben Falle. */
+/* Und `.page-toolbar__actions`: der Rezepte-Kopf blendet seinen Quell-Filter-
+ * Knopf ein, sobald ein Mealie-Account existiert, sonst bleibt er `hidden` -
+ * ohne diese Zeile bliebe der ansonsten leere Slot als schmaler sichtbarer
+ * Streifen am rechten Kopfrand stehen. Fünfte Fundstelle derselben Falle. */
 .page-fab[hidden],
 .btn[hidden],
 .form-group[hidden],
 .page-toolbar[hidden],
 .recipe-detail[hidden],
 .kitchen-bulkbar[hidden],
+.page-toolbar__actions[hidden],
 p.field-hint--warn[hidden] {
   display: none !important;
 }

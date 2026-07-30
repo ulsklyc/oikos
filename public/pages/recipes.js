@@ -190,15 +190,18 @@ export async function render(container) {
   }));
   toolbar.appendChild(center);
 
-  // Nur sichtbar, sobald mindestens ein gespiegeltes Rezept existiert
-  // (renderSourceFilter füllt/versteckt sie nach dem Laden).
-  const sourceFilter = document.createElement('div');
-  sourceFilter.className = 'recipes-source-filter';
-  sourceFilter.id = 'recipes-source-filter';
-  sourceFilter.setAttribute('role', 'group');
-  sourceFilter.setAttribute('aria-label', t('recipes.sourceFilterLabel'));
-  sourceFilter.hidden = true;
-  toolbar.appendChild(sourceFilter);
+  // Trigger im __actions-Slot statt einer eigenen Pillen-Zeile darunter -
+  // dieselbe Behandlung wie „Lagerorte verwalten" im Vorrat (btn--icon im
+  // Kopf, kein zusätzliches Kopf-Element). Die frühere Chip-Reihe brauchte auf
+  // schmalen Bildschirmen eine ganze eigene Zeile, nur für drei Optionen, von
+  // denen fast immer "Alle" aktiv ist. Nur sichtbar, sobald mindestens ein
+  // gespiegeltes Rezept existiert (renderSourceFilter füllt/versteckt sie nach
+  // dem Laden).
+  const actions = document.createElement('div');
+  actions.className = 'page-toolbar__actions';
+  actions.id = 'recipes-source-filter';
+  actions.hidden = true;
+  toolbar.appendChild(actions);
 
   const list = document.createElement('div');
   list.className = 'kitchen-list recipes-list';
@@ -300,8 +303,11 @@ export async function render(container) {
   // Bedienelementen darin war.
 }
 
-// Drei-Wege-Filter (Alle/Nativ/Mealie) im geteilten .filter-chip-Muster
-// (Tasks/Dokumente/Kontakte). Bleibt versteckt, solange kein Mealie-Account
+// Drei-Wege-Filter (Alle/Nativ/Mealie) als Trigger + Popover-Menü im
+// __actions-Slot, dieselbe Behandlung wie „Lagerorte verwalten" im Vorrat -
+// ein btn--icon im Kopf statt einer eigenen Zeile, die auf schmalen
+// Bildschirmen für drei Optionen (fast immer "Alle" aktiv) eine ganze
+// Kopf-Zeile kostete. Bleibt versteckt, solange kein Mealie-Account
 // gespiegelte Rezepte liefert - der Filter wäre sonst leere Ornamentik.
 function renderSourceFilter() {
   const el = _container.querySelector('#recipes-source-filter');
@@ -315,27 +321,43 @@ function renderSourceFilter() {
   }
 
   el.hidden = false;
-  el.replaceChildren();
   const options = [
     { value: 'all', label: t('recipes.sourceAll') },
     { value: 'native', label: t('recipes.sourceNative') },
     { value: 'mealie', label: t('recipes.sourceMealie') },
   ];
-  for (const opt of options) {
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    const active = state.sourceFilter === opt.value;
-    chip.className = `filter-chip${active ? ' filter-chip--active' : ''}`;
-    chip.setAttribute('aria-pressed', String(active));
-    chip.textContent = opt.label;
-    chip.addEventListener('click', () => {
-      if (state.sourceFilter === opt.value) return;
-      state.sourceFilter = opt.value;
+  const activeLabel = options.find((o) => o.value === state.sourceFilter)?.label ?? '';
+
+  el.innerHTML = `
+    <button type="button" class="btn btn--ghost btn--icon popover-menu__trigger"
+            popovertarget="recipes-source-filter-menu"
+            aria-label="${esc(t('recipes.sourceFilterLabel'))}: ${esc(activeLabel)}"
+            title="${esc(t('recipes.sourceFilterLabel'))}: ${esc(activeLabel)}">
+      <i data-lucide="filter" class="icon-md" aria-hidden="true"></i>
+    </button>
+    <div class="popover-menu recipes-source-filter-menu" id="recipes-source-filter-menu" popover role="menu"
+         aria-label="${esc(t('recipes.sourceFilterLabel'))}">
+      ${options.map((opt) => {
+        const active = state.sourceFilter === opt.value;
+        return `
+          <button type="button" role="menuitemradio" aria-checked="${active}"
+                  class="popover-menu__item" data-source-value="${esc(opt.value)}">
+            <i data-lucide="check" class="icon-md popover-menu__item-check${active ? '' : ' popover-menu__item-check--hidden'}" aria-hidden="true"></i>
+            <span>${esc(opt.label)}</span>
+          </button>`;
+      }).join('')}
+    </div>`;
+
+  for (const btn of el.querySelectorAll('[data-source-value]')) {
+    btn.addEventListener('click', () => {
+      const value = btn.dataset.sourceValue;
+      if (state.sourceFilter === value) return;
+      state.sourceFilter = value;
       renderSourceFilter();
       renderRecipeList();
     });
-    el.appendChild(chip);
   }
+  if (window.lucide) window.lucide.createIcons({ el });
 }
 
 function renderRecipeList() {

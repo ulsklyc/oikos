@@ -286,16 +286,22 @@
   max-width: 420px;
 }
 
-/* Nativ/Mealie-Filter (nur sichtbar, wenn Mirror-Rezepte existieren) - gleiche
- * Chip-Reihen-Grammatik wie .tasks-filters. */
-.recipes-source-filter {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
+/* Herkunfts-Filter (Alle/Nativ/Mealie): Trigger im __actions-Slot des Kopfs
+ * (nur sichtbar, wenn Mirror-Rezepte existieren, siehe renderSourceFilter()),
+ * Panel über das geteilte .popover-menu (utils/popover-menu.js) - dieselbe
+ * Behandlung wie „Lagerorte verwalten" im Vorrat, statt einer eigenen
+ * Chip-Reihe, die auf schmalen Bildschirmen für drei Optionen eine ganze
+ * Kopf-Zeile kostete (fast immer nur "Alle" aktiv). */
+.recipes-source-filter-menu {
+  /* Schmaler als die Standardbreite (200px): drei kurze Wörter brauchen sie nicht. */
+  min-width: 160px;
 }
 
-.recipes-source-filter[hidden] {
-  display: none;
+/* Häkchen nur bei der aktiven Option - `visibility: hidden` statt
+ * `display: none`, damit die Textspalte für alle drei Einträge an derselben
+ * Stelle beginnt, unabhängig davon, welcher gerade ausgewählt ist. */
+.popover-menu__item-check--hidden {
+  visibility: hidden;
 }
 
 /* ENTFERNT mit dem Kartenraster:
