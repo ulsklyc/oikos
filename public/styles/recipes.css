@@ -66,6 +66,20 @@
   text-align: start;
 }
 
+/* `flex-basis: 0` statt der ererbten `auto` (kitchen-row.css): mit `auto`
+ * zieht der Browser für die Zeilenumbruch-Entscheidung die VOLLE, unumbrochene
+ * Textbreite als hypothetische Größe heran - bei einem langen Rezeptnamen
+ * passte die nicht neben das Vorschaubild, und statt NUR den Text intern
+ * umzubrechen, wanderte der GESAMTE Name in eine eigene Zeile (gemessen: „Alpha
+ * One Ingredient" blieb neben dem Bild, „Delta Twenty One Ingredients Recipe"
+ * fiel komplett darunter - zwei verschiedene Zeilenzahlen für dieselbe
+ * Zeilen-Vorlage, je nach Titellänge). Mit `flex-basis: 0` startet der Name bei
+ * null, „passt" also immer neben dem Bild, wächst danach in den Rest, und der
+ * Text bricht dort ganz normal per `overflow-wrap: anywhere` intern um. */
+.recipe-row__toggle .kitchen-row__name {
+  flex-basis: 0;
+}
+
 /* Zutatenzahl und Chevron bleiben beim Namen, statt an die Zeilenkante zu
  * wandern: sie beschriften, was das Aufklappen zeigt. */
 .recipe-row__toggle .kitchen-row__meta {
@@ -81,6 +95,14 @@
   min-width: 15ch;
   text-align: end;
   font-variant-numeric: tabular-nums;
+}
+
+/* Unsichtbarer Slot um das Badge (siehe recipes.js): in der Breitfassung
+ * nimmt er per `display: contents` gar nicht am Flex-Layout teil, die Pille
+ * selbst ist dann das Flex-Item wie zuvor. Die Container-Query unten
+ * reaktiviert ihn als echtes Flex-Item mit eigener Zeile. */
+.recipe-row__badge-slot {
+  display: contents;
 }
 
 /* Vorschaubild aus Mealie (server/routes/recipes.js proxied die Bytes, siehe
@@ -171,9 +193,19 @@
     flex-wrap: wrap;
   }
 
-  .recipe-row__toggle .kitchen-row__meta {
+  /* Eigene Zeile fürs Mealie-Badge, direkt unter dem Namen und über der
+   * Zutatenzahl - konsistent auf jeder Zeile, unabhängig von Titellänge oder
+   * Zutatenzahl-Wortbreite (siehe .recipe-row__badge-slot in recipes.js: der
+   * SLOT trägt die volle Breite, nicht die Pille selbst). */
+  .recipe-row__badge-slot {
+    display: flex;
     flex: 1 0 100%;
     order: 1;
+  }
+
+  .recipe-row__toggle .kitchen-row__meta {
+    flex: 1 0 100%;
+    order: 2;
   }
 }
 

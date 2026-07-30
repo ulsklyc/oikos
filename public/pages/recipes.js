@@ -457,7 +457,19 @@ function renderRecipeList() {
     name.textContent = recipe.title;
     toggle.appendChild(name);
 
-    if (isMirrored) toggle.appendChild(mealieSourceBadge(recipe));
+    if (isMirrored) {
+      // Eigener, unsichtbarer Slot statt das Badge selbst als Flex-Item zu
+      // verwenden: unter der Container-Query unten braucht das Badge eine
+      // erzwungene eigene Zeile (wie die Zutatenzahl), aber ein `flex-basis:
+      // 100%` DIREKT am Badge würde die Pille selbst auf volle Zeilenbreite
+      // dehnen (sie trägt einen sichtbaren Hintergrund, anders als der reine
+      // Text der Zutatenzahl). Der Slot dehnt sich, die Pille darin bleibt
+      // ihrer Inhaltsbreite treu.
+      const badgeSlot = document.createElement('span');
+      badgeSlot.className = 'recipe-row__badge-slot';
+      badgeSlot.appendChild(mealieSourceBadge(recipe));
+      toggle.appendChild(badgeSlot);
+    }
 
     // Die Zutatenzahl ersetzt das frühere „+N": dort stand ein <li> mit
     // cursor: pointer, ohne role, ohne tabindex, ohne aria-expanded, dessen
