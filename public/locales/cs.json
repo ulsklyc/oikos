@@ -2029,7 +2029,23 @@
         "documentStorageGoogleDriveDisconnectBlocked": "Před odpojením vyberte jiný cíl a odstraňte dokumenty uložené na Google Drive.",
         "documentStorageGoogleDriveOAuthSuccess": "Google Drive byl připojen. Až budete připraveni, vyberte ho jako cíl nahrávání.",
         "documentStorageGoogleDriveOAuthError": "Připojení ke službě Google Drive se nezdařilo. Předchozí připojení, pokud existovalo, zůstalo zachováno.",
-        "documentStorageGoogleDrivePrivacy": "Nastavení viditelnosti v Yuvomi řídí pouze přístup přes Yuvomi. Každý, kdo má přístup k připojené složce na Disku Google, může zobrazit všechny soubory, které jsou v ní uložené."
+        "documentStorageGoogleDrivePrivacy": "Nastavení viditelnosti v Yuvomi řídí pouze přístup přes Yuvomi. Každý, kdo má přístup k připojené složce na Disku Google, může zobrazit všechny soubory, které jsou v ní uložené.",
+        "mealieTitle": "Mealie",
+        "mealieDescription": "Zrcadlí recepty ze samostatně hostované instance Mealie. Mealie zůstává zdrojem pravdy – recepty jsou zde pouze pro čtení a automaticky se aktualizují.",
+        "mealieAddAccount": "Přidat účet Mealie",
+        "mealieNameLabel": "Název",
+        "mealieUrlLabel": "URL Mealie",
+        "mealieTokenLabel": "API token",
+        "mealieTokenHint": "Vytvořte dlouhodobý API token v Mealie v Nastavení → API tokeny.",
+        "mealieEmptyState": "Zatím není připojen žádný účet Mealie.",
+        "mealieSyncSuccess": "Recepty Mealie synchronizovány.",
+        "mealieSyncFailed": "Synchronizace Mealie selhala.",
+        "mealieEnable": "Povolit",
+        "mealieDisable": "Zakázat",
+        "mealieAccountAdded": "Účet Mealie přidán.",
+        "mealieAccountDeleted": "Účet Mealie smazán.",
+        "mealieDeleteAccountConfirm": "Tím se také odstraní {{count}} zrcadlených receptů a zruší se jejich propojení se všemi položkami jídelníčku.",
+        "mealieLastError": "Poslední chyba synchronizace: {{message}}"
     },
     "login": {
         "tagline": "Vítejte zpět ve svém rodinném plánovači.",
@@ -2713,7 +2729,11 @@
         "noResultsTitle": "Nic nenalezeno",
         "searchNoResults": "Žádné recepty nenalezeny.",
         "dragToMealsHint": "Přetáhněte recepty do slotů jídel a rychle je naplánujte.",
-        "loadError": "Recepty se nepodařilo načíst."
+        "loadError": "Recepty se nepodařilo načíst.",
+        "sourceMealie": "Mealie",
+        "sourceNative": "Vlastní",
+        "sourceAll": "Vše",
+        "sourceFilterLabel": "Filtrovat podle zdroje"
     },
     "wmo": {
         "0": "Jasno",

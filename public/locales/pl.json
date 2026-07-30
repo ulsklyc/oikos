@@ -2041,7 +2041,23 @@
         "documentStorageGoogleDriveDisconnectBlocked": "Przed odłączeniem wybierz inne miejsce i usuń dokumenty przechowywane w Google Drive.",
         "documentStorageGoogleDriveOAuthSuccess": "Połączono z Google Drive. Gdy wszystko będzie gotowe, wybierz Google Drive jako miejsce przesyłania.",
         "documentStorageGoogleDriveOAuthError": "Nie udało się połączyć z Google Drive. Poprzednie połączenie, jeśli istniało, zostało zachowane.",
-        "documentStorageGoogleDrivePrivacy": "Ustawienia widoczności Yuvomi kontrolują dostęp tylko przez Yuvomi. Każda osoba mająca dostęp do połączonego folderu Dysku Google może wyświetlić wszystkie zapisane w nim pliki."
+        "documentStorageGoogleDrivePrivacy": "Ustawienia widoczności Yuvomi kontrolują dostęp tylko przez Yuvomi. Każda osoba mająca dostęp do połączonego folderu Dysku Google może wyświetlić wszystkie zapisane w nim pliki.",
+        "mealieTitle": "Mealie",
+        "mealieDescription": "Odzwierciedla przepisy z samodzielnie hostowanej instancji Mealie. Mealie pozostaje źródłem prawdy — przepisy są tu tylko do odczytu i aktualizują się automatycznie.",
+        "mealieAddAccount": "Dodaj konto Mealie",
+        "mealieNameLabel": "Nazwa",
+        "mealieUrlLabel": "Adres URL Mealie",
+        "mealieTokenLabel": "Token API",
+        "mealieTokenHint": "Utwórz długoterminowy token API w Mealie w Ustawienia → Tokeny API.",
+        "mealieEmptyState": "Nie połączono jeszcze żadnego konta Mealie.",
+        "mealieSyncSuccess": "Przepisy Mealie zsynchronizowane.",
+        "mealieSyncFailed": "Synchronizacja Mealie nie powiodła się.",
+        "mealieEnable": "Włącz",
+        "mealieDisable": "Wyłącz",
+        "mealieAccountAdded": "Dodano konto Mealie.",
+        "mealieAccountDeleted": "Usunięto konto Mealie.",
+        "mealieDeleteAccountConfirm": "To usunie również {{count}} odzwierciedlonych przepisów i odłączy je od wszystkich wpisów planu posiłków.",
+        "mealieLastError": "Ostatni błąd synchronizacji: {{message}}"
     },
     "login": {
         "tagline": "Witaj ponownie w swoim planerze rodzinnym.",
@@ -2241,7 +2257,11 @@
         "noResultsTitle": "Nic nie znaleziono",
         "searchNoResults": "Nie znaleziono przepisów.",
         "dragToMealsHint": "Przeciągnij przepisy do pól posiłków, aby szybko je zaplanować.",
-        "loadError": "Nie udało się załadować przepisów."
+        "loadError": "Nie udało się załadować przepisów.",
+        "sourceMealie": "Mealie",
+        "sourceNative": "Lokalny",
+        "sourceAll": "Wszystkie",
+        "sourceFilterLabel": "Filtruj według źródła"
     },
     "onboarding": {
         "step1Title": "Witaj w {{name}}",

@@ -2029,7 +2029,23 @@
         "documentStorageGoogleDriveDisconnectBlocked": "Välj ett annat mål och ta bort dokument som lagras på Drive innan du kopplar från.",
         "documentStorageGoogleDriveOAuthSuccess": "Google Drive har anslutits. Välj det som uppladdningsmål när du är redo.",
         "documentStorageGoogleDriveOAuthError": "Det gick inte att ansluta till Google Drive. Den tidigare anslutningen behölls, om det fanns någon.",
-        "documentStorageGoogleDrivePrivacy": "Yuvomis synlighetsinställningar styr endast åtkomsten via Yuvomi. Alla som har åtkomst till den anslutna Google Drive-mappen kan se alla filer som lagras där."
+        "documentStorageGoogleDrivePrivacy": "Yuvomis synlighetsinställningar styr endast åtkomsten via Yuvomi. Alla som har åtkomst till den anslutna Google Drive-mappen kan se alla filer som lagras där.",
+        "mealieTitle": "Mealie",
+        "mealieDescription": "Speglar recept från en självhostad Mealie-instans. Mealie förblir sanningskällan – recepten här är skrivskyddade och uppdateras automatiskt.",
+        "mealieAddAccount": "Lägg till Mealie-konto",
+        "mealieNameLabel": "Namn",
+        "mealieUrlLabel": "Mealie-URL",
+        "mealieTokenLabel": "API-token",
+        "mealieTokenHint": "Skapa en långlivad API-token i Mealie under Inställningar → API-tokens.",
+        "mealieEmptyState": "Inget Mealie-konto anslutet ännu.",
+        "mealieSyncSuccess": "Mealie-recept synkroniserade.",
+        "mealieSyncFailed": "Mealie-synkronisering misslyckades.",
+        "mealieEnable": "Aktivera",
+        "mealieDisable": "Inaktivera",
+        "mealieAccountAdded": "Mealie-konto tillagt.",
+        "mealieAccountDeleted": "Mealie-konto borttaget.",
+        "mealieDeleteAccountConfirm": "Detta tar även bort {{count}} speglade recept och kopplar bort dem från alla måltidsplaneringsposter.",
+        "mealieLastError": "Senaste synkroniseringsfel: {{message}}"
     },
     "login": {
         "tagline": "Välkommen tillbaka till din familjeplanerare.",
@@ -2152,7 +2168,11 @@
         "searchNoResults": "Inga recept hittades.",
         "dragToMealsHint": "Dra recept till måltidsfälten för att snabbt planera dem.",
         "emptyAction": "Skapa recept",
-        "loadError": "Det gick inte att ladda recept."
+        "loadError": "Det gick inte att ladda recept.",
+        "sourceMealie": "Mealie",
+        "sourceNative": "Egna",
+        "sourceAll": "Alla",
+        "sourceFilterLabel": "Filtrera efter källa"
     },
     "search": {
         "emptyHint": "Skriv minst 2 tecken för att söka bland uppgifter, händelser, anteckningar, kontakter, inköp och hälsa.",

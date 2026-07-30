@@ -198,6 +198,18 @@
   max-width: 420px;
 }
 
+/* Nativ/Mealie-Filter (nur sichtbar, wenn Mirror-Rezepte existieren) - gleiche
+ * Chip-Reihen-Grammatik wie .tasks-filters. */
+.recipes-source-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.recipes-source-filter[hidden] {
+  display: none;
+}
+
 /* ENTFERNT mit dem Kartenraster:
  *   .recipes-search-empty  - der Suchtreffer-Leerzustand läuft jetzt über
  *                            mountEmptyState({ variant: 'no-results' }), also

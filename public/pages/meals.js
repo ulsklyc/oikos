@@ -537,6 +537,14 @@ function renderRecipeSidebar() {
     titleEl.textContent = recipe.title;
     card.appendChild(titleEl);
 
+    if (recipe.source === 'mealie') {
+      const sourceBadge = document.createElement('span');
+      sourceBadge.className = 'source-badge source-badge--mealie';
+      sourceBadge.textContent = t('recipes.sourceMealie');
+      if (recipe.mealie_account_name) sourceBadge.title = recipe.mealie_account_name;
+      card.appendChild(sourceBadge);
+    }
+
     // Mahlzeiten-Chips nur bei echter Teilmenge: ein Rezept, das zu allen (oder
     // keinem) Typ passt, trägt mit "überall"-Chips null Information und ist dann
     // das lauteste Element der Karte (Audit P2, Muster wie recipes.js showBadges).
@@ -1298,10 +1306,20 @@ function buildModalContent({ mode, date, mealType, meal }) {
 
   const hasIngOpen = isEdit && meal.ingredients?.some((i) => !i.on_shopping_list);
 
-  const recipeOptions = [
-    `<option value="">${t('meals.savedRecipePlaceholder')}</option>`,
-    ...state.recipes.map((r) => `<option value="${r.id}" ${isEdit && meal.recipe_id === r.id ? 'selected' : ''}>${esc(r.title)}</option>`),
-  ].join('');
+  const recipeOptionHtml = (r) => `<option value="${r.id}" ${isEdit && meal.recipe_id === r.id ? 'selected' : ''}>${esc(r.title)}</option>`;
+  // Optgroups nur, sobald Mealie-Rezepte wirklich vorkommen: ohne Mirror-
+  // Account bleibt die flache Liste von vorher unverändert (kein UI-Rauschen).
+  const hasMirroredRecipes = state.recipes.some((r) => r.source === 'mealie');
+  const recipeOptions = hasMirroredRecipes
+    ? [
+      `<option value="">${t('meals.savedRecipePlaceholder')}</option>`,
+      `<optgroup label="${esc(t('recipes.sourceNative'))}">${state.recipes.filter((r) => r.source !== 'mealie').map(recipeOptionHtml).join('')}</optgroup>`,
+      `<optgroup label="${esc(t('recipes.sourceMealie'))}">${state.recipes.filter((r) => r.source === 'mealie').map(recipeOptionHtml).join('')}</optgroup>`,
+    ].join('')
+    : [
+      `<option value="">${t('meals.savedRecipePlaceholder')}</option>`,
+      ...state.recipes.map(recipeOptionHtml),
+    ].join('');
 
   const advancedOpen = isEdit && (!!meal.recipe_id || !!meal.notes || !!meal.recipe_url || isRecurring);
 

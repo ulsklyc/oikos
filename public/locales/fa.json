@@ -2041,7 +2041,23 @@
         "documentStorageGoogleDriveDisconnectBlocked": "پیش از قطع اتصال، مقصد دیگری را انتخاب و اسناد ذخیره‌شده در Drive را حذف کنید.",
         "documentStorageGoogleDriveOAuthSuccess": "Google Drive متصل شد. هر زمان آماده بودید، آن را به‌عنوان مقصد بارگذاری انتخاب کنید.",
         "documentStorageGoogleDriveOAuthError": "اتصال Google Drive ناموفق بود. اتصال قبلی، در صورت وجود، حفظ شد.",
-        "documentStorageGoogleDrivePrivacy": "تنظیمات مشاهده‌پذیری Yuvomi فقط دسترسی از طریق Yuvomi را کنترل می‌کنند. هر کسی که به پوشهٔ متصل Google Drive دسترسی داشته باشد، می‌تواند همهٔ فایل‌های ذخیره‌شده در آن را مشاهده کند."
+        "documentStorageGoogleDrivePrivacy": "تنظیمات مشاهده‌پذیری Yuvomi فقط دسترسی از طریق Yuvomi را کنترل می‌کنند. هر کسی که به پوشهٔ متصل Google Drive دسترسی داشته باشد، می‌تواند همهٔ فایل‌های ذخیره‌شده در آن را مشاهده کند.",
+        "mealieTitle": "Mealie",
+        "mealieDescription": "دستورهای پخت را از یک نمونهٔ خودمیزبان Mealie آینه می‌کند. Mealie همچنان منبع حقیقت باقی می‌ماند — دستورهای پخت در اینجا فقط‌خواندنی هستند و به‌طور خودکار به‌روزرسانی می‌شوند.",
+        "mealieAddAccount": "افزودن حساب Mealie",
+        "mealieNameLabel": "نام",
+        "mealieUrlLabel": "آدرس Mealie",
+        "mealieTokenLabel": "توکن API",
+        "mealieTokenHint": "یک توکن API طولانی‌مدت در Mealie زیر تنظیمات ← توکن‌های API ایجاد کنید.",
+        "mealieEmptyState": "هنوز هیچ حساب Mealie متصل نشده است.",
+        "mealieSyncSuccess": "دستورهای پخت Mealie همگام‌سازی شدند.",
+        "mealieSyncFailed": "همگام‌سازی Mealie ناموفق بود.",
+        "mealieEnable": "فعال‌سازی",
+        "mealieDisable": "غیرفعال‌سازی",
+        "mealieAccountAdded": "حساب Mealie افزوده شد.",
+        "mealieAccountDeleted": "حساب Mealie حذف شد.",
+        "mealieDeleteAccountConfirm": "این کار همچنین {{count}} دستور پخت آینه‌شده را حذف کرده و پیوند آن‌ها را با هر مورد برنامهٔ غذایی قطع می‌کند.",
+        "mealieLastError": "آخرین خطای همگام‌سازی: {{message}}"
     },
     "login": {
         "tagline": "دوباره به برنامه‌ریز خانوادگی‌تان خوش آمدید.",
@@ -2241,7 +2257,11 @@
         "noResultsTitle": "چیزی یافت نشد",
         "searchNoResults": "دستوری یافت نشد.",
         "dragToMealsHint": "برای برنامه‌ریزی سریع، دستورها را روی خانه‌های وعده بکشید.",
-        "loadError": "دستورهای غذا بارگذاری نشدند."
+        "loadError": "دستورهای غذا بارگذاری نشدند.",
+        "sourceMealie": "Mealie",
+        "sourceNative": "بومی",
+        "sourceAll": "همه",
+        "sourceFilterLabel": "فیلتر بر اساس منبع"
     },
     "onboarding": {
         "step1Title": "به {{name}} خوش آمدید",

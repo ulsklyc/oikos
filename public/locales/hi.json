@@ -2029,7 +2029,23 @@
         "documentStorageGoogleDriveDisconnectBlocked": "डिस्कनेक्ट करने से पहले कोई दूसरा गंतव्य चुनें और Drive में संग्रहीत दस्तावेज़ हटाएँ।",
         "documentStorageGoogleDriveOAuthSuccess": "Google Drive कनेक्ट हो गया। तैयार होने पर इसे अपलोड गंतव्य के रूप में चुनें।",
         "documentStorageGoogleDriveOAuthError": "Google Drive कनेक्शन विफल रहा। पिछला कनेक्शन, यदि कोई था, बनाए रखा गया।",
-        "documentStorageGoogleDrivePrivacy": "Yuvomi की दृश्यता सेटिंग केवल Yuvomi के ज़रिए होने वाली पहुँच को नियंत्रित करती हैं। कनेक्ट किए गए Google Drive फ़ोल्डर तक पहुँच रखने वाला कोई भी व्यक्ति उसमें संग्रहीत सभी फ़ाइलें देख सकता है।"
+        "documentStorageGoogleDrivePrivacy": "Yuvomi की दृश्यता सेटिंग केवल Yuvomi के ज़रिए होने वाली पहुँच को नियंत्रित करती हैं। कनेक्ट किए गए Google Drive फ़ोल्डर तक पहुँच रखने वाला कोई भी व्यक्ति उसमें संग्रहीत सभी फ़ाइलें देख सकता है।",
+        "mealieTitle": "Mealie",
+        "mealieDescription": "स्व-होस्टेड Mealie इंस्टेंस से व्यंजन विधियाँ मिरर करता है। Mealie सत्य का स्रोत बना रहता है — यहाँ व्यंजन विधियाँ केवल-पठनीय हैं और स्वतः अपडेट होती हैं।",
+        "mealieAddAccount": "Mealie खाता जोड़ें",
+        "mealieNameLabel": "नाम",
+        "mealieUrlLabel": "Mealie URL",
+        "mealieTokenLabel": "API टोकन",
+        "mealieTokenHint": "Mealie में सेटिंग्स → API टोकन के अंतर्गत एक दीर्घकालिक API टोकन बनाएँ।",
+        "mealieEmptyState": "अभी तक कोई Mealie खाता जुड़ा नहीं है।",
+        "mealieSyncSuccess": "Mealie व्यंजन विधियाँ सिंक हो गईं।",
+        "mealieSyncFailed": "Mealie सिंक विफल रहा।",
+        "mealieEnable": "सक्षम करें",
+        "mealieDisable": "अक्षम करें",
+        "mealieAccountAdded": "Mealie खाता जोड़ा गया।",
+        "mealieAccountDeleted": "Mealie खाता हटाया गया।",
+        "mealieDeleteAccountConfirm": "इससे {{count}} मिरर की गई व्यंजन विधियाँ भी हट जाएँगी और किसी भी भोजन योजना प्रविष्टि से उनका संबंध टूट जाएगा।",
+        "mealieLastError": "अंतिम सिंक त्रुटि: {{message}}"
     },
     "login": {
         "tagline": "अपने पारिवारिक प्लानर में फिर से आपका स्वागत है।",
@@ -2152,7 +2168,11 @@
         "searchNoResults": "कोई रेसिपी नहीं मिली।",
         "dragToMealsHint": "रेसिपी को भोजन स्लॉट पर खींचकर जल्दी योजना बनाएं।",
         "emptyAction": "रेसिपी बनाएं",
-        "loadError": "रेसिपी लोड नहीं हो सकीं।"
+        "loadError": "रेसिपी लोड नहीं हो सकीं।",
+        "sourceMealie": "Mealie",
+        "sourceNative": "मूल",
+        "sourceAll": "सभी",
+        "sourceFilterLabel": "स्रोत के अनुसार फ़िल्टर करें"
     },
     "search": {
         "emptyHint": "कार्य, ईवेंट, नोट्स, संपर्क, खरीदारी और स्वास्थ्य में खोजने के लिए कम से कम 2 अक्षर लिखें।",

@@ -2029,7 +2029,23 @@
         "documentStorageGoogleDriveDisconnectBlocked": "Selecteer een andere bestemming en verwijder documenten die in Drive zijn opgeslagen voordat je de verbinding verbreekt.",
         "documentStorageGoogleDriveOAuthSuccess": "Google Drive is verbonden. Selecteer het als uploadbestemming wanneer je klaar bent.",
         "documentStorageGoogleDriveOAuthError": "Verbinding met Google Drive is mislukt. De vorige verbinding, indien aanwezig, is behouden.",
-        "documentStorageGoogleDrivePrivacy": "De zichtbaarheidsinstellingen van Yuvomi regelen alleen de toegang via Yuvomi. Iedereen met toegang tot de gekoppelde Google Drive-map kan alle bestanden bekijken die daar zijn opgeslagen."
+        "documentStorageGoogleDrivePrivacy": "De zichtbaarheidsinstellingen van Yuvomi regelen alleen de toegang via Yuvomi. Iedereen met toegang tot de gekoppelde Google Drive-map kan alle bestanden bekijken die daar zijn opgeslagen.",
+        "mealieTitle": "Mealie",
+        "mealieDescription": "Spiegelt recepten van een self-hosted Mealie-instantie. Mealie blijft de bron van waarheid: recepten zijn hier alleen-lezen en worden automatisch bijgewerkt.",
+        "mealieAddAccount": "Mealie-account toevoegen",
+        "mealieNameLabel": "Naam",
+        "mealieUrlLabel": "Mealie-URL",
+        "mealieTokenLabel": "API-token",
+        "mealieTokenHint": "Maak een langlevend API-token aan in Mealie onder Instellingen → API-tokens.",
+        "mealieEmptyState": "Nog geen Mealie-account gekoppeld.",
+        "mealieSyncSuccess": "Mealie-recepten gesynchroniseerd.",
+        "mealieSyncFailed": "Mealie-synchronisatie mislukt.",
+        "mealieEnable": "Inschakelen",
+        "mealieDisable": "Uitschakelen",
+        "mealieAccountAdded": "Mealie-account toegevoegd.",
+        "mealieAccountDeleted": "Mealie-account verwijderd.",
+        "mealieDeleteAccountConfirm": "Dit verwijdert ook {{count}} gespiegelde recepten en ontkoppelt ze van eventuele maaltijdplan-items.",
+        "mealieLastError": "Laatste synchronisatiefout: {{message}}"
     },
     "login": {
         "tagline": "Welkom terug bij je gezinsplanner.",
@@ -2229,7 +2245,11 @@
         "searchNoResults": "Geen recepten gevonden.",
         "dragToMealsHint": "Sleep recepten naar maaltijdvakken om ze snel in te plannen.",
         "emptyAction": "Recept aanmaken",
-        "loadError": "Recepten konden niet worden geladen."
+        "loadError": "Recepten konden niet worden geladen.",
+        "sourceMealie": "Mealie",
+        "sourceNative": "Eigen",
+        "sourceAll": "Alle",
+        "sourceFilterLabel": "Filter op bron"
     },
     "search": {
         "emptyHint": "Typ minstens 2 tekens om te zoeken in taken, afspraken, notities, contacten, boodschappen en gezondheid.",

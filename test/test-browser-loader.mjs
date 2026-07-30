@@ -24,6 +24,15 @@ const STUBS = {
       logout: async () => ({ ok: true }),
       updateProfile: async () => ({ user: null }),
     };
+    export const mealie = {
+      listAccounts: async () => ({ data: [] }),
+      createAccount: async () => ({ data: null }),
+      updateAccount: async () => ({ data: null }),
+      deleteAccount: async () => ({ data: null }),
+      testAccount: async () => ({ data: null }),
+      syncAccount: async () => ({ data: null }),
+      getStatus: async () => ({ data: [] }),
+    };
   `,
   '/i18n.js': `
     export const t = (key, values = {}) => {

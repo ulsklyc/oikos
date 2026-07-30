@@ -27,6 +27,7 @@ import { startScheduler as startBackupScheduler } from './services/backup-schedu
 import { startScheduler as startSplitExpenseScheduler } from './services/split-expenses-scheduler.js';
 import { startScheduler as startPushScheduler } from './services/push-scheduler.js';
 import { startScheduler as startMedicationScheduler } from './services/medication-scheduler.js';
+import { startScheduler as startMealieScheduler } from './services/mealie-sync.js';
 import { emailService } from './services/email.js';
 import dashboardRouter from './routes/dashboard.js';
 import tasksRouter from './routes/tasks.js';
@@ -45,6 +46,7 @@ import subscriptionsRouter from './routes/subscriptions.js';
 import documentsRouter from './routes/documents.js';
 import googleDriveStorageRouter from './routes/document-storage-google-drive.js';
 import dmsRouter from './routes/dms.js';
+import mealieRouter from './routes/mealie.js';
 import splitExpensesRouter from './routes/split-expenses.js';
 import weatherRouter from './routes/weather.js';
 import preferencesRouter from './routes/preferences.js';
@@ -403,6 +405,7 @@ app.use('/api/v1/tasks', tasksRouter);
 app.use('/api/v1/shopping', shoppingRouter);
 app.use('/api/v1/meals', mealsRouter);
 app.use('/api/v1/recipes', recipesRouter);
+app.use('/api/v1/mealie', mealieRouter);
 app.use('/api/v1/pantry', pantryRouter);
 // Kreislauf-Zustand der vier Küchen-Tabs in einer Abfrage (utils/kitchen-tabs.js).
 app.use('/api/v1/kitchen', kitchenRouter);
@@ -528,6 +531,7 @@ app.listen(PORT, () => {
   startSplitExpenseScheduler();
   startPushScheduler();
   startMedicationScheduler();
+  startMealieScheduler();
 });
 
 export default app;

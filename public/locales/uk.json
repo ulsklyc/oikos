@@ -2029,7 +2029,23 @@
         "documentStorageGoogleDriveDisconnectBlocked": "Перед відключенням виберіть інше місце завантаження та видаліть документи, що зберігаються в Google Drive.",
         "documentStorageGoogleDriveOAuthSuccess": "Google Drive підключено. Коли будете готові, виберіть його як місце завантаження.",
         "documentStorageGoogleDriveOAuthError": "Не вдалося підключити Google Drive. Попереднє підключення, якщо воно було, збережено.",
-        "documentStorageGoogleDrivePrivacy": "Налаштування видимості Yuvomi керують доступом лише через Yuvomi. Усі, хто має доступ до підключеної папки Google Диска, можуть переглядати всі файли, що зберігаються в ній."
+        "documentStorageGoogleDrivePrivacy": "Налаштування видимості Yuvomi керують доступом лише через Yuvomi. Усі, хто має доступ до підключеної папки Google Диска, можуть переглядати всі файли, що зберігаються в ній.",
+        "mealieTitle": "Mealie",
+        "mealieDescription": "Віддзеркалює рецепти із самостійно розміщеного екземпляра Mealie. Mealie залишається джерелом істини — рецепти тут доступні лише для читання й оновлюються автоматично.",
+        "mealieAddAccount": "Додати обліковий запис Mealie",
+        "mealieNameLabel": "Назва",
+        "mealieUrlLabel": "URL Mealie",
+        "mealieTokenLabel": "API-токен",
+        "mealieTokenHint": "Створіть довготривалий API-токен у Mealie в розділі Налаштування → API-токени.",
+        "mealieEmptyState": "Ще не підключено жодного облікового запису Mealie.",
+        "mealieSyncSuccess": "Рецепти Mealie синхронізовано.",
+        "mealieSyncFailed": "Не вдалося синхронізувати Mealie.",
+        "mealieEnable": "Увімкнути",
+        "mealieDisable": "Вимкнути",
+        "mealieAccountAdded": "Обліковий запис Mealie додано.",
+        "mealieAccountDeleted": "Обліковий запис Mealie видалено.",
+        "mealieDeleteAccountConfirm": "Це також видалить {{count}} віддзеркалених рецептів і від'єднає їх від будь-яких записів плану харчування.",
+        "mealieLastError": "Остання помилка синхронізації: {{message}}"
     },
     "login": {
         "tagline": "З поверненням до вашого сімейного планувальника.",
@@ -2185,7 +2201,11 @@
         "searchNoResults": "Рецептів не знайдено.",
         "dragToMealsHint": "Перетягуйте рецепти в слоти прийомів їжі, щоб швидко скласти план.",
         "emptyAction": "Створити рецепт",
-        "loadError": "Не вдалося завантажити рецепти."
+        "loadError": "Не вдалося завантажити рецепти.",
+        "sourceMealie": "Mealie",
+        "sourceNative": "Локальний",
+        "sourceAll": "Усі",
+        "sourceFilterLabel": "Фільтр за джерелом"
     },
     "search": {
         "emptyHint": "Введіть щонайменше 2 символи для пошуку в завданнях, подіях, нотатках, контактах, покупках і здоров'ї.",

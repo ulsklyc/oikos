@@ -2029,7 +2029,23 @@
         "documentStorageGoogleDriveDisconnectBlocked": "切断する前に、別の保存先を選択し、Google Drive に保存されている文書を削除してください。",
         "documentStorageGoogleDriveOAuthSuccess": "Google Drive に接続しました。準備ができたら、アップロード先として選択してください。",
         "documentStorageGoogleDriveOAuthError": "Google Drive への接続に失敗しました。以前の接続がある場合は維持されています。",
-        "documentStorageGoogleDrivePrivacy": "Yuvomi の公開範囲設定で制御されるのは、Yuvomi 経由のアクセスのみです。接続された Google ドライブ フォルダにアクセスできる人は、そこに保存されているすべてのファイルを閲覧できます。"
+        "documentStorageGoogleDrivePrivacy": "Yuvomi の公開範囲設定で制御されるのは、Yuvomi 経由のアクセスのみです。接続された Google ドライブ フォルダにアクセスできる人は、そこに保存されているすべてのファイルを閲覧できます。",
+        "mealieTitle": "Mealie",
+        "mealieDescription": "セルフホストのMealieインスタンスからレシピをミラーリングします。Mealieが真実の情報源であり続けます — ここでのレシピは読み取り専用で、自動的に更新されます。",
+        "mealieAddAccount": "Mealieアカウントを追加",
+        "mealieNameLabel": "名前",
+        "mealieUrlLabel": "Mealie URL",
+        "mealieTokenLabel": "APIトークン",
+        "mealieTokenHint": "Mealieの「設定 → APIトークン」で長期間有効なAPIトークンを作成してください。",
+        "mealieEmptyState": "まだMealieアカウントが接続されていません。",
+        "mealieSyncSuccess": "Mealieのレシピを同期しました。",
+        "mealieSyncFailed": "Mealieの同期に失敗しました。",
+        "mealieEnable": "有効にする",
+        "mealieDisable": "無効にする",
+        "mealieAccountAdded": "Mealieアカウントを追加しました。",
+        "mealieAccountDeleted": "Mealieアカウントを削除しました。",
+        "mealieDeleteAccountConfirm": "これにより、ミラーリングされた{{count}}件のレシピも削除され、献立の項目との関連付けが解除されます。",
+        "mealieLastError": "直近の同期エラー: {{message}}"
     },
     "login": {
         "tagline": "家族のプランナーへおかえりなさい。",
@@ -2152,7 +2168,11 @@
         "searchNoResults": "レシピが見つかりません。",
         "dragToMealsHint": "レシピを食事スロットにドラッグして、すばやく献立を組めます。",
         "emptyAction": "レシピを作成",
-        "loadError": "レシピの読み込みに失敗しました。"
+        "loadError": "レシピの読み込みに失敗しました。",
+        "sourceMealie": "Mealie",
+        "sourceNative": "ネイティブ",
+        "sourceAll": "すべて",
+        "sourceFilterLabel": "ソースで絞り込み"
     },
     "search": {
         "emptyHint": "2文字以上入力すると、タスク・予定・メモ・連絡先・買い物・健康を検索できます。",

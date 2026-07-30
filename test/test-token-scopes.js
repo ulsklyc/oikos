@@ -65,6 +65,11 @@ test('moduleForPath: Pfad-Prefix ⇒ Modul (inkl. geteilter Router)', () => {
   assert.equal(moduleForPath('/birthdays'), 'calendar');
   assert.equal(moduleForPath('/split-expenses/x'), 'budget');  // split-expenses gehört zu budget
   assert.equal(moduleForPath('/recipes'), 'meals');
+  // /mealie gehört zu meals: sonst greift die Mitglieds-Zugriffssperre
+  // (server/index.js #467) nicht, und ein auf meals='none' gesperrtes Mitglied
+  // könnte GET /mealie/status trotzdem abfragen (das selbst absichtlich ohne
+  // eigenes Admin-Gate ist, siehe server/routes/mealie.js).
+  assert.equal(moduleForPath('/mealie'), 'meals');
   assert.equal(moduleForPath('/preferences'), null);           // nicht scopebar
   assert.equal(moduleForPath('/'), null);
 });

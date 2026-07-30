@@ -13,11 +13,20 @@ import { normalizeRecipeMealTypes } from '../../public/utils/recipe-meal-types.j
 const log = createLogger('Recipes');
 const router = express.Router();
 
+// Mirror-Rezepte (source: 'mealie') tragen mealie_account_id; native Rezepte
+// haben diese Spalte NULL. Das ist der einzige Unterschied, den Frontend und
+// Zugriffsschutz brauchen, um ein Rezept korrekt zu behandeln.
+function withSource(recipe) {
+  return { ...recipe, source: recipe.mealie_account_id ? 'mealie' : 'native' };
+}
+
 function loadRecipeWithIngredients(id) {
   const recipe = db.get().prepare(`
-    SELECT r.*, u.display_name AS creator_name, u.avatar_color AS creator_color
+    SELECT r.*, u.display_name AS creator_name, u.avatar_color AS creator_color,
+           m.name AS mealie_account_name
     FROM recipes r
     LEFT JOIN users u ON u.id = r.created_by
+    LEFT JOIN mealie_accounts m ON m.id = r.mealie_account_id
     WHERE r.id = ?
   `).get(id);
 
@@ -29,15 +38,17 @@ function loadRecipeWithIngredients(id) {
     ORDER BY id ASC
   `).all(id);
 
-  return { ...recipe, meal_types: normalizeRecipeMealTypes(recipe.meal_types), ingredients };
+  return withSource({ ...recipe, meal_types: normalizeRecipeMealTypes(recipe.meal_types), ingredients });
 }
 
 router.get('/', (_req, res) => {
   try {
     const recipes = db.get().prepare(`
-      SELECT r.*, u.display_name AS creator_name, u.avatar_color AS creator_color
+      SELECT r.*, u.display_name AS creator_name, u.avatar_color AS creator_color,
+             m.name AS mealie_account_name
       FROM recipes r
       LEFT JOIN users u ON u.id = r.created_by
+      LEFT JOIN mealie_accounts m ON m.id = r.mealie_account_id
       ORDER BY r.title COLLATE NOCASE ASC, r.id DESC
     `).all();
 
@@ -58,7 +69,7 @@ router.get('/', (_req, res) => {
       }
     }
 
-    res.json({ data: recipes.map((r) => ({
+    res.json({ data: recipes.map((r) => withSource({
       ...r,
       meal_types: normalizeRecipeMealTypes(r.meal_types),
       ingredients: ingredientMap[r.id] || [],
@@ -116,8 +127,13 @@ router.put('/:id', (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (!id) return res.status(400).json({ error: 'Ungueltige Rezept-ID', code: 400 });
 
-    const existing = db.get().prepare('SELECT id, created_by FROM recipes WHERE id = ?').get(id);
+    const existing = db.get().prepare('SELECT id, created_by, mealie_account_id FROM recipes WHERE id = ?').get(id);
     if (!existing) return res.status(404).json({ error: 'Recipe not found', code: 404 });
+    // Mirror-Rezepte sind read-only: Mealie bleibt Quelle der Wahrheit für ihren
+    // Inhalt. Der Check steht vor der created_by-Prüfung, weil sonst genau der
+    // Nutzer, der den Mealie-Account angelegt hat (und damit als created_by
+    // dieser Rezepte gilt), sie über die API editieren könnte.
+    if (existing.mealie_account_id) return res.status(403).json({ error: 'Mirrored recipes are managed in Mealie and cannot be edited here.', code: 403 });
     if (existing.created_by !== (req.authUserId || req.session.userId)) return res.status(403).json({ error: 'Not authorized.', code: 403 });
 
     const { ingredients = [] } = req.body;
@@ -164,8 +180,11 @@ router.delete('/:id', (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (!id) return res.status(400).json({ error: 'Invalid recipe ID.', code: 400 });
 
-    const existing = db.get().prepare('SELECT id, created_by FROM recipes WHERE id = ?').get(id);
+    const existing = db.get().prepare('SELECT id, created_by, mealie_account_id FROM recipes WHERE id = ?').get(id);
     if (!existing) return res.status(404).json({ error: 'Recipe not found.', code: 404 });
+    // Siehe PUT /:id: Mirror-Rezepte lassen sich nur durch Löschen des Mealie-
+    // Accounts entfernen (POST /mealie/accounts/:id), nicht einzeln hier.
+    if (existing.mealie_account_id) return res.status(403).json({ error: 'Mirrored recipes are managed in Mealie and cannot be deleted here.', code: 403 });
     if (existing.created_by !== (req.authUserId || req.session.userId)) return res.status(403).json({ error: 'Not authorized.', code: 403 });
 
     const result = db.get().prepare('DELETE FROM recipes WHERE id = ?').run(id);

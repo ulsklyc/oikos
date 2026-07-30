@@ -33,21 +33,36 @@ const state = {
   query: '',
   /** Gefangener Fehler des letzten Rezept-Ladevorgangs, sonst null. */
   loadError: null,
+  // 'all' | 'native' | 'mealie' - Filter-Pille ist nur sichtbar, sobald
+  // mindestens ein gespiegeltes Rezept existiert (siehe renderSourceFilter).
+  sourceFilter: 'all',
 };
 
 // Client-seitige Suche über Titel, Notizen und Zutaten (Audit A1-21):
 // die Rezeptliste ist vollständig geladen, ein Server-Roundtrip wäre Umweg.
 function filteredRecipes() {
   const q = state.query.toLowerCase();
-  if (!q) return state.recipes;
-  return state.recipes.filter((r) =>
-    r.title?.toLowerCase().includes(q)
-    || r.notes?.toLowerCase().includes(q)
-    || (r.ingredients ?? []).some((i) => i.name?.toLowerCase().includes(q)));
+  return state.recipes.filter((r) => {
+    if (state.sourceFilter !== 'all' && r.source !== state.sourceFilter) return false;
+    if (!q) return true;
+    return r.title?.toLowerCase().includes(q)
+      || r.notes?.toLowerCase().includes(q)
+      || (r.ingredients ?? []).some((i) => i.name?.toLowerCase().includes(q));
+  });
 }
 
 function mealCategories() {
   return state.categories.filter((c) => c.name !== 'Haushalt' && c.name !== 'Drogerie');
+}
+
+// Kleines Badge für aus Mealie gespiegelte Rezepte (source: 'mealie'). Der
+// Account-Name als Tooltip hilft bei mehreren Mealie-Accounts zu unterscheiden.
+function mealieSourceBadge(recipe) {
+  const badge = document.createElement('span');
+  badge.className = 'source-badge source-badge--mealie';
+  badge.textContent = t('recipes.sourceMealie');
+  if (recipe.mealie_account_name) badge.title = recipe.mealie_account_name;
+  return badge;
 }
 
 function mealTypeOptions() {
@@ -145,6 +160,16 @@ export async function render(container) {
   }));
   toolbar.appendChild(center);
 
+  // Nur sichtbar, sobald mindestens ein gespiegeltes Rezept existiert
+  // (renderSourceFilter füllt/versteckt sie nach dem Laden).
+  const sourceFilter = document.createElement('div');
+  sourceFilter.className = 'recipes-source-filter';
+  sourceFilter.id = 'recipes-source-filter';
+  sourceFilter.setAttribute('role', 'group');
+  sourceFilter.setAttribute('aria-label', t('recipes.sourceFilterLabel'));
+  sourceFilter.hidden = true;
+  toolbar.appendChild(sourceFilter);
+
   const list = document.createElement('div');
   list.className = 'kitchen-list recipes-list';
   list.id = 'recipes-list';
@@ -176,6 +201,7 @@ export async function render(container) {
   if (window.lucide) window.lucide.createIcons({ el: container });
 
   await Promise.all([loadRecipes(), loadCategories(), loadShoppingLists()]);
+  renderSourceFilter();
   renderRecipeList();
 
   fab.addEventListener('click', () => openRecipeModal('create'));
@@ -242,6 +268,44 @@ export async function render(container) {
   // <button>, der Enter und Space von sich aus verarbeitet. Der frühere Handler
   // gehörte zur Karte, die role="button" trug und damit ein Bedienelement mit
   // Bedienelementen darin war.
+}
+
+// Drei-Wege-Filter (Alle/Nativ/Mealie) im geteilten .filter-chip-Muster
+// (Tasks/Dokumente/Kontakte). Bleibt versteckt, solange kein Mealie-Account
+// gespiegelte Rezepte liefert - der Filter wäre sonst leere Ornamentik.
+function renderSourceFilter() {
+  const el = _container.querySelector('#recipes-source-filter');
+  if (!el) return;
+
+  const hasMirrored = state.recipes.some((r) => r.source === 'mealie');
+  if (!hasMirrored) {
+    el.hidden = true;
+    state.sourceFilter = 'all';
+    return;
+  }
+
+  el.hidden = false;
+  el.replaceChildren();
+  const options = [
+    { value: 'all', label: t('recipes.sourceAll') },
+    { value: 'native', label: t('recipes.sourceNative') },
+    { value: 'mealie', label: t('recipes.sourceMealie') },
+  ];
+  for (const opt of options) {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    const active = state.sourceFilter === opt.value;
+    chip.className = `filter-chip${active ? ' filter-chip--active' : ''}`;
+    chip.setAttribute('aria-pressed', String(active));
+    chip.textContent = opt.label;
+    chip.addEventListener('click', () => {
+      if (state.sourceFilter === opt.value) return;
+      state.sourceFilter = opt.value;
+      renderSourceFilter();
+      renderRecipeList();
+    });
+    el.appendChild(chip);
+  }
 }
 
 function renderRecipeList() {
@@ -325,6 +389,9 @@ function renderRecipeList() {
   rows.className = 'kitchen-rows';
 
   for (const recipe of visible) {
+    // Mirror-Rezepte sind read-only (Mealie bleibt Quelle der Wahrheit); steuert
+    // weiter unten sowohl die Zeilenaktionen als auch das Aufklapp-Detail.
+    const isMirrored = recipe.source === 'mealie';
     const ingredients = recipe.ingredients ?? [];
     const detailId = `recipe-detail-${recipe.id}`;
     const hasDetail = Boolean(ingredients.length || recipe.notes || recipe.recipe_url);
@@ -380,11 +447,17 @@ function renderRecipeList() {
     heading.appendChild(toggle);
     row.appendChild(heading);
 
+    // Mirror-Rezepte sind read-only (Mealie bleibt Quelle der Wahrheit) - Edit
+    // und Delete entfallen, Duplizieren bleibt: das legt eine eigenständige,
+    // frei bearbeitbare Kopie an (duplicateRecipe() postet immer als natives
+    // Rezept, unabhängig von der Quelle des Originals). Eine Liste speist
+    // sowohl die Inline-Buttons als auch das Überlaufmenü weiter unten, damit
+    // beide Fassungen nie auseinanderlaufen.
     const ROW_ACTIONS = [
-      { action: 'edit',      icon: 'pencil',  label: t('common.edit') },
+      !isMirrored && { action: 'edit',      icon: 'pencil',  label: t('common.edit') },
       { action: 'duplicate', icon: 'copy',    label: t('recipes.duplicate') },
-      { action: 'delete',    icon: 'trash-2', label: t('common.delete'), danger: true },
-    ];
+      !isMirrored && { action: 'delete',    icon: 'trash-2', label: t('common.delete'), danger: true },
+    ].filter(Boolean);
 
     const actions = document.createElement('div');
     actions.className = 'kitchen-row__actions';
@@ -436,18 +509,23 @@ function renderRecipeList() {
 
       const mealTypes = normalizeRecipeMealTypes(recipe.meal_types);
       // Chips nur, wenn sie unterscheiden: gilt ein Rezept für alle Mahlzeiten,
-      // ist die volle Chip-Reihe reine Ornamentik (Audit A1-21).
-      if (mealTypes.length && mealTypes.length < mealTypeOptions().length) {
+      // ist die volle Chip-Reihe reine Ornamentik (Audit A1-21). Das
+      // Mealie-Badge erscheint unabhängig davon, sobald das Rezept gespiegelt ist.
+      const showMealTypeBadges = mealTypes.length && mealTypes.length < mealTypeOptions().length;
+      if (showMealTypeBadges || isMirrored) {
         const badges = document.createElement('div');
         badges.className = 'recipe-card__meal-types';
-        badges.replaceChildren(...mealTypeOptions()
-          .filter((option) => mealTypes.includes(option.key))
-          .map((option) => {
-            const badge = document.createElement('span');
-            badge.className = `meal-type-badge meal-type-badge--${option.key}`;
-            badge.textContent = option.label;
-            return badge;
-          }));
+        if (isMirrored) badges.appendChild(mealieSourceBadge(recipe));
+        if (showMealTypeBadges) {
+          badges.append(...mealTypeOptions()
+            .filter((option) => mealTypes.includes(option.key))
+            .map((option) => {
+              const badge = document.createElement('span');
+              badge.className = `meal-type-badge meal-type-badge--${option.key}`;
+              badge.textContent = option.label;
+              return badge;
+            }));
+        }
         detail.appendChild(badges);
       }
 
@@ -535,7 +613,9 @@ function renderRecipeList() {
  * „wenn es woanders steht, wiederhole es nicht"). Sein Auslöser war zusätzlich
  * eine Karte mit role="button", die Buttons enthielt.
  *
- * Der Zweck bleibt erfüllt: Lesen erzwingt weiter kein Bearbeiten-Formular.
+ * Der Zweck bleibt erfüllt: Lesen erzwingt weiter kein Bearbeiten-Formular. Das
+ * Mealie-Badge, das hier stand, sitzt jetzt im Aufklapp-Detail der Zeile
+ * (siehe mealieSourceBadge() weiter oben).
  */
 
 function openRecipeModal(mode, recipe = null) {

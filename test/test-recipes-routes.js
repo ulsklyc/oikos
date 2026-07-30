@@ -363,3 +363,62 @@ test('POST /:id/to-shopping-list: added_ids erlauben ein exaktes Zuruecknehmen',
   const again = await call('POST', `/${created.body.data.id}/to-shopping-list`, { listId });
   assert.equal(again.body.data.transferred, 2);
 });
+
+// --------------------------------------------------------------------------
+// Mealie-Mirror: source-Feld, PUT/DELETE-Gate für gespiegelte Rezepte
+// --------------------------------------------------------------------------
+
+// Ein Account reicht für alle Tests (base_url ist UNIQUE); jedes Rezept
+// braucht nur eine eigene mealie_recipe_id, um den Partial-Unique-Index
+// (mealie_account_id, mealie_recipe_id) nicht zu verletzen.
+const MEALIE_ACCOUNT_ID = db.prepare(`
+  INSERT INTO mealie_accounts (name, base_url, api_token, created_by) VALUES ('Testkonto', 'https://mealie.example.com', 'tok', ?)
+`).run(OWNER).lastInsertRowid;
+
+function mirroredRecipe(title, mealieRecipeId) {
+  const recipeId = db.prepare(`
+    INSERT INTO recipes (title, created_by, mealie_account_id, mealie_recipe_id) VALUES (?, ?, ?, ?)
+  `).run(title, OWNER, MEALIE_ACCOUNT_ID, mealieRecipeId).lastInsertRowid;
+  return { accountId: MEALIE_ACCOUNT_ID, recipeId };
+}
+
+test('GET /: native Rezept trägt source "native", gespiegeltes trägt "mealie" + Account-Name', async () => {
+  const native = await call('POST', '/', { title: 'Eigenes Rezept' });
+  const { recipeId } = mirroredRecipe('Mealie-Rezept', 'mirror-source-test');
+
+  const r = await call('GET', '/');
+  const nativeRow = r.body.data.find((x) => x.id === native.body.data.id);
+  const mirroredRow = r.body.data.find((x) => x.id === recipeId);
+
+  assert.equal(nativeRow.source, 'native');
+  assert.equal(mirroredRow.source, 'mealie');
+  assert.equal(mirroredRow.mealie_account_name, 'Testkonto');
+});
+
+test('PUT /:id: gespiegeltes Rezept → 403, auch für den Nutzer, der den Mealie-Account angelegt hat', async () => {
+  const { recipeId } = mirroredRecipe('Unveränderlich', 'mirror-put-test');
+  // OWNER ist zugleich created_by dieses Mirror-Rezepts (via mealie_accounts.created_by) -
+  // der bloße created_by-Vergleich würde das durchlassen; das mealie_account_id-Gate muss davor greifen.
+  const r = await call('PUT', `/${recipeId}`, { title: 'Gehackt' });
+  assert.equal(r.status, 403);
+  const row = db.prepare('SELECT title FROM recipes WHERE id = ?').get(recipeId);
+  assert.equal(row.title, 'Unveränderlich');
+});
+
+test('DELETE /:id: gespiegeltes Rezept → 403', async () => {
+  const { recipeId } = mirroredRecipe('Unlöschbar', 'mirror-delete-test');
+  const r = await call('DELETE', `/${recipeId}`);
+  assert.equal(r.status, 403);
+  assert.ok(db.prepare('SELECT id FROM recipes WHERE id = ?').get(recipeId));
+});
+
+test('POST /:id/to-shopping-list: funktioniert unverändert für gespiegelte Rezepte', async () => {
+  const listId = newList('Transfer Mealie');
+  const { recipeId } = mirroredRecipe('Mealie-Transfer', 'mirror-shopping-test');
+  db.prepare(`INSERT INTO recipe_ingredients (recipe_id, name, quantity, category) VALUES (?, 'Reis', '1 kg', 'Sonstiges')`).run(recipeId);
+
+  const r = await call('POST', `/${recipeId}/to-shopping-list`, { listId });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.data.transferred, 1);
+  assert.equal(r.body.data.added_ids.length, 1);
+});

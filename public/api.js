@@ -217,4 +217,18 @@ const notifications = {
   testChannel: (id) => api.post(`/notifications/channels/${id}/test`, {}),
 };
 
-export { api, auth, email, notifications, ApiError };
+// --------------------------------------------------------
+// Mealie – Rezept-Mirror-Sync
+// --------------------------------------------------------
+
+const mealie = {
+  listAccounts: () => api.get('/mealie/accounts'),
+  createAccount: (body) => api.post('/mealie/accounts', body),
+  updateAccount: (id, body) => api.patch(`/mealie/accounts/${id}`, body),
+  deleteAccount: (id) => api.delete(`/mealie/accounts/${id}`),
+  testAccount: (id) => api.post(`/mealie/accounts/${id}/test`, {}),
+  syncAccount: (id) => api.post(`/mealie/accounts/${id}/sync`, {}),
+  getStatus: () => api.get('/mealie/status'),
+};
+
+export { api, auth, email, notifications, mealie, ApiError };

@@ -4130,6 +4130,40 @@ const MIGRATIONS = [
       UPDATE google_calendar_selection SET sync_token = NULL;
     `,
   },
+  {
+    version: 111,
+    description: 'Mealie integration: mealie_accounts table + recipe mirror columns',
+    up: `
+      CREATE TABLE IF NOT EXISTS mealie_accounts (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        name        TEXT    NOT NULL,
+        base_url    TEXT    NOT NULL,
+        api_token   TEXT    NOT NULL,
+        enabled     INTEGER NOT NULL DEFAULT 1,
+        created_by  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+        updated_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+        last_sync   TEXT,
+        last_error  TEXT,
+        UNIQUE(base_url)  -- one recipes table per Mealie server (avoids duplicate mirrors)
+      );
+
+      CREATE TRIGGER IF NOT EXISTS trg_mealie_accounts_updated_at
+        AFTER UPDATE ON mealie_accounts FOR EACH ROW
+        BEGIN UPDATE mealie_accounts SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = OLD.id; END;
+
+      -- mealie_account_id NULL = native recipe; set = mirrored from that Mealie account.
+      ALTER TABLE recipes ADD COLUMN mealie_account_id INTEGER
+        REFERENCES mealie_accounts(id) ON DELETE CASCADE;
+      -- Mealie's own recipe slug/id, used to upsert on repeated syncs.
+      ALTER TABLE recipes ADD COLUMN mealie_recipe_id TEXT;
+      -- Mealie's updatedAt for the recipe, used to skip re-importing unchanged recipes.
+      ALTER TABLE recipes ADD COLUMN mealie_updated_at TEXT;
+
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_recipes_mealie_unique
+        ON recipes(mealie_account_id, mealie_recipe_id) WHERE mealie_account_id IS NOT NULL;
+    `,
+  },
 ];
 
 /**

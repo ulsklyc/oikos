@@ -2029,7 +2029,23 @@
         "documentStorageGoogleDriveDisconnectBlocked": "Seleziona un’altra destinazione e rimuovi i documenti archiviati su Drive prima di disconnetterlo.",
         "documentStorageGoogleDriveOAuthSuccess": "Google Drive è connesso. Selezionalo come destinazione di caricamento quando vuoi.",
         "documentStorageGoogleDriveOAuthError": "La connessione a Google Drive non è riuscita. L’eventuale connessione precedente è stata mantenuta.",
-        "documentStorageGoogleDrivePrivacy": "Le impostazioni di visibilità di Yuvomi controllano solo l'accesso tramite Yuvomi. Chiunque abbia accesso alla cartella Google Drive collegata può visualizzare tutti i file archiviati al suo interno."
+        "documentStorageGoogleDrivePrivacy": "Le impostazioni di visibilità di Yuvomi controllano solo l'accesso tramite Yuvomi. Chiunque abbia accesso alla cartella Google Drive collegata può visualizzare tutti i file archiviati al suo interno.",
+        "mealieTitle": "Mealie",
+        "mealieDescription": "Rispecchia le ricette da un'istanza Mealie self-hosted. Mealie resta la fonte di verità: le ricette qui sono di sola lettura e si aggiornano automaticamente.",
+        "mealieAddAccount": "Aggiungi account Mealie",
+        "mealieNameLabel": "Nome",
+        "mealieUrlLabel": "URL Mealie",
+        "mealieTokenLabel": "Token API",
+        "mealieTokenHint": "Crea un token API di lunga durata in Mealie in Impostazioni → Token API.",
+        "mealieEmptyState": "Nessun account Mealie ancora connesso.",
+        "mealieSyncSuccess": "Ricette Mealie sincronizzate.",
+        "mealieSyncFailed": "Sincronizzazione Mealie non riuscita.",
+        "mealieEnable": "Attiva",
+        "mealieDisable": "Disattiva",
+        "mealieAccountAdded": "Account Mealie aggiunto.",
+        "mealieAccountDeleted": "Account Mealie eliminato.",
+        "mealieDeleteAccountConfirm": "Questo rimuove anche {{count}} ricette rispecchiate e le scollega da eventuali voci del piano pasti.",
+        "mealieLastError": "Ultimo errore di sincronizzazione: {{message}}"
     },
     "login": {
         "tagline": "Bentornato nel tuo pianificatore familiare.",
@@ -2152,7 +2168,11 @@
         "searchNoResults": "Nessuna ricetta trovata.",
         "dragToMealsHint": "Trascina le ricette negli slot dei pasti per pianificarli rapidamente.",
         "emptyAction": "Crea ricetta",
-        "loadError": "Impossibile caricare le ricette."
+        "loadError": "Impossibile caricare le ricette.",
+        "sourceMealie": "Mealie",
+        "sourceNative": "Nativa",
+        "sourceAll": "Tutte",
+        "sourceFilterLabel": "Filtra per origine"
     },
     "search": {
         "emptyHint": "Digita almeno 2 caratteri per cercare tra attività, appuntamenti, note, contatti, spesa e salute.",

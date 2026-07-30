@@ -2029,7 +2029,23 @@
         "documentStorageGoogleDriveDisconnectBlocked": "حدد وجهة أخرى وأزل المستندات المخزنة في Drive قبل الفصل.",
         "documentStorageGoogleDriveOAuthSuccess": "تم ربط Google Drive. حدده كوجهة للرفع عندما تكون مستعدًا.",
         "documentStorageGoogleDriveOAuthError": "فشل ربط Google Drive. تم الاحتفاظ بالاتصال السابق إن وُجد.",
-        "documentStorageGoogleDrivePrivacy": "تتحكم إعدادات الرؤية في Yuvomi فقط في الوصول عبر Yuvomi. يمكن لأي شخص لديه حق الوصول إلى مجلد Google Drive المتصل عرض جميع الملفات المخزنة فيه."
+        "documentStorageGoogleDrivePrivacy": "تتحكم إعدادات الرؤية في Yuvomi فقط في الوصول عبر Yuvomi. يمكن لأي شخص لديه حق الوصول إلى مجلد Google Drive المتصل عرض جميع الملفات المخزنة فيه.",
+        "mealieTitle": "Mealie",
+        "mealieDescription": "يعكس الوصفات من نسخة Mealie مستضافة ذاتيًا. يظل Mealie مصدر الحقيقة — الوصفات هنا للقراءة فقط وتُحدَّث تلقائيًا.",
+        "mealieAddAccount": "إضافة حساب Mealie",
+        "mealieNameLabel": "الاسم",
+        "mealieUrlLabel": "رابط Mealie",
+        "mealieTokenLabel": "رمز API",
+        "mealieTokenHint": "أنشئ رمز API طويل الأمد في Mealie ضمن الإعدادات ← رموز API.",
+        "mealieEmptyState": "لا يوجد حساب Mealie متصل بعد.",
+        "mealieSyncSuccess": "تمت مزامنة وصفات Mealie.",
+        "mealieSyncFailed": "فشلت مزامنة Mealie.",
+        "mealieEnable": "تفعيل",
+        "mealieDisable": "تعطيل",
+        "mealieAccountAdded": "تمت إضافة حساب Mealie.",
+        "mealieAccountDeleted": "تم حذف حساب Mealie.",
+        "mealieDeleteAccountConfirm": "سيؤدي هذا أيضًا إلى إزالة {{count}} وصفة معكوسة وفصلها عن أي إدخالات في خطة الوجبات.",
+        "mealieLastError": "آخر خطأ في المزامنة: {{message}}"
     },
     "login": {
         "tagline": "مرحبًا بعودتك إلى منظّم عائلتك.",
@@ -2152,7 +2168,11 @@
         "searchNoResults": "لم يتم العثور على وصفات.",
         "dragToMealsHint": "اسحب الوصفات إلى خانات الوجبات لتخطيطها بسرعة.",
         "emptyAction": "إنشاء وصفة",
-        "loadError": "فشل تحميل الوصفات."
+        "loadError": "فشل تحميل الوصفات.",
+        "sourceMealie": "Mealie",
+        "sourceNative": "محلي",
+        "sourceAll": "الكل",
+        "sourceFilterLabel": "التصفية حسب المصدر"
     },
     "search": {
         "emptyHint": "اكتب حرفين على الأقل للبحث في المهام والمواعيد والملاحظات وجهات الاتصال والتسوق والصحة.",

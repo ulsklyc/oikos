@@ -2029,7 +2029,23 @@
         "documentStorageGoogleDriveDisconnectBlocked": "Hãy chọn một đích khác và xóa các tài liệu được lưu trên Drive trước khi ngắt kết nối.",
         "documentStorageGoogleDriveOAuthSuccess": "Đã kết nối Google Drive. Hãy chọn dịch vụ này làm đích tải lên khi bạn sẵn sàng.",
         "documentStorageGoogleDriveOAuthError": "Không thể kết nối Google Drive. Kết nối trước đó, nếu có, vẫn được giữ nguyên.",
-        "documentStorageGoogleDrivePrivacy": "Cài đặt hiển thị của Yuvomi chỉ kiểm soát quyền truy cập thông qua Yuvomi. Bất kỳ ai có quyền truy cập vào thư mục Google Drive đã kết nối đều có thể xem tất cả tệp được lưu trữ trong đó."
+        "documentStorageGoogleDrivePrivacy": "Cài đặt hiển thị của Yuvomi chỉ kiểm soát quyền truy cập thông qua Yuvomi. Bất kỳ ai có quyền truy cập vào thư mục Google Drive đã kết nối đều có thể xem tất cả tệp được lưu trữ trong đó.",
+        "mealieTitle": "Mealie",
+        "mealieDescription": "Phản chiếu công thức từ một phiên bản Mealie tự lưu trữ. Mealie vẫn là nguồn dữ liệu gốc — công thức ở đây chỉ đọc và tự động cập nhật.",
+        "mealieAddAccount": "Thêm tài khoản Mealie",
+        "mealieNameLabel": "Tên",
+        "mealieUrlLabel": "URL Mealie",
+        "mealieTokenLabel": "Mã thông báo API",
+        "mealieTokenHint": "Tạo mã thông báo API dài hạn trong Mealie tại Cài đặt → Mã thông báo API.",
+        "mealieEmptyState": "Chưa có tài khoản Mealie nào được kết nối.",
+        "mealieSyncSuccess": "Đã đồng bộ công thức Mealie.",
+        "mealieSyncFailed": "Đồng bộ Mealie thất bại.",
+        "mealieEnable": "Bật",
+        "mealieDisable": "Tắt",
+        "mealieAccountAdded": "Đã thêm tài khoản Mealie.",
+        "mealieAccountDeleted": "Đã xóa tài khoản Mealie.",
+        "mealieDeleteAccountConfirm": "Thao tác này cũng sẽ xóa {{count}} công thức được phản chiếu và hủy liên kết chúng khỏi mọi mục trong kế hoạch bữa ăn.",
+        "mealieLastError": "Lỗi đồng bộ gần nhất: {{message}}"
     },
     "login": {
         "tagline": "Chào mừng bạn trở lại trình lập kế hoạch gia đình.",
@@ -2229,7 +2245,11 @@
         "searchNoResults": "Không tìm thấy công thức.",
         "dragToMealsHint": "Kéo công thức vào ô bữa ăn để lên kế hoạch nhanh hơn.",
         "emptyAction": "Tạo công thức",
-        "loadError": "Không thể tải công thức nấu ăn."
+        "loadError": "Không thể tải công thức nấu ăn.",
+        "sourceMealie": "Mealie",
+        "sourceNative": "Gốc",
+        "sourceAll": "Tất cả",
+        "sourceFilterLabel": "Lọc theo nguồn"
     },
     "search": {
         "emptyHint": "Nhập ít nhất 2 ký tự để tìm trong công việc, sự kiện, ghi chú, danh bạ, mua sắm và sức khỏe.",

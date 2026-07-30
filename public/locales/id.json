@@ -2041,7 +2041,23 @@
         "documentStorageGoogleDriveDisconnectBlocked": "Pilih tujuan lain dan hapus dokumen yang disimpan di Drive sebelum memutuskan koneksi.",
         "documentStorageGoogleDriveOAuthSuccess": "Google Drive telah terhubung. Pilih Google Drive sebagai tujuan unggah saat Anda siap.",
         "documentStorageGoogleDriveOAuthError": "Koneksi Google Drive gagal. Koneksi sebelumnya, jika ada, tetap dipertahankan.",
-        "documentStorageGoogleDrivePrivacy": "Pengaturan visibilitas Yuvomi hanya mengontrol akses melalui Yuvomi. Siapa pun yang memiliki akses ke folder Google Drive yang terhubung dapat melihat semua file yang tersimpan di sana."
+        "documentStorageGoogleDrivePrivacy": "Pengaturan visibilitas Yuvomi hanya mengontrol akses melalui Yuvomi. Siapa pun yang memiliki akses ke folder Google Drive yang terhubung dapat melihat semua file yang tersimpan di sana.",
+        "mealieTitle": "Mealie",
+        "mealieDescription": "Mencerminkan resep dari instans Mealie yang di-hosting sendiri. Mealie tetap menjadi sumber kebenaran — resep di sini bersifat baca-saja dan diperbarui secara otomatis.",
+        "mealieAddAccount": "Tambahkan Akun Mealie",
+        "mealieNameLabel": "Nama",
+        "mealieUrlLabel": "URL Mealie",
+        "mealieTokenLabel": "Token API",
+        "mealieTokenHint": "Buat token API berumur panjang di Mealie pada Pengaturan → Token API.",
+        "mealieEmptyState": "Belum ada akun Mealie yang terhubung.",
+        "mealieSyncSuccess": "Resep Mealie disinkronkan.",
+        "mealieSyncFailed": "Sinkronisasi Mealie gagal.",
+        "mealieEnable": "Aktifkan",
+        "mealieDisable": "Nonaktifkan",
+        "mealieAccountAdded": "Akun Mealie ditambahkan.",
+        "mealieAccountDeleted": "Akun Mealie dihapus.",
+        "mealieDeleteAccountConfirm": "Ini juga akan menghapus {{count}} resep cerminan dan memutuskan tautannya dari entri rencana makan mana pun.",
+        "mealieLastError": "Kesalahan sinkronisasi terakhir: {{message}}"
     },
     "login": {
         "tagline": "Selamat datang kembali di perencana keluarga Anda.",
@@ -2241,7 +2257,11 @@
         "noResultsTitle": "Tidak ada hasil",
         "searchNoResults": "Resep tidak ditemukan.",
         "dragToMealsHint": "Seret resep ke slot makan untuk merencanakannya dengan cepat.",
-        "loadError": "Resep tidak dapat dimuat."
+        "loadError": "Resep tidak dapat dimuat.",
+        "sourceMealie": "Mealie",
+        "sourceNative": "Asli",
+        "sourceAll": "Semua",
+        "sourceFilterLabel": "Filter menurut sumber"
     },
     "onboarding": {
         "step1Title": "Selamat datang di {{name}}",
