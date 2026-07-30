@@ -2035,6 +2035,10 @@
         "mealieAddAccount": "Ajouter un compte Mealie",
         "mealieNameLabel": "Nom",
         "mealieUrlLabel": "URL Mealie",
+        "mealieUrlHint": "L'adresse utilisée par le serveur pour synchroniser — peut être une URL interne à Docker ou accessible uniquement sur le réseau local.",
+        "mealieExternalUrlLabel": "URL publique du lien (facultatif)",
+        "mealieExternalUrlHint": "Utilisée pour les liens « Ouvrir dans Mealie » qui vous sont affichés. Laissez vide pour utiliser l'URL Mealie ci-dessus — mais si celle-ci est interne à Docker ou non accessible publiquement, les liens ne s'ouvriront pas ; indiquez donc ici une adresse accessible.",
+        "mealieEditLink": "Modifier l'URL du lien",
         "mealieTokenLabel": "Jeton API",
         "mealieTokenHint": "Créez un jeton API longue durée dans Mealie sous Paramètres → Jetons API.",
         "mealieEmptyState": "Aucun compte Mealie connecté pour l'instant.",
@@ -2043,6 +2047,7 @@
         "mealieEnable": "Activer",
         "mealieDisable": "Désactiver",
         "mealieAccountAdded": "Compte Mealie ajouté.",
+        "mealieAccountUpdated": "Compte Mealie mis à jour.",
         "mealieAccountDeleted": "Compte Mealie supprimé.",
         "mealieDeleteAccountConfirm": "Cela supprime également {{count}} recettes reflétées et les dissocie de toute entrée du plan de repas.",
         "mealieLastError": "Dernière erreur de synchronisation : {{message}}"

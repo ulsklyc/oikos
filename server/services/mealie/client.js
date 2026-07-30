@@ -41,6 +41,12 @@ export class MealieAdapter {
   constructor(account) {
     this.base = String(account.base_url || '').replace(/\/+$/, '');
     this.token = account.api_token;
+    // `base_url` muss vom Server aus erreichbar sein (z. B. ein Docker-internes
+    // Compose-Hostname) und ist deshalb oft für den Browser des Nutzers
+    // blackholed. `external_url` ist die optionale, von außen erreichbare
+    // Adresse fürs "In Mealie öffnen"-Link - fehlt sie, ist base_url auch von
+    // außen erreichbar und dient als Fallback.
+    this.linkBase = String(account.external_url || account.base_url || '').replace(/\/+$/, '');
   }
 
   headers(extra = {}) {
@@ -100,6 +106,6 @@ export class MealieAdapter {
 
   recipeUrl(groupSlug, slug) {
     if (!groupSlug) return null;
-    return `${this.base}/g/${encodeURIComponent(groupSlug)}/r/${encodeURIComponent(slug)}`;
+    return `${this.linkBase}/g/${encodeURIComponent(groupSlug)}/r/${encodeURIComponent(slug)}`;
   }
 }

@@ -2047,6 +2047,10 @@
         "mealieAddAccount": "Tambahkan Akun Mealie",
         "mealieNameLabel": "Nama",
         "mealieUrlLabel": "URL Mealie",
+        "mealieUrlHint": "Alamat yang digunakan server untuk sinkronisasi — bisa berupa URL internal Docker atau hanya dapat diakses di LAN.",
+        "mealieExternalUrlLabel": "URL tautan publik (opsional)",
+        "mealieExternalUrlHint": "Digunakan untuk tautan \"Buka di Mealie\" yang ditampilkan kepada Anda. Kosongkan untuk menggunakan URL Mealie di atas — tetapi jika itu adalah alamat internal Docker atau tidak dapat diakses publik, tautan tidak akan terbuka, jadi atur alamat yang dapat dijangkau di sini.",
+        "mealieEditLink": "Edit URL tautan",
         "mealieTokenLabel": "Token API",
         "mealieTokenHint": "Buat token API berumur panjang di Mealie pada Pengaturan → Token API.",
         "mealieEmptyState": "Belum ada akun Mealie yang terhubung.",
@@ -2055,6 +2059,7 @@
         "mealieEnable": "Aktifkan",
         "mealieDisable": "Nonaktifkan",
         "mealieAccountAdded": "Akun Mealie ditambahkan.",
+        "mealieAccountUpdated": "Akun Mealie diperbarui.",
         "mealieAccountDeleted": "Akun Mealie dihapus.",
         "mealieDeleteAccountConfirm": "Ini juga akan menghapus {{count}} resep cerminan dan memutuskan tautannya dari entri rencana makan mana pun.",
         "mealieLastError": "Kesalahan sinkronisasi terakhir: {{message}}"

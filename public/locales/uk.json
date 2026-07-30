@@ -2035,6 +2035,10 @@
         "mealieAddAccount": "Додати обліковий запис Mealie",
         "mealieNameLabel": "Назва",
         "mealieUrlLabel": "URL Mealie",
+        "mealieUrlHint": "Адреса, яку сервер використовує для синхронізації — може бути внутрішньою адресою Docker або доступною лише в локальній мережі.",
+        "mealieExternalUrlLabel": "Публічна URL-адреса посилання (необов'язково)",
+        "mealieExternalUrlHint": "Використовується для показаних вам посилань «Відкрити в Mealie». Залиште порожнім, щоб використати URL Mealie вище — але якщо він внутрішній для Docker або інакше публічно недоступний, посилання не відкриються, тож вкажіть тут доступну адресу.",
+        "mealieEditLink": "Редагувати URL-адресу посилання",
         "mealieTokenLabel": "API-токен",
         "mealieTokenHint": "Створіть довготривалий API-токен у Mealie в розділі Налаштування → API-токени.",
         "mealieEmptyState": "Ще не підключено жодного облікового запису Mealie.",
@@ -2043,6 +2047,7 @@
         "mealieEnable": "Увімкнути",
         "mealieDisable": "Вимкнути",
         "mealieAccountAdded": "Обліковий запис Mealie додано.",
+        "mealieAccountUpdated": "Обліковий запис Mealie оновлено.",
         "mealieAccountDeleted": "Обліковий запис Mealie видалено.",
         "mealieDeleteAccountConfirm": "Це також видалить {{count}} віддзеркалених рецептів і від'єднає їх від будь-яких записів плану харчування.",
         "mealieLastError": "Остання помилка синхронізації: {{message}}"

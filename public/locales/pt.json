@@ -2035,6 +2035,10 @@
         "mealieAddAccount": "Adicionar conta do Mealie",
         "mealieNameLabel": "Nome",
         "mealieUrlLabel": "URL do Mealie",
+        "mealieUrlHint": "O endereço que o servidor usa para sincronizar — pode ser um URL interno do Docker ou acessível apenas na rede local.",
+        "mealieExternalUrlLabel": "URL pública do link (opcional)",
+        "mealieExternalUrlHint": "Usado nos links \"Abrir no Mealie\" mostrados a você. Deixe em branco para usar o URL do Mealie acima — mas se esse for um endereço interno do Docker ou de outra forma não acessível publicamente, os links não abrirão, então defina aqui um endereço acessível.",
+        "mealieEditLink": "Editar URL do link",
         "mealieTokenLabel": "Token de API",
         "mealieTokenHint": "Crie um token de API de longa duração no Mealie em Configurações → Tokens de API.",
         "mealieEmptyState": "Ainda não há nenhuma conta do Mealie conectada.",
@@ -2043,6 +2047,7 @@
         "mealieEnable": "Ativar",
         "mealieDisable": "Desativar",
         "mealieAccountAdded": "Conta do Mealie adicionada.",
+        "mealieAccountUpdated": "Conta do Mealie atualizada.",
         "mealieAccountDeleted": "Conta do Mealie excluída.",
         "mealieDeleteAccountConfirm": "Isso também remove {{count}} receitas espelhadas e as desvincula de quaisquer entradas do plano de refeições.",
         "mealieLastError": "Último erro de sincronização: {{message}}"

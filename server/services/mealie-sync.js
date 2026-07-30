@@ -202,6 +202,7 @@ export function getStatus() {
     id: acc.id,
     name: acc.name,
     baseUrl: acc.base_url,
+    externalUrl: acc.external_url,
     enabled: !!acc.enabled,
     lastSync: acc.last_sync,
     lastError: acc.last_error,

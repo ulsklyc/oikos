@@ -2035,6 +2035,10 @@
         "mealieAddAccount": "Mealie खाता जोड़ें",
         "mealieNameLabel": "नाम",
         "mealieUrlLabel": "Mealie URL",
+        "mealieUrlHint": "वह पता जिसका उपयोग सर्वर सिंक करने के लिए करता है — यह Docker-आंतरिक या केवल LAN में उपलब्ध URL हो सकता है।",
+        "mealieExternalUrlLabel": "सार्वजनिक लिंक URL (वैकल्पिक)",
+        "mealieExternalUrlHint": "आपको दिखाए जाने वाले \"Mealie में खोलें\" लिंक के लिए उपयोग होता है। ऊपर दिए गए Mealie URL का उपयोग करने के लिए इसे खाली छोड़ें — लेकिन अगर वह Docker-आंतरिक या अन्यथा सार्वजनिक रूप से पहुंच योग्य नहीं है, तो लिंक नहीं खुलेंगे, इसलिए यहां एक पहुंच योग्य पता सेट करें।",
+        "mealieEditLink": "लिंक URL संपादित करें",
         "mealieTokenLabel": "API टोकन",
         "mealieTokenHint": "Mealie में सेटिंग्स → API टोकन के अंतर्गत एक दीर्घकालिक API टोकन बनाएँ।",
         "mealieEmptyState": "अभी तक कोई Mealie खाता जुड़ा नहीं है।",
@@ -2043,6 +2047,7 @@
         "mealieEnable": "सक्षम करें",
         "mealieDisable": "अक्षम करें",
         "mealieAccountAdded": "Mealie खाता जोड़ा गया।",
+        "mealieAccountUpdated": "Mealie खाता अपडेट किया गया।",
         "mealieAccountDeleted": "Mealie खाता हटाया गया।",
         "mealieDeleteAccountConfirm": "इससे {{count}} मिरर की गई व्यंजन विधियाँ भी हट जाएँगी और किसी भी भोजन योजना प्रविष्टि से उनका संबंध टूट जाएगा।",
         "mealieLastError": "अंतिम सिंक त्रुटि: {{message}}"

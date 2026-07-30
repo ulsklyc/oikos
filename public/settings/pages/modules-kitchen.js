@@ -134,6 +134,13 @@ function renderMealieAccount(container, account, refresh) {
   const actions = document.createElement('div');
   actions.className = 'caldav-account-actions';
 
+  const editLinkBtn = document.createElement('button');
+  editLinkBtn.type = 'button';
+  editLinkBtn.className = 'btn btn--ghost btn--sm';
+  editLinkBtn.textContent = t('settings.mealieEditLink');
+  editLinkBtn.addEventListener('click', () => openMealieLinkModal(account, refresh));
+  actions.appendChild(editLinkBtn);
+
   const enableBtn = document.createElement('button');
   enableBtn.type = 'button';
   enableBtn.className = 'btn btn--ghost btn--sm';
@@ -179,6 +186,47 @@ function renderMealieAccount(container, account, refresh) {
 
   card.appendChild(actions);
   container.appendChild(card);
+}
+
+function openMealieLinkModal(account, refresh) {
+  openModal({
+    title: t('settings.mealieEditLink'),
+    size: 'sm',
+    content: `
+      <form id="mealie-link-form" novalidate autocomplete="off">
+        <p class="form-hint">${t('settings.mealieExternalUrlHint')}</p>
+        <div class="form-group">
+          <label class="form-label" for="mealie-link-external-url">${t('settings.mealieExternalUrlLabel')}</label>
+          <input class="form-input" type="url" id="mealie-link-external-url" placeholder="https://cook.example.com" value="${account.externalUrl ? String(account.externalUrl).replace(/"/g, '&quot;') : ''}" />
+        </div>
+        <div id="mealie-link-error" class="form-error" role="alert" hidden></div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn--ghost" id="mealie-link-cancel">${t('common.cancel')}</button>
+          <button type="submit" class="btn btn--primary">${t('common.save')}</button>
+        </div>
+      </form>
+    `,
+    onSave: (panel) => {
+      const form = panel.querySelector('#mealie-link-form');
+      const errorEl = panel.querySelector('#mealie-link-error');
+      panel.querySelector('#mealie-link-cancel')?.addEventListener('click', () => closeModal({ force: true }));
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        errorEl.hidden = true;
+        const external_url = panel.querySelector('#mealie-link-external-url').value.trim();
+        try {
+          await mealie.updateAccount(account.id, { external_url });
+          closeModal({ force: true });
+          showToast(t('settings.mealieAccountUpdated'), 'success');
+          await refresh();
+        } catch (err) {
+          errorEl.textContent = err.message || t('common.errorGeneric');
+          errorEl.hidden = false;
+        }
+      });
+    },
+  });
 }
 
 async function loadMealieAccounts(container) {
@@ -231,6 +279,12 @@ function bindMealieAddButton(container) {
           <div class="form-group">
             <label class="form-label" for="mealie-url">${t('settings.mealieUrlLabel')}<span class="required-marker" aria-hidden="true"> *</span></label>
             <input class="form-input" type="url" id="mealie-url" required placeholder="https://mealie.example.com" />
+            <small class="form-hint">${t('settings.mealieUrlHint')}</small>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="mealie-external-url">${t('settings.mealieExternalUrlLabel')}</label>
+            <input class="form-input" type="url" id="mealie-external-url" placeholder="https://cook.example.com" />
+            <small class="form-hint">${t('settings.mealieExternalUrlHint')}</small>
           </div>
           <div class="form-group">
             <label class="form-label" for="mealie-token">${t('settings.mealieTokenLabel')}<span class="required-marker" aria-hidden="true"> *</span></label>
@@ -255,6 +309,7 @@ function bindMealieAddButton(container) {
 
           const name = panel.querySelector('#mealie-name').value.trim();
           const base_url = panel.querySelector('#mealie-url').value.trim();
+          const external_url = panel.querySelector('#mealie-external-url').value.trim();
           const api_token = panel.querySelector('#mealie-token').value;
 
           if (!name || !base_url || !api_token) {
@@ -264,7 +319,7 @@ function bindMealieAddButton(container) {
           }
 
           try {
-            await mealie.createAccount({ name, base_url, api_token });
+            await mealie.createAccount({ name, base_url, external_url, api_token });
             closeModal({ force: true });
             showToast(t('settings.mealieAccountAdded'), 'success');
             await loadMealieAccounts(container);

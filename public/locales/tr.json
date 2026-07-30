@@ -2035,6 +2035,10 @@
         "mealieAddAccount": "Mealie Hesabı Ekle",
         "mealieNameLabel": "Ad",
         "mealieUrlLabel": "Mealie URL'si",
+        "mealieUrlHint": "Sunucunun senkronizasyon için kullandığı adres — Docker'a özel veya yalnızca LAN'da erişilebilen bir URL olabilir.",
+        "mealieExternalUrlLabel": "Herkese açık bağlantı URL'si (isteğe bağlı)",
+        "mealieExternalUrlHint": "Size gösterilen \"Mealie'de aç\" bağlantıları için kullanılır. Yukarıdaki Mealie URL'sini kullanmak için boş bırakın — ancak bu adres Docker'a özelse veya başka şekilde herkese açık erişilemiyorsa bağlantılar açılmaz, bu yüzden burada erişilebilir bir adres belirleyin.",
+        "mealieEditLink": "Bağlantı URL'sini düzenle",
         "mealieTokenLabel": "API belirteci",
         "mealieTokenHint": "Mealie'de Ayarlar → API Belirteçleri altında uzun ömürlü bir API belirteci oluşturun.",
         "mealieEmptyState": "Henüz bağlı bir Mealie hesabı yok.",
@@ -2043,6 +2047,7 @@
         "mealieEnable": "Etkinleştir",
         "mealieDisable": "Devre dışı bırak",
         "mealieAccountAdded": "Mealie hesabı eklendi.",
+        "mealieAccountUpdated": "Mealie hesabı güncellendi.",
         "mealieAccountDeleted": "Mealie hesabı silindi.",
         "mealieDeleteAccountConfirm": "Bu işlem ayrıca {{count}} yansıtılmış tarifi kaldırır ve bunları tüm yemek planı girişlerinden ayırır.",
         "mealieLastError": "Son senkronizasyon hatası: {{message}}"

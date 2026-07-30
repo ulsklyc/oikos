@@ -2035,6 +2035,10 @@
         "mealieAddAccount": "إضافة حساب Mealie",
         "mealieNameLabel": "الاسم",
         "mealieUrlLabel": "رابط Mealie",
+        "mealieUrlHint": "العنوان الذي يستخدمه الخادم للمزامنة — يمكن أن يكون عنوان URL داخليًا لـ Docker أو متاحًا فقط ضمن الشبكة المحلية.",
+        "mealieExternalUrlLabel": "رابط URL عام (اختياري)",
+        "mealieExternalUrlHint": "يُستخدم لروابط \"فتح في Mealie\" المعروضة لك. اتركه فارغًا لاستخدام رابط Mealie أعلاه — ولكن إذا كان هذا العنوان داخليًا لـ Docker أو غير متاح للعامة، فلن تُفتح الروابط، لذا حدد هنا عنوانًا يمكن الوصول إليه.",
+        "mealieEditLink": "تعديل رابط URL",
         "mealieTokenLabel": "رمز API",
         "mealieTokenHint": "أنشئ رمز API طويل الأمد في Mealie ضمن الإعدادات ← رموز API.",
         "mealieEmptyState": "لا يوجد حساب Mealie متصل بعد.",
@@ -2043,6 +2047,7 @@
         "mealieEnable": "تفعيل",
         "mealieDisable": "تعطيل",
         "mealieAccountAdded": "تمت إضافة حساب Mealie.",
+        "mealieAccountUpdated": "تم تحديث حساب Mealie.",
         "mealieAccountDeleted": "تم حذف حساب Mealie.",
         "mealieDeleteAccountConfirm": "سيؤدي هذا أيضًا إلى إزالة {{count}} وصفة معكوسة وفصلها عن أي إدخالات في خطة الوجبات.",
         "mealieLastError": "آخر خطأ في المزامنة: {{message}}"

@@ -2035,6 +2035,10 @@
         "mealieAddAccount": "Mealieアカウントを追加",
         "mealieNameLabel": "名前",
         "mealieUrlLabel": "Mealie URL",
+        "mealieUrlHint": "サーバーが同期に使用するアドレス — Docker内部専用やLAN内でのみアクセス可能なURLでもかまいません。",
+        "mealieExternalUrlLabel": "公開リンクURL（任意）",
+        "mealieExternalUrlHint": "表示される「Mealieで開く」リンクに使用されます。空欄のままにすると上記のMealie URLが使われます — ただしそれがDocker内部アドレスなど外部から到達できない場合、リンクは開けません。その場合はここに到達可能なアドレスを設定してください。",
+        "mealieEditLink": "リンクURLを編集",
         "mealieTokenLabel": "APIトークン",
         "mealieTokenHint": "Mealieの「設定 → APIトークン」で長期間有効なAPIトークンを作成してください。",
         "mealieEmptyState": "まだMealieアカウントが接続されていません。",
@@ -2043,6 +2047,7 @@
         "mealieEnable": "有効にする",
         "mealieDisable": "無効にする",
         "mealieAccountAdded": "Mealieアカウントを追加しました。",
+        "mealieAccountUpdated": "Mealieアカウントを更新しました。",
         "mealieAccountDeleted": "Mealieアカウントを削除しました。",
         "mealieDeleteAccountConfirm": "これにより、ミラーリングされた{{count}}件のレシピも削除され、献立の項目との関連付けが解除されます。",
         "mealieLastError": "直近の同期エラー: {{message}}"

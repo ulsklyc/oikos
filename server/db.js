@@ -4164,6 +4164,13 @@ const MIGRATIONS = [
         ON recipes(mealie_account_id, mealie_recipe_id) WHERE mealie_account_id IS NOT NULL;
     `,
   },
+  {
+    version: 112,
+    description: 'Mealie integration: separate sync URL (server-reachable, e.g. Docker-internal) from an optional public/vanity URL used for recipe deep links',
+    up: `
+      ALTER TABLE mealie_accounts ADD COLUMN external_url TEXT;
+    `,
+  },
 ];
 
 /**

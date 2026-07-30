@@ -2035,6 +2035,10 @@
         "mealieAddAccount": "Mealie-account toevoegen",
         "mealieNameLabel": "Naam",
         "mealieUrlLabel": "Mealie-URL",
+        "mealieUrlHint": "Het adres dat de server gebruikt om te synchroniseren — dit kan een Docker-interne of alleen op het LAN bereikbare URL zijn.",
+        "mealieExternalUrlLabel": "Openbare link-URL (optioneel)",
+        "mealieExternalUrlHint": "Wordt gebruikt voor de \"Openen in Mealie\"-links die aan jou worden getoond. Laat leeg om de Mealie-URL hierboven te gebruiken — maar als die Docker-intern of anderszins niet publiek bereikbaar is, kunnen de links niet worden geopend, stel hier dan een bereikbaar adres in.",
+        "mealieEditLink": "Link-URL bewerken",
         "mealieTokenLabel": "API-token",
         "mealieTokenHint": "Maak een langlevend API-token aan in Mealie onder Instellingen → API-tokens.",
         "mealieEmptyState": "Nog geen Mealie-account gekoppeld.",
@@ -2043,6 +2047,7 @@
         "mealieEnable": "Inschakelen",
         "mealieDisable": "Uitschakelen",
         "mealieAccountAdded": "Mealie-account toegevoegd.",
+        "mealieAccountUpdated": "Mealie-account bijgewerkt.",
         "mealieAccountDeleted": "Mealie-account verwijderd.",
         "mealieDeleteAccountConfirm": "Dit verwijdert ook {{count}} gespiegelde recepten en ontkoppelt ze van eventuele maaltijdplan-items.",
         "mealieLastError": "Laatste synchronisatiefout: {{message}}"

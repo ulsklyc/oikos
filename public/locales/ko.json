@@ -2047,6 +2047,10 @@
         "mealieAddAccount": "Mealie 계정 추가",
         "mealieNameLabel": "이름",
         "mealieUrlLabel": "Mealie URL",
+        "mealieUrlHint": "서버가 동기화에 사용하는 주소입니다 — Docker 내부 전용이거나 LAN에서만 접근 가능한 URL이어도 됩니다.",
+        "mealieExternalUrlLabel": "공개 링크 URL (선택 사항)",
+        "mealieExternalUrlHint": "표시되는 \"Mealie에서 열기\" 링크에 사용됩니다. 위의 Mealie URL을 사용하려면 비워두세요 — 하지만 해당 주소가 Docker 내부 전용이거나 외부에서 접근할 수 없는 경우 링크가 열리지 않으므로 여기에 접근 가능한 주소를 설정하세요.",
+        "mealieEditLink": "링크 URL 편집",
         "mealieTokenLabel": "API 토큰",
         "mealieTokenHint": "Mealie의 설정 → API 토큰에서 장기 API 토큰을 생성하세요.",
         "mealieEmptyState": "아직 연결된 Mealie 계정이 없습니다.",
@@ -2055,6 +2059,7 @@
         "mealieEnable": "사용",
         "mealieDisable": "사용 안 함",
         "mealieAccountAdded": "Mealie 계정이 추가되었습니다.",
+        "mealieAccountUpdated": "Mealie 계정이 업데이트되었습니다.",
         "mealieAccountDeleted": "Mealie 계정이 삭제되었습니다.",
         "mealieDeleteAccountConfirm": "이 작업은 미러링된 레시피 {{count}}개도 제거하고 모든 식단 항목과의 연결을 해제합니다.",
         "mealieLastError": "최근 동기화 오류: {{message}}"

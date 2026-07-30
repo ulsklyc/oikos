@@ -100,6 +100,24 @@ test('POST /accounts: erfolgreiche Anlage → 201, Token nie in der Antwort, has
   assert.equal(row.api_token, 'super-secret'); // in der DB bleibt er, nur nie in der API-Antwort
 });
 
+test('POST /accounts: external_url ohne http(s):// → 400', async () => {
+  const r = await call('POST', '/accounts', {
+    name: 'Blackhole', base_url: 'https://mealie2.example.com', external_url: 'ftp://x', api_token: 't',
+  });
+  assert.equal(r.status, 400);
+  assert.match(r.body.error, /External URL/);
+});
+
+test('POST /accounts: external_url wird getrimmt und gespeichert (base_url bleibt für Requests, external_url nur für Links)', async () => {
+  mealieSync._setAdapterFactory(fakeAdapter());
+  const r = await call('POST', '/accounts', {
+    name: 'MitVanity', base_url: 'https://internal.mealie.local', external_url: 'https://recipes.example.com/', api_token: 't3',
+  });
+  assert.equal(r.status, 201);
+  assert.equal(r.body.data.external_url, 'https://recipes.example.com'); // trailing slash entfernt
+  assert.equal(r.body.data.base_url, 'https://internal.mealie.local');
+});
+
 test('POST /accounts: doppelte base_url → 409', async () => {
   const r = await call('POST', '/accounts', { name: 'Zweitkonto', base_url: 'https://mealie.example.com', api_token: 't2' });
   assert.equal(r.status, 409);
@@ -130,6 +148,26 @@ test('PATCH /accounts/:id: schaltet enabled um', async () => {
   const r = await call('PATCH', `/accounts/${id}`, { enabled: false });
   assert.equal(r.status, 200);
   assert.equal(r.body.data.enabled, 0);
+});
+
+test('PATCH /accounts/:id: setzt und leert external_url', async () => {
+  const list = await call('GET', '/accounts');
+  const id = list.body.data.find((a) => a.name === 'Zuhause').id;
+
+  const set = await call('PATCH', `/accounts/${id}`, { external_url: 'https://public.example.com/' });
+  assert.equal(set.status, 200);
+  assert.equal(set.body.data.external_url, 'https://public.example.com');
+
+  const cleared = await call('PATCH', `/accounts/${id}`, { external_url: '' });
+  assert.equal(cleared.status, 200);
+  assert.equal(cleared.body.data.external_url, null);
+});
+
+test('PATCH /accounts/:id: external_url ohne http(s):// → 400', async () => {
+  const list = await call('GET', '/accounts');
+  const id = list.body.data.find((a) => a.name === 'Zuhause').id;
+  const r = await call('PATCH', `/accounts/${id}`, { external_url: 'not-a-url' });
+  assert.equal(r.status, 400);
 });
 
 test('PATCH /accounts/:id: unbekannter Account → 404', async () => {

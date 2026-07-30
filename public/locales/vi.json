@@ -2035,6 +2035,10 @@
         "mealieAddAccount": "Thêm tài khoản Mealie",
         "mealieNameLabel": "Tên",
         "mealieUrlLabel": "URL Mealie",
+        "mealieUrlHint": "Địa chỉ mà máy chủ sử dụng để đồng bộ — có thể là URL nội bộ Docker hoặc chỉ truy cập được trong mạng LAN.",
+        "mealieExternalUrlLabel": "URL liên kết công khai (tùy chọn)",
+        "mealieExternalUrlHint": "Được dùng cho các liên kết \"Mở trong Mealie\" hiển thị cho bạn. Để trống để dùng URL Mealie ở trên — nhưng nếu đó là địa chỉ nội bộ Docker hoặc không thể truy cập công khai, liên kết sẽ không mở được, vì vậy hãy đặt một địa chỉ có thể truy cập tại đây.",
+        "mealieEditLink": "Chỉnh sửa URL liên kết",
         "mealieTokenLabel": "Mã thông báo API",
         "mealieTokenHint": "Tạo mã thông báo API dài hạn trong Mealie tại Cài đặt → Mã thông báo API.",
         "mealieEmptyState": "Chưa có tài khoản Mealie nào được kết nối.",
@@ -2043,6 +2047,7 @@
         "mealieEnable": "Bật",
         "mealieDisable": "Tắt",
         "mealieAccountAdded": "Đã thêm tài khoản Mealie.",
+        "mealieAccountUpdated": "Đã cập nhật tài khoản Mealie.",
         "mealieAccountDeleted": "Đã xóa tài khoản Mealie.",
         "mealieDeleteAccountConfirm": "Thao tác này cũng sẽ xóa {{count}} công thức được phản chiếu và hủy liên kết chúng khỏi mọi mục trong kế hoạch bữa ăn.",
         "mealieLastError": "Lỗi đồng bộ gần nhất: {{message}}"

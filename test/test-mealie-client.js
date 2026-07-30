@@ -101,6 +101,18 @@ test('recipeUrl: baut /g/{groupSlug}/r/{slug}, null ohne groupSlug', () => {
   assert.equal(adapter.recipeUrl(null, 'pancakes'), null);
 });
 
+test('recipeUrl: nutzt external_url statt base_url, wenn gesetzt (Docker-interne base_url ist fuer den Browser sonst blackholed)', () => {
+  const adapter = new MealieAdapter({ ...account, external_url: 'https://recipes.example.com/' });
+  assert.equal(adapter.recipeUrl('home', 'pancakes'), 'https://recipes.example.com/g/home/r/pancakes');
+  // base_url selbst bleibt fuer Requests unveraendert - nur der Link-Aufbau weicht ab.
+  assert.equal(adapter.base, 'https://mealie.example.com');
+});
+
+test('recipeUrl: leere external_url faellt auf base_url zurueck', () => {
+  const adapter = new MealieAdapter({ ...account, external_url: '' });
+  assert.equal(adapter.recipeUrl('home', 'pancakes'), 'https://mealie.example.com/g/home/r/pancakes');
+});
+
 // --------------------------------------------------------------------------
 // flattenIngredient: Mealies quantity/unit/food → flaches name/quantity/category
 // --------------------------------------------------------------------------

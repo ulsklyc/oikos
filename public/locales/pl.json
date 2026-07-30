@@ -2047,6 +2047,10 @@
         "mealieAddAccount": "Dodaj konto Mealie",
         "mealieNameLabel": "Nazwa",
         "mealieUrlLabel": "Adres URL Mealie",
+        "mealieUrlHint": "Adres używany przez serwer do synchronizacji — może to być adres URL wewnętrzny Dockera lub dostępny tylko w sieci lokalnej.",
+        "mealieExternalUrlLabel": "Publiczny adres URL linku (opcjonalnie)",
+        "mealieExternalUrlHint": "Używany w wyświetlanych Ci linkach „Otwórz w Mealie”. Pozostaw puste, aby użyć powyższego adresu URL Mealie — ale jeśli jest on wewnętrzny dla Dockera lub w inny sposób publicznie niedostępny, linki się nie otworzą, więc ustaw tutaj adres dostępny z zewnątrz.",
+        "mealieEditLink": "Edytuj adres URL linku",
         "mealieTokenLabel": "Token API",
         "mealieTokenHint": "Utwórz długoterminowy token API w Mealie w Ustawienia → Tokeny API.",
         "mealieEmptyState": "Nie połączono jeszcze żadnego konta Mealie.",
@@ -2055,6 +2059,7 @@
         "mealieEnable": "Włącz",
         "mealieDisable": "Wyłącz",
         "mealieAccountAdded": "Dodano konto Mealie.",
+        "mealieAccountUpdated": "Konto Mealie zaktualizowane.",
         "mealieAccountDeleted": "Usunięto konto Mealie.",
         "mealieDeleteAccountConfirm": "To usunie również {{count}} odzwierciedlonych przepisów i odłączy je od wszystkich wpisów planu posiłków.",
         "mealieLastError": "Ostatni błąd synchronizacji: {{message}}"

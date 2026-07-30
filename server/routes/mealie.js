@@ -45,6 +45,19 @@ router.post('/accounts', async (req, res) => {
     for (const v of [vName, vUrl, vToken]) if (v.error) return res.status(400).json({ error: v.error, code: 400 });
     if (!/^https?:\/\//i.test(vUrl.value)) return res.status(400).json({ error: 'Base URL must start with http(s)://', code: 400 });
 
+    // Optional: eine von außen erreichbare Adresse für "In Mealie öffnen"-Links,
+    // falls base_url (z. B. ein Docker-internes Compose-Hostname) für den
+    // Browser des Nutzers nicht erreichbar ist. Leer = base_url dient auch dafür.
+    let externalUrl = null;
+    if (req.body.external_url) {
+      const vExternal = str(req.body.external_url, 'External URL', { max: MAX_URL });
+      if (vExternal.error) return res.status(400).json({ error: vExternal.error, code: 400 });
+      if (!/^https?:\/\//i.test(vExternal.value)) {
+        return res.status(400).json({ error: 'External URL must start with http(s)://', code: 400 });
+      }
+      externalUrl = vExternal.value.replace(/\/+$/, '');
+    }
+
     const baseUrl = vUrl.value.replace(/\/+$/, '');
     const test = await getAdapter({ base_url: baseUrl, api_token: vToken.value }).testConnection();
     if (!test.ok) {
@@ -56,8 +69,8 @@ router.post('/accounts', async (req, res) => {
     }
 
     const result = db.get().prepare(`
-      INSERT INTO mealie_accounts (name, base_url, api_token, created_by) VALUES (?, ?, ?, ?)
-    `).run(vName.value, baseUrl, vToken.value, userId(req));
+      INSERT INTO mealie_accounts (name, base_url, external_url, api_token, created_by) VALUES (?, ?, ?, ?, ?)
+    `).run(vName.value, baseUrl, externalUrl, vToken.value, userId(req));
     res.status(201).json({ data: publicAccount(getAccount(result.lastInsertRowid)) });
   } catch (err) {
     if (err.message?.includes('UNIQUE constraint')) {
@@ -82,7 +95,22 @@ router.patch('/accounts/:id', (req, res) => {
       name = vName.value;
     }
 
-    db.get().prepare('UPDATE mealie_accounts SET name = ?, enabled = ? WHERE id = ?').run(name, enabled, account.id);
+    let externalUrl = account.external_url;
+    if (req.body.external_url !== undefined) {
+      if (!req.body.external_url) {
+        externalUrl = null;
+      } else {
+        const vExternal = str(req.body.external_url, 'External URL', { max: MAX_URL });
+        if (vExternal.error) return res.status(400).json({ error: vExternal.error, code: 400 });
+        if (!/^https?:\/\//i.test(vExternal.value)) {
+          return res.status(400).json({ error: 'External URL must start with http(s)://', code: 400 });
+        }
+        externalUrl = vExternal.value.replace(/\/+$/, '');
+      }
+    }
+
+    db.get().prepare('UPDATE mealie_accounts SET name = ?, enabled = ?, external_url = ? WHERE id = ?')
+      .run(name, enabled, externalUrl, account.id);
     res.json({ data: publicAccount(getAccount(account.id)) });
   } catch (err) {
     log.error('PATCH /accounts/:id error:', err);

@@ -2035,6 +2035,10 @@
         "mealieAddAccount": "Mealie-fiók hozzáadása",
         "mealieNameLabel": "Név",
         "mealieUrlLabel": "Mealie URL",
+        "mealieUrlHint": "A cím, amelyet a szerver a szinkronizáláshoz használ — lehet Docker-belső vagy csak a helyi hálózaton elérhető URL.",
+        "mealieExternalUrlLabel": "Nyilvános link URL (opcionális)",
+        "mealieExternalUrlHint": "A neked megjelenített „Megnyitás Mealie-ben” linkekhez használatos. Hagyd üresen a fenti Mealie URL használatához — de ha az Docker-belső vagy egyébként nem nyilvánosan elérhető, a linkek nem fognak megnyílni, ezért adj meg itt egy elérhető címet.",
+        "mealieEditLink": "Link URL szerkesztése",
         "mealieTokenLabel": "API-token",
         "mealieTokenHint": "Hozz létre egy hosszú élettartamú API-tokent a Mealie-ben a Beállítások → API-tokenek alatt.",
         "mealieEmptyState": "Még nincs csatlakoztatott Mealie-fiók.",
@@ -2043,6 +2047,7 @@
         "mealieEnable": "Engedélyezés",
         "mealieDisable": "Letiltás",
         "mealieAccountAdded": "Mealie-fiók hozzáadva.",
+        "mealieAccountUpdated": "Mealie-fiók frissítve.",
         "mealieAccountDeleted": "Mealie-fiók törölve.",
         "mealieDeleteAccountConfirm": "Ez törli a(z) {{count}} tükrözött receptet is, és leválasztja őket minden étrendbejegyzésről.",
         "mealieLastError": "Legutóbbi szinkronizálási hiba: {{message}}"

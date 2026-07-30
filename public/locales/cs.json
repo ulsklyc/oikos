@@ -2035,6 +2035,10 @@
         "mealieAddAccount": "Přidat účet Mealie",
         "mealieNameLabel": "Název",
         "mealieUrlLabel": "URL Mealie",
+        "mealieUrlHint": "Adresa, kterou server používá k synchronizaci — může jít o interní adresu Dockeru nebo adresu dostupnou jen v LAN.",
+        "mealieExternalUrlLabel": "Veřejná adresa URL pro odkazy (volitelné)",
+        "mealieExternalUrlHint": "Používá se pro odkazy „Otevřít v Mealie“. Ponechte prázdné pro použití adresy Mealie výše — pokud je ale interní pro Docker nebo jinak veřejně nedostupná, odkazy se nepodaří otevřít, zadejte proto zde dostupnou adresu.",
+        "mealieEditLink": "Upravit adresu URL odkazu",
         "mealieTokenLabel": "API token",
         "mealieTokenHint": "Vytvořte dlouhodobý API token v Mealie v Nastavení → API tokeny.",
         "mealieEmptyState": "Zatím není připojen žádný účet Mealie.",
@@ -2043,6 +2047,7 @@
         "mealieEnable": "Povolit",
         "mealieDisable": "Zakázat",
         "mealieAccountAdded": "Účet Mealie přidán.",
+        "mealieAccountUpdated": "Účet Mealie aktualizován.",
         "mealieAccountDeleted": "Účet Mealie smazán.",
         "mealieDeleteAccountConfirm": "Tím se také odstraní {{count}} zrcadlených receptů a zruší se jejich propojení se všemi položkami jídelníčku.",
         "mealieLastError": "Poslední chyba synchronizace: {{message}}"
