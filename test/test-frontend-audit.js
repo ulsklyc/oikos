@@ -1800,6 +1800,20 @@ test('die Küchen-Listen teilen eine Zeilen-Grammatik', () => {
   assert.match(rowsBlock, /border-radius:\s*var\(--radius-md\)/,
     '.kitchen-rows muss den Inhaltsflächen-Radius aus DESIGN.md §5 tragen');
 
+  // Eine Gruppe wächst auf ihre Inhaltshöhe, statt sich per Default
+  // (align-items: stretch) auf die verfügbare Spur zu dehnen und den Rest über
+  // ihr eigenes overflow:hidden abzuschneiden - trifft jede Küchenliste, deren
+  // Filter sie auf eine einzige flache Gruppe reduziert (Rezepte immer, Vorrat
+  // unter "fast leer"), nicht nur Rezepte. Muss im geteilten Baustein stehen,
+  // nicht als Seiten-Bandage in recipes.css.
+  assert.match(rowsBlock, /align-self:\s*start/,
+    '.kitchen-rows muss align-self: start tragen, sonst schneidet eine einzelne lange Gruppe ihren Überlauf still ab');
+  for (const file of ['recipes.css', 'pantry.css', 'shopping.css', 'meals.css']) {
+    const css = read(`../public/styles/${file}`).replace(/\/\*[\s\S]*?\*\//g, '');
+    assert.doesNotMatch(css, /\.kitchen-rows\s*\{[^}]*align-self/,
+      `${file} darf align-self für .kitchen-rows nicht erneut seitenspezifisch setzen - der Fix gehört in kitchen-row.css`);
+  }
+
   // Keine Zeilenaktion an der rechten Zeilenkante: das ist die Ecke, die der
   // fixierte FAB besetzt (87% Überdeckung auf dem Vorrats-Warenkorb im
   // Ruhezustand, Critique 2026-07-30). Kontextuelle Aktionen sitzen in einem
@@ -1946,10 +1960,18 @@ test('der FAB weicht der Zeile per Safe-Zone, nicht per Retract-Mechanik', () =>
       `${file} führt wieder ein eigenes FAB-Freiraum-Token statt --fab-safe-zone`);
   }
 
-  // Der FAB bleibt immer sichtbar und bedienbar - keine Opacity-/Transform-Regel
-  // schaltet ihn beim Scrollen weg.
-  assert.doesNotMatch(layout.replace(/\/\*[\s\S]*?\*\//g, ''), /page-fab[\s\S]{0,80}opacity:\s*0/,
-    'kein Scroll-Zustand darf den FAB per opacity ausblenden - --fab-safe-zone macht das überflüssig');
+  // Der FAB bleibt immer sichtbar und bedienbar - keine Regel, deren Selektor
+  // .page-fab nennt, darf opacity: 0 in ihrem Deklarationskörper tragen. Block-
+  // weise statt mit einem Zeichenfenster geprüft (kein Treffer-Verlust, wenn ein
+  // künftiger Modifier-Selektor die Erklärung lang macht oder opacity nicht
+  // unmittelbar auf die Selektor-Zeile folgt).
+  const liveLayout = layout.replace(/\/\*[\s\S]*?\*\//g, '');
+  for (const match of liveLayout.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const [, selector, body] = match;
+    if (!selector.includes('page-fab')) continue;
+    assert.doesNotMatch(body, /opacity:\s*0\b/,
+      `Selektor "${selector.trim()}" nennt .page-fab und setzt opacity: 0 - kein Scroll- oder sonstiger Zustand darf den FAB ausblenden, --fab-safe-zone macht das überflüssig`);
+  }
 });
 
 // --------------------------------------------------------

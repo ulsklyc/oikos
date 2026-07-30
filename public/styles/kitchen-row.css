@@ -189,6 +189,23 @@
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
   overflow: hidden;
+  /* Ein Grid-Item von .kitchen-list dehnt sich per Default (align-items:
+   * stretch) auf die Höhe der verfügbaren Spur, statt auf seine Inhaltshöhe zu
+   * wachsen - unschädlich, solange mehrere kurze Gruppen dieselbe Spur teilen
+   * (Einkauf/Vorrat im Normalfall). Sobald aber EINE Gruppe allein in ihrer
+   * Spur steht und mehr Zeilen hat, als in den sichtbaren Bereich passen (jede
+   * Rezepteliste: keine Gruppen, ein einziges .kitchen-rows; Vorrat unter einem
+   * Filter, der auf eine flache Liste ohne Lagerort-Gruppierung reduziert),
+   * dehnt sich die Gruppe auf die verfügbare Höhe UND schneidet den Rest über
+   * dieses `overflow: hidden` (für Eckenradien gedacht) still ab - der
+   * eigentliche Scroller (.kitchen-list) bekommt den Überlauf nie zu sehen,
+   * weil sein Kind schon vorher gekappt wurde. Gemessen an Rezepten mit 50
+   * gespiegelten Einträgen: scrollHeight 3249px, aber clientHeight 657px, kein
+   * Scrollbalken, keine Möglichkeit an die übrigen Zeilen zu kommen.
+   * `align-self: start` lässt jede Gruppe auf ihre Inhaltshöhe wachsen, sodass
+   * .kitchen-list (flex:1, overflow-y:auto) den echten Überlauf sieht und
+   * scrollt - unabhängig davon, ob sie allein oder neben anderen Gruppen steht. */
+  align-self: start;
   /* Abfragbarer Container für die Zeilen darin.
    *
    * WARUM HIER UND NICHT AN DER ZEILE: ein Container kann sich selbst nicht
