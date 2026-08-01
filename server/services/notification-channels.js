@@ -270,5 +270,3 @@ export function createNotificationChannelStore({ db } = {}) {
     listEnabledChannelsForUser,
   };
 }
-
-export const notificationChannelStore = createNotificationChannelStore();
