@@ -28,6 +28,7 @@ npm run test:health-meds        # Gesundheit: Medikamente-Tab
 npm run test:health-labs        # Gesundheit: Laborwerte-Tab
 npm run test:health-activity    # Gesundheit: Aktivitäts-Tab
 npm run test:health-cycle       # Gesundheit: Zyklus-Tab (#450)
+npm run test:health-export      # Gesundheit: CSV-Export - Formel-Injection-Schutz, Header/Spaltenbreiten-Kopplung über HEALTH_EXPORT_HEADERS, Labor-Fan-out und Zyklus-Längenberechnung
 npm run test:health-api         # Gesundheit: Route-Handler
 npm run test:health-nav         # Gesundheit: Tab-Navigation
 npm run test:health-structure   # Gesundheit: Routen-Split-Guard (41-Routen-Tabelle + Cluster-Disjunktheit)

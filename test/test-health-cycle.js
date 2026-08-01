@@ -8,15 +8,19 @@
  */
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 
 const {
   FLOW_LEVELS, FLOW_VALUES, flowLevel,
   SYMPTOM_TYPES, SYMPTOM_VALUES, symptomType,
-  MOOD_TYPES, moodType,
+  MOOD_TYPES, MOOD_VALUES, moodType,
   PHASE,
   daysBetween, sortPeriodsAsc, cycleGaps, periodLengths,
   cycleStats, predictCycle, buildCycleCalendar, cycleRing, pregnancyInfo,
 } = await import('../public/utils/health-cycle.js');
+
+const de = JSON.parse(readFileSync(new URL('../public/locales/de.json', import.meta.url), 'utf8'));
+const translate = (key) => key.split('.').reduce((value, segment) => value?.[segment], de);
 
 // Baut eine Historie aus Startdaten mit fester Periodenlänge (Tage).
 function periods(starts, periodLen = 5) {
@@ -52,8 +56,31 @@ test('SYMPTOM_TYPES / MOOD_TYPES: vollständige labelKeys + icons', () => {
   assert.ok(SYMPTOM_VALUES.includes('cramps'));
   assert.equal(symptomType('cramps').value, 'cramps');
   assert.equal(symptomType('unknown'), null);
-  for (const m of MOOD_TYPES) assert.ok(m.labelKey.startsWith('health.cycle.mood.'));
+  for (const m of MOOD_TYPES) {
+    assert.ok(m.labelKey.startsWith('health.cycle.mood.'));
+    assert.equal(typeof m.icon, 'string');
+  }
   assert.equal(moodType('great').value, 'great');
+  assert.equal(moodType('unknown'), null);
+});
+
+// MOOD_VALUES ist die Auswahl-Reihenfolge der Stimmungs-Chips, nicht nur eine
+// Menge: von "great" nach "anxious". Wie bei FLOW_VALUES/SYMPTOM_VALUES hält der
+// Guard die abgeleitete Liste an ihre Presets gebunden.
+test('MOOD_VALUES: aus MOOD_TYPES abgeleitet, feste Reihenfolge', () => {
+  assert.deepEqual(MOOD_VALUES, MOOD_TYPES.map((m) => m.value));
+  assert.deepEqual(MOOD_VALUES, ['great', 'good', 'neutral', 'sensitive', 'sad', 'irritable', 'anxious']);
+  assert.equal(new Set(MOOD_VALUES).size, MOOD_VALUES.length);
+  assert.ok(Object.isFrozen(MOOD_VALUES));
+});
+
+// Die startsWith-Prüfungen oben belegen nur das Präfix. Ein Preset ohne
+// Übersetzung würde dort durchrutschen und erst in der UI als roher Key auffallen.
+test('jeder Zyklus-Preset-labelKey ist in de.json übersetzt', () => {
+  const presets = [...FLOW_LEVELS, ...SYMPTOM_TYPES, ...MOOD_TYPES];
+  for (const p of presets) {
+    assert.equal(typeof translate(p.labelKey), 'string', `${p.labelKey} fehlt in de.json`);
+  }
 });
 
 // --------------------------------------------------------
