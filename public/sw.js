@@ -80,6 +80,7 @@ const APP_SHELL = [
   '/utils/contact-name.js',
   '/utils/contrast.js',
   '/utils/date.js',
+  '/utils/document-preview.js',
   '/utils/empty-state.js',
   '/utils/fab-scroll.js',
   '/utils/fab.js',

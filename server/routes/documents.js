@@ -64,8 +64,10 @@ const ALLOWED_MIME = new Set([
 // Nur diese Typen werden mit `Content-Disposition: inline` ausgeliefert. Bewusst
 // eine zweite, engere Allowlist (zusätzlich zur Upload-Prüfung): Sie schützt den
 // Preview-Endpunkt davor, jemals skriptfähige Inhalte (HTML, SVG) inline zu
-// rendern — selbst falls ALLOWED_MIME künftig erweitert wird. Spiegelt das
-// Client-seitige VIEWABLE_MIME in public/pages/documents.js.
+// rendern — selbst falls ALLOWED_MIME künftig erweitert wird. Das Client-Pendant
+// steht in public/utils/document-preview.js; die beiden Listen bleiben bewusst
+// unabhängig voneinander gepflegt, damit keine Frontend-Änderung mitentscheidet,
+// was inline ausgeliefert wird.
 const PREVIEWABLE_MIME = new Set([
   'application/pdf',
   'image/png',

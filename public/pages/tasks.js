@@ -14,6 +14,7 @@ import { refresh as refreshReminders } from '/reminders.js';
 import { renderUserMultiSelect, getSelectedUserIds, bindUserMultiSelect, renderAvatarStack } from '/components/user-multi-select.js';
 import { resolveReminderPreset } from '/utils/reminder-offset.js';
 import { renderPageSearch, wirePageSearch } from '/utils/page-search.js';
+import { isPreviewable } from '/utils/document-preview.js';
 import '/components/category-manager.js';
 import '/components/tag-manager.js';
 
@@ -62,18 +63,14 @@ const STATUS_LABELS   = () => Object.fromEntries(STATUSES().map((s)  => [s.value
 // (handleFormSubmit) per PUT /tasks/:id/documents als Replace-Set übernommen.
 let modalDocuments = { index: new Map(), selected: [] };
 
-// MIME-Typen, die inline vorschaubar sind (spiegelt PREVIEWABLE_MIME im Server);
-// alles andere wird als Download verlinkt.
-const TASK_DOC_VIEWABLE = new Set([
-  'application/pdf', 'image/png', 'image/jpeg', 'image/webp', 'text/plain', 'text/csv',
-]);
-
 function docMime(doc) {
   return String(doc.mime_type || '').split(';')[0].trim().toLowerCase();
 }
 
+// Vorschaubar -> /preview (inline), sonst /download. Welche Typen das sind, steht
+// einmal in utils/document-preview.js, nicht hier.
 function docHref(doc) {
-  return TASK_DOC_VIEWABLE.has(docMime(doc))
+  return isPreviewable(doc.mime_type)
     ? `/api/v1/documents/${doc.id}/preview`
     : `/api/v1/documents/${doc.id}/download`;
 }
