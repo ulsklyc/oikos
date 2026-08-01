@@ -20,8 +20,12 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read
-      issues: read
+      # Beides write, sonst kann auf ein @claude nicht geantwortet werden. Getaggt
+      # werden kann in einem Issue (issues) wie in einem PR-Kommentar oder -Review
+      # (pull-requests), also braucht die Antwort beide Wege. Vgl. den gleichen
+      # Fehler in claude-code-review.yml: Job grün, Ergebnis nie gepostet.
+      pull-requests: write
+      issues: write
       id-token: write
       actions: read # Required for Claude to read CI results on PRs
     steps:
