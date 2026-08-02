@@ -1957,7 +1957,12 @@ test('die Küchen-Listen teilen eine Zeilen-Grammatik', () => {
   // Eine Kappung ist eine Kappung, egal wie buchstabiert: die logischen Formen
   // wirken im Schreibmodus dieser App auf dieselbe Achse. Dasselbe Paar prüft
   // der Modul-Root-Breiten-Guard weiter unten schon.
-  const WIDTH_CAP = ['width', 'max-width', 'inline-size', 'max-inline-size'];
+  // ZWEI Gruppen, nicht eine Liste: `width` und `max-width` konkurrieren nicht,
+  // sie beschränken die Box gemeinsam. Als eine Liste gelesen gewönne bei
+  // `max-width: 20rem; width: 100%` das erlaubte `100%` - und die Kappung auf
+  // 20rem stünde ungeprüft daneben. Innerhalb einer Gruppe konkurrieren die
+  // Schreibweisen sehr wohl (logisch gegen physisch, gleiche Achse).
+  const WIDTH_AXES = [['width', 'inline-size'], ['max-width', 'max-inline-size']];
   const MAX_WIDTH = ['max-width', 'max-inline-size'];
   // Werte, die dem Scroller NICHTS wegnehmen. Ein Modul darf `max-width: none`
   // ausdrücklich hinschreiben - verboten ist die Kappung, nicht die Erwähnung.
@@ -2051,6 +2056,8 @@ test('die Küchen-Listen teilen eine Zeilen-Grammatik', () => {
         `${page}.js überschreibt den Stil des Scrollers per cssText - was darin steht, sieht dieser Guard nicht`);
       assert.doesNotMatch(src, new RegExp(`\\b${name}\\.setAttribute\\(\\s*['"\`]style`, 'i'),
         `${page}.js setzt den Stil des Scrollers per setAttribute - derselbe Inline-Stil über einen anderen Weg`);
+      assert.doesNotMatch(src, new RegExp(`\\b${name}\\.style\\.margin(?:Inline|Left|Right)?[A-Za-z]*\\s*=`),
+        `${page}.js setzt eine Inline-Marge am Scroller - die zieht als gestrecktes Flex-Item direkt von seiner Breite ab`);
     }
     (src.match(/<[^>]*\bkitchen-list\b[^>]*>/g) ?? []).forEach((tag) => {
       assert.doesNotMatch(tag, /\sstyle\s*=/,
@@ -2061,9 +2068,11 @@ test('die Küchen-Listen teilen eine Zeilen-Grammatik', () => {
     '.kitchen-list ist nirgends definiert: ein leerer Treffer darf hier nicht still grün bleiben');
   for (const cls of scrollerTokens) {
     for (const { file, selectors, body } of rulesFor(cls)) {
-      const cap = declaredValue(body, WIDTH_CAP);
-      assert.ok(cap === null || FREE_WIDTH.includes(cap),
-        `${file} ${selectors.join(', ')}: ${cap} kappt den Scroller - dann endet sein Mausrad-Trefferbereich an der Lesespalten-Kante`);
+      for (const axis of WIDTH_AXES) {
+        const cap = declaredValue(body, axis);
+        assert.ok(cap === null || FREE_WIDTH.includes(cap),
+          `${file} ${selectors.join(', ')}: ${axis[0]}: ${cap} kappt den Scroller - dann endet sein Mausrad-Trefferbereich an der Lesespalten-Kante`);
+      }
 
       // Dieselbe Verengung ohne Breitenangabe: als gestrecktes Flex-Item zieht
       // eine Inline-Marge direkt von der Randbox ab. `margin-inline-end: 20rem`
@@ -2079,7 +2088,7 @@ test('die Küchen-Listen teilen eine Zeilen-Grammatik', () => {
       // ihn auf Inhaltsbreite schrumpfen - der Trefferbereich fürs Mausrad
       // endet dann genau dort. Erlaubt bleibt nur, was ihn füllen lässt.
       const spread = declaredValue(body, ALIGN_SELF);
-      assert.ok(spread === null || ['stretch', 'normal', 'auto', 'initial', 'unset'].includes(spread),
+      assert.ok(spread === null || FILLS.includes(spread),
         `${file} ${selectors.join(', ')}: align-self: ${spread} nimmt dem Scroller die volle Breite - dann greift das Mausrad rechts daneben ins Leere`);
 
       // `all` setzt jede der oben geprüften Eigenschaften mit zurück, ohne
@@ -2107,7 +2116,9 @@ test('die Küchen-Listen teilen eine Zeilen-Grammatik', () => {
   //    `var(--content-max-width-narrow)` ungültig und das max-width fällt auf
   //    `none` zurück - die Listen liefen bildschirmbreit, während dieser Test
   //    weiter zwei Texte vergleicht, die zueinander passen.
-  const canonical = allRules.find(({ file, selectors, body, conditional }) =>
+  // Die LETZTE unbedingte :root-Deklaration gewinnt - eine spaetere
+  // `:root { --content-max-width-narrow: none }` schlaegt die gueltige davor.
+  const canonical = allRules.findLast(({ file, selectors, body, conditional }) =>
     file === 'tokens.css' && !conditional && selectors.some((sel) => /^:root\b/.test(sel))
     && declaredValue(body, '--content-max-width-narrow') !== null);
   assert.ok(canonical,
@@ -2131,8 +2142,10 @@ test('die Küchen-Listen teilen eine Zeilen-Grammatik', () => {
     // `.shopping-page .kitchen-rows` kappt die Rezeptliste gar nicht, obwohl
     // der Selektor die Klasse nennt und dieser Scan ihn findet.
     const plain = (sel) => {
-      const bare = sel.replace(/:(?:not|has|is|where)\([^)]*\)/g, '');
-      return !/:/.test(bare) && !/[\s>+~]/.test(bare);
+      const bare = sel
+        .replace(/:(?:not|has)\([^)]*\)/g, '')      // schraenken das Subjekt nicht ein
+        .replace(/:(?:is|where)\(([^)]*)\)/g, '$1'); // gehoeren zum Subjekt: Inhalt behalten
+      return !/:/.test(bare) && !/[\s>+~,]/.test(bare);
     };
     assert.ok(rules.some(({ body, conditional, selectors }) =>
       !conditional && selectors.some(plain) && declaredValue(body, MAX_WIDTH) === NARROW),
@@ -2151,7 +2164,7 @@ test('die Küchen-Listen teilen eine Zeilen-Grammatik', () => {
       // das, und die auto-Breite fällt auf den Inhalt zusammen - das Lesemaß
       // bleibt dabei unangetastet und unwirksam.
       const inline = declaredValue(body, ['justify-self', 'place-self'], 'inline');
-      assert.ok(inline === null || ['stretch', 'normal', 'auto', 'initial', 'unset'].includes(inline),
+      assert.ok(inline === null || FILLS.includes(inline),
         `${file}: ${cls} bekommt justify-self: ${inline} - dann schrumpft die Gruppe auf ihren Inhalt, statt das Lesemaß auszufüllen`);
       assert.equal(declaredValue(body, 'all'), null,
         `${file}: ${cls} wird per all-Kurzschreibweise zurückgesetzt - das nimmt Kappung und Ausrichtung mit`);
@@ -2188,12 +2201,31 @@ test('die Küchen-Listen teilen eine Zeilen-Grammatik', () => {
   //    Stünden Kappung und `overflow` in zwei getrennten Blöcken, sähe eine
   //    Prüfung pro Block in keinem von beiden ein gekapptes, clippendes
   //    Element - und genau das ist es.
-  const combined = new Map();
-  for (const { selectors, body } of scopedRules(shared)) {
-    for (const sel of selectors) combined.set(sel, `${combined.get(sel) ?? ''};${body}`);
+  //    Gruppiert wird nach dem ELEMENT, nicht nach dem Selektortext: `.kitchen-rows`
+  //    und `ul.kitchen-rows` treffen dasselbe `ul`, stünden als zwei Einträge
+  //    aber je unvollständig da. Maßgeblich sind die Klassen und IDs im
+  //    Subjekt; eine Regel zählt zu jedem Element, dessen Merkmale sie
+  //    vollständig enthält.
+  const subjectKeys = (selector) => {
+    const subject = selector
+      .replace(/:(?:not|has)\([^)]*\)/g, '')
+      .replace(/:(?:is|where)\(([^)]*)\)/g, '$1')
+      .trim().split(/[\s>+~]+/).pop() ?? '';
+    return new Set(subject.match(/[.#][\w-]+/g) ?? []);
+  };
+  const sharedRules = scopedRules(shared)
+    .flatMap(({ selectors, body }) => selectors.map((sel) => ({ keys: subjectKeys(sel), sel, body })))
+    .filter(({ keys }) => keys.size > 0);
+  const elements = new Map();
+  for (const { keys, sel } of sharedRules) {
+    const id = [...keys].sort().join('');
+    if (!elements.has(id)) elements.set(id, { keys, label: sel });
   }
-  for (const [selector, body] of combined) {
-    const selectors = [selector];
+  for (const [, { keys, label }] of elements) {
+    const body = sharedRules
+      .filter(({ keys: own }) => [...own].every((key) => keys.has(key)))
+      .map(({ body: part }) => part).join(';');
+    const selectors = [label];
     if (declaredValue(body, MAX_WIDTH) !== NARROW) continue;
     // `clip` kappt wie `hidden`, nur ohne Scrollport - und die Block-Achse
     // lässt sich auch als Langform setzen. Der Grund für die Zusicherung ist
@@ -4809,7 +4841,7 @@ const stripCssComments = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '');
 //     Ein flacher Scanner nimmt die erste schliessende Klammer als Rumpfende
 //     und uebersieht `.foo { & { max-width: 20rem } }` vollstaendig - er
 //     prueft dann still weniger, als er behauptet.
-const CONDITIONAL_AT_RULE = /^@(?:media|supports|container|scope|document)\b/i;
+const CONDITIONAL_AT_RULE = /^@(?:media|supports|container|scope|document|starting-style)\b/i;
 
 // Deklarationen dieser Ebene, ohne die Rumpfe verschachtelter Regeln (die
 // kommen als eigene Eintraege) und ohne deren Praeludien.
@@ -4866,7 +4898,15 @@ function scopedRules(css) {
       const close = j - 1;
 
       if (prelude.startsWith('@')) {
-        parse(i + 1, close, conditional || CONDITIONAL_AT_RULE.test(prelude), parents);
+        const inner = conditional || CONDITIONAL_AT_RULE.test(prelude);
+        // Steht die Gruppe IN einer Style-Regel, gelten ihre eigenen
+        // Deklarationen dem Elternselektor: `.kitchen-list { @media … {
+        // max-width: 20rem } }`. Ohne diesen Zweig verschwindet die Kappung.
+        if (parents.length) {
+          const own = ownDeclarations(live.slice(i + 1, close));
+          if (own.trim()) rules.push({ selectors: parents, body: own, conditional: inner });
+        }
+        parse(i + 1, close, inner, parents);
       } else {
         const own = prelude.split(',').map((sel) => sel.trim()).filter(Boolean);
         const selectors = parents.length
