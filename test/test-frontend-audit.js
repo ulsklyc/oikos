@@ -1970,22 +1970,34 @@ test('die Küchen-Listen teilen eine Zeilen-Grammatik', () => {
   // Ausrichtungen, die das Element seine Spur füllen lassen.
   const FILLS = ['stretch', 'normal', 'auto', 'initial', 'unset', 'revert'];
 
-  // Inline-Margen einer Regel als [Eigenschaft, Wert]. Der margin-Shorthand
-  // zählt mit: bei zwei bis vier Werten steht die Inline-Achse an Position 2
-  // (rechts) und 4 (links), bei einem Wert gilt er für alle Seiten.
+  // Die WIRKSAMEN Inline-Margen einer Regel. In Deklarationsreihenfolge
+  // aufgelöst, weil der Shorthand die Langformen zurücksetzt: nach
+  // `margin-inline-end: 20rem; margin: 0` ist die Marge null, und wer nur
+  // sammelt statt zu kaskadieren, meldet dort einen Verstoß, den es
+  // nicht gibt.
   const inlineMargins = (body) => {
-    const found = [];
-    for (const prop of ['margin-inline', 'margin-inline-start', 'margin-inline-end', 'margin-left', 'margin-right']) {
-      const value = declaredValue(body, prop);
-      if (value !== null) value.split(/\s+/).forEach((part) => found.push([prop, part]));
+    let start = null;
+    let end = null;
+    const pattern = /(?:^|;)\s*(margin|margin-inline|margin-inline-start|margin-inline-end|margin-left|margin-right)\s*:\s*([^;]+)/gim;
+    for (const [, rawProp, rawValue] of body.matchAll(pattern)) {
+      const prop = rawProp.toLowerCase();
+      const value = rawValue.replace(/!\s*important$/i, '').trim();
+      const parts = value.split(/\s+/);
+      if (prop === 'margin') {
+        const [top, right = top, , left = right] = parts;
+        start = left;
+        end = right;
+      } else if (prop === 'margin-inline') {
+        const [first, second = first] = parts;
+        start = first;
+        end = second;
+      } else if (prop === 'margin-inline-start' || prop === 'margin-left') {
+        start = value;
+      } else {
+        end = value;
+      }
     }
-    const shorthand = declaredValue(body, 'margin');
-    if (shorthand !== null) {
-      const parts = shorthand.split(/\s+/);
-      const inline = parts.length === 1 ? [parts[0]] : [parts[1], parts[3] ?? parts[1]];
-      inline.forEach((part) => found.push(['margin', part]));
-    }
-    return found;
+    return [['margin-inline-start', start], ['margin-inline-end', end]].filter(([, value]) => value !== null);
   };
 
   // Zielt der Selektor auf das Element selbst, nicht auf einen Nachfahren?
@@ -2050,8 +2062,8 @@ test('die Küchen-Listen teilen eine Zeilen-Grammatik', () => {
         `${page}.js setzt eine Inline-Breite am Scroller - die schlägt jede Regel im Stylesheet und damit auch diesen Guard`);
       assert.doesNotMatch(src, new RegExp(`\\b${name}\\.style\\.(?:alignSelf|placeSelf)\\s*=`),
         `${page}.js setzt align-self inline am Scroller - das nimmt ihm die volle Breite`);
-      assert.doesNotMatch(src, new RegExp(`\\b${name}\\.style\\.setProperty\\(\\s*['"\`](?:max-)?(?:width|inline-size|align-self|place-self)`, 'i'),
-        `${page}.js setzt eine Breite oder Ausrichtung inline am Scroller (setProperty)`);
+      assert.doesNotMatch(src, new RegExp(`\\b${name}\\.style\\.setProperty\\(\\s*['"\`](?:(?:max-)?(?:width|inline-size)|align-self|place-self|margin(?:-inline)?(?:-start|-end)?|margin-left|margin-right)`, 'i'),
+        `${page}.js setzt eine Breite, Ausrichtung oder Marge inline am Scroller (setProperty)`);
       assert.doesNotMatch(src, new RegExp(`\\b${name}\\.style\\.cssText\\s*=`),
         `${page}.js überschreibt den Stil des Scrollers per cssText - was darin steht, sieht dieser Guard nicht`);
       assert.doesNotMatch(src, new RegExp(`\\b${name}\\.setAttribute\\(\\s*['"\`]style`, 'i'),
@@ -2116,17 +2128,19 @@ test('die Küchen-Listen teilen eine Zeilen-Grammatik', () => {
   //    `var(--content-max-width-narrow)` ungültig und das max-width fällt auf
   //    `none` zurück - die Listen liefen bildschirmbreit, während dieser Test
   //    weiter zwei Texte vergleicht, die zueinander passen.
-  // Die LETZTE unbedingte :root-Deklaration gewinnt - eine spaetere
-  // `:root { --content-max-width-narrow: none }` schlaegt die gueltige davor.
-  const canonical = allRules.findLast(({ file, selectors, body, conditional }) =>
-    file === 'tokens.css' && !conditional && selectors.some((sel) => /^:root\b/.test(sel))
-    && declaredValue(body, '--content-max-width-narrow') !== null);
-  assert.ok(canonical,
+  // Die GEWINNENDE Deklaration über alle kanonischen Regeln. Weder „die
+  // letzte" noch „die erste" genügt: `!important` schlägt die
+  // Quellreihenfolge auch zwischen zwei :root-Blöcken. Deshalb werden die
+  // Rümpfe in Quellreihenfolge aneinandergehängt und einmal ausgewertet -
+  // declaredValue() kennt die Vorrangregel bereits.
+  const canonicalBodies = allRules
+    .filter(({ file, selectors, conditional }) => file === 'tokens.css' && !conditional
+      && selectors.some((sel) => /^:root\b/.test(sel)))
+    .map(({ body }) => body).join(';');
+  const tokenValue = declaredValue(canonicalBodies, '--content-max-width-narrow');
+  assert.ok(tokenValue !== null,
     'tokens.css muss --content-max-width-narrow unbedingt in :root definieren - ohne die Deklaration löst var(…) auf nichts auf und die Kappung entfällt');
-  // Und der Wert muss eine Breite SEIN. `--content-max-width-narrow: none`
-  // lässt beide Kind-Deklarationen stehen und auf nichts auflösen.
-  const tokenValue = declaredValue(canonical.body, '--content-max-width-narrow');
-  assert.match(tokenValue, /^(?:\d+(?:\.\d+)?(?:px|rem|em|ch|ex|vw|vmin|vmax|%)|(?:min|max|clamp|calc)\()/,
+  assert.match(tokenValue, /^(?:\d+(?:\.\d+)?(?:px|rem|em|ch|ex|vw|vmin|vmax|%)|(?:min|max|clamp|calc)\(.*\))$/,
     `--content-max-width-narrow ist auf "${tokenValue}" gesetzt - das ist keine Breite, und die Kappung der Kinder läuft ins Leere`);
 
   // 2. Tragen muss die Kappung stattdessen jedes Kind, das ALLEIN Kind des
@@ -2141,10 +2155,13 @@ test('die Küchen-Listen teilen eine Zeilen-Grammatik', () => {
     // `.kitchen-rows:hover` kappt nur unter dem Mauszeiger;
     // `.shopping-page .kitchen-rows` kappt die Rezeptliste gar nicht, obwohl
     // der Selektor die Klasse nennt und dieser Scan ihn findet.
+    // Anders als in targets() bleiben :not() und :has() hier STEHEN. Dort
+    // sagen sie nur, dass die genannte Klasse nicht das Subjekt ist; hier
+    // sagen sie, dass die Kappung an eine Bedingung geknüpft ist -
+    // `.kitchen-rows:not(.uncapped)` lässt jede Zeile mit dieser Klasse
+    // ungekappt. `:is()`/`:where()` gehören zum Subjekt: Inhalt behalten.
     const plain = (sel) => {
-      const bare = sel
-        .replace(/:(?:not|has)\([^)]*\)/g, '')      // schraenken das Subjekt nicht ein
-        .replace(/:(?:is|where)\(([^)]*)\)/g, '$1'); // gehoeren zum Subjekt: Inhalt behalten
+      const bare = sel.replace(/:(?:is|where)\(([^)]*)\)/g, '$1');
       return !/:/.test(bare) && !/[\s>+~,]/.test(bare);
     };
     assert.ok(rules.some(({ body, conditional, selectors }) =>
@@ -2213,17 +2230,31 @@ test('die Küchen-Listen teilen eine Zeilen-Grammatik', () => {
       .trim().split(/[\s>+~]+/).pop() ?? '';
     return new Set(subject.match(/[.#][\w-]+/g) ?? []);
   };
+  //    Der Vorfahren-Kontext bleibt dabei erhalten. Ohne ihn landeten
+  //    `.context-a .kitchen-rows { overflow: hidden }` und
+  //    `.context-b .kitchen-rows { align-self: start }` im selben Topf,
+  //    obwohl kein Element je beide Regeln sieht - der Guard hielte das
+  //    Clipping für ausgeglichen, das es in Kontext A nicht ist.
+  const contextOf = (selector) => {
+    const parts = selector.replace(/:(?:is|where)\(([^)]*)\)/g, '$1').trim().split(/[\s>+~]+/);
+    return parts.slice(0, -1).join(' ');
+  };
   const sharedRules = scopedRules(shared)
-    .flatMap(({ selectors, body }) => selectors.map((sel) => ({ keys: subjectKeys(sel), sel, body })))
+    .flatMap(({ selectors, body }) => selectors.map((sel) => ({
+      keys: subjectKeys(sel), context: contextOf(sel), sel, body,
+    })))
     .filter(({ keys }) => keys.size > 0);
   const elements = new Map();
-  for (const { keys, sel } of sharedRules) {
-    const id = [...keys].sort().join('');
-    if (!elements.has(id)) elements.set(id, { keys, label: sel });
+  for (const { keys, context, sel } of sharedRules) {
+    const id = `${context}|${[...keys].sort().join('')}`;
+    if (!elements.has(id)) elements.set(id, { keys, context, label: sel });
   }
-  for (const [, { keys, label }] of elements) {
+  for (const [, { keys, context, label }] of elements) {
     const body = sharedRules
-      .filter(({ keys: own }) => [...own].every((key) => keys.has(key)))
+      // Eine kontextfreie Regel trifft das Element in JEDEM Kontext; eine
+      // kontextgebundene nur in ihrem eigenen.
+      .filter(({ keys: own, context: own2 }) => [...own].every((key) => keys.has(key))
+        && (own2 === '' || own2 === context))
       .map(({ body: part }) => part).join(';');
     const selectors = [label];
     if (declaredValue(body, MAX_WIDTH) !== NARROW) continue;
