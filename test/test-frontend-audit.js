@@ -1934,7 +1934,7 @@ test('die Küchen-Listen teilen eine Zeilen-Grammatik', () => {
   //     Liste und gibt bei `place-*` den ersten Teilwert (die Block-Achse).
   //   - `!important` schlägt die Quellreihenfolge. `max-width: none !important;
   //     max-width: var(…)` sieht sonst erfüllt aus, obwohl das `none` gewinnt.
-  const declaredValue = (body, props) => {
+  const declaredValue = (body, props, axis = 'block') => {
     const list = [].concat(props);
     const alternatives = list.map((p) => escapeForRegExp(p)).join('|');
     // Standard-Eigenschaften sind ASCII-case-insensitiv (`MAX-WIDTH` wirkt),
@@ -1946,7 +1946,11 @@ test('die Küchen-Listen teilen eine Zeilen-Grammatik', () => {
     const important = hits.filter(({ raw }) => /!\s*important$/i.test(raw));
     const { prop, raw } = (important.length ? important : hits).at(-1);
     const value = raw.replace(/!\s*important$/i, '').trim();
-    return prop.toLowerCase().startsWith('place-') ? value.split(/\s+/)[0] : value;
+    if (!prop.toLowerCase().startsWith('place-')) return value;
+    // `place-self: <align> <justify>` - fehlt der zweite Wert, gilt der erste
+    // fuer beide Achsen.
+    const parts = value.split(/\s+/);
+    return axis === 'inline' ? (parts[1] ?? parts[0]) : parts[0];
   };
   const NARROW = 'var(--content-max-width-narrow)';
   const ALIGN_SELF = ['align-self', 'place-self'];
@@ -2022,6 +2026,8 @@ test('die Küchen-Listen teilen eine Zeilen-Grammatik', () => {
         `${page}.js setzt eine Breite oder Ausrichtung inline am Scroller (setProperty)`);
       assert.doesNotMatch(src, new RegExp(`\\b${name}\\.style\\.cssText\\s*=`),
         `${page}.js überschreibt den Stil des Scrollers per cssText - was darin steht, sieht dieser Guard nicht`);
+      assert.doesNotMatch(src, new RegExp(`\\b${name}\\.setAttribute\\(\\s*['"\`]style`, 'i'),
+        `${page}.js setzt den Stil des Scrollers per setAttribute - derselbe Inline-Stil über einen anderen Weg`);
     }
     (src.match(/<[^>]*\bkitchen-list\b[^>]*>/g) ?? []).forEach((tag) => {
       assert.doesNotMatch(tag, /\sstyle\s*=/,
@@ -2043,6 +2049,11 @@ test('die Küchen-Listen teilen eine Zeilen-Grammatik', () => {
       const spread = declaredValue(body, ALIGN_SELF);
       assert.ok(spread === null || ['stretch', 'normal', 'auto', 'initial', 'unset'].includes(spread),
         `${file} ${selectors.join(', ')}: align-self: ${spread} nimmt dem Scroller die volle Breite - dann greift das Mausrad rechts daneben ins Leere`);
+
+      // `all` setzt jede der oben geprüften Eigenschaften mit zurück, ohne
+      // eine davon zu nennen.
+      assert.equal(declaredValue(body, 'all'), null,
+        `${file} ${selectors.join(', ')}: die all-Kurzschreibweise setzt Breite und Ausrichtung des Scrollers zurück`);
     }
   }
 
@@ -2076,8 +2087,13 @@ test('die Küchen-Listen teilen eine Zeilen-Grammatik', () => {
   //    Block darf sie auch nicht auf einen abweichenden Wert ziehen.
   for (const cls of ['.kitchen-group', '.kitchen-rows']) {
     const rules = rulesFor(cls);
-    assert.ok(rules.some(({ body, conditional }) => !conditional && declaredValue(body, MAX_WIDTH) === NARROW),
-      `${cls} muss das Lesemaß UNBEDINGT tragen: es kann alleiniges Kind von .kitchen-list sein, und eine Kappung, die nur hinter einem Breakpoint steht, fehlt auf jedem anderen Fenster`);
+    // Unbedingt heißt zweierlei: nicht hinter einem Breakpoint UND nicht an
+    // einen Zustand gebunden. `.kitchen-rows:hover` kappt nur unter dem
+    // Mauszeiger; auf Touch und per Tastatur liefe die Liste voll breit.
+    const unstated = (sel) => !/:(?!(?:is|where)\()/.test(sel);
+    assert.ok(rules.some(({ body, conditional, selectors }) =>
+      !conditional && selectors.some(unstated) && declaredValue(body, MAX_WIDTH) === NARROW),
+    `${cls} muss das Lesemaß UNBEDINGT tragen: eine Kappung hinter einem Breakpoint oder an einem Zustand (:hover) fehlt im Normalfall`);
     for (const { file, body } of rules) {
       // Eine feste Breite schlägt die Kappung, ohne sie anzufassen: mit
       // `width: 20rem` bleibt das max-width korrekt stehen und die Liste steht
@@ -2086,6 +2102,16 @@ test('die Küchen-Listen teilen eine Zeilen-Grammatik', () => {
       const definite = declaredValue(body, ['width', 'inline-size']);
       assert.ok(definite === null || definite === 'auto' || definite === '100%',
         `${file}: ${cls} bekommt hier eine feste Breite (${definite}) - gekappt wird über max-width, sonst steht die Liste unabhängig vom Lesemaß schmal`);
+
+      // Dasselbe ohne Breitenangabe: als Grid-Item von .kitchen-list füllt das
+      // Kind seine Spur per Voreinstellung. `justify-self: start` nimmt ihm
+      // das, und die auto-Breite fällt auf den Inhalt zusammen - das Lesemaß
+      // bleibt dabei unangetastet und unwirksam.
+      const inline = declaredValue(body, ['justify-self', 'place-self'], 'inline');
+      assert.ok(inline === null || ['stretch', 'normal', 'auto', 'initial', 'unset'].includes(inline),
+        `${file}: ${cls} bekommt justify-self: ${inline} - dann schrumpft die Gruppe auf ihren Inhalt, statt das Lesemaß auszufüllen`);
+      assert.equal(declaredValue(body, 'all'), null,
+        `${file}: ${cls} wird per all-Kurzschreibweise zurückgesetzt - das nimmt Kappung und Ausrichtung mit`);
 
       const width = declaredValue(body, MAX_WIDTH);
       if (width === null) continue;
@@ -4748,6 +4774,13 @@ function scopedRules(css) {
       from = i + 1;
     } else if (char === '}') {
       depth = Math.max(0, depth - 1);
+      from = i + 1;
+    } else if (char === ';') {
+      // Statement-At-Rules (@import, @charset, @layer x;) enden mit Semikolon
+      // und oeffnen keinen Block. Ohne diesen Zweig waechst das Praeludium
+      // ueber sie hinaus, beginnt mit '@' - und die erste echte Regel der
+      // Datei wird still als At-Rule-Rumpf verschluckt. Deklarations-Semikola
+      // landen hier nie: ueber Regelbloecke springt die Schleife hinweg.
       from = i + 1;
     }
   }
