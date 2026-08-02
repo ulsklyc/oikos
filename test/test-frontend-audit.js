@@ -1978,23 +1978,39 @@ test('die Küchen-Listen teilen eine Zeilen-Grammatik', () => {
   const inlineMargins = (body) => {
     let start = null;
     let end = null;
+    let startFixed = false;   // von einer !important-Deklaration gesetzt
+    let endFixed = false;
+    const setStart = (value, important) => {
+      if (startFixed && !important) return;
+      start = value;
+      startFixed = startFixed || important;
+    };
+    const setEnd = (value, important) => {
+      if (endFixed && !important) return;
+      end = value;
+      endFixed = endFixed || important;
+    };
     const pattern = /(?:^|;)\s*(margin|margin-inline|margin-inline-start|margin-inline-end|margin-left|margin-right)\s*:\s*([^;]+)/gim;
     for (const [, rawProp, rawValue] of body.matchAll(pattern)) {
       const prop = rawProp.toLowerCase();
+      // Eine wichtige Langform überlebt einen späteren gewöhnlichen
+      // Shorthand - sonst meldete `margin-inline-end: 20rem !important;
+      // margin: 0` eine Marge von null, die der Browser nie sieht.
+      const important = /!\s*important$/i.test(rawValue.trim());
       const value = rawValue.replace(/!\s*important$/i, '').trim();
       const parts = value.split(/\s+/);
       if (prop === 'margin') {
         const [top, right = top, , left = right] = parts;
-        start = left;
-        end = right;
+        setStart(left, important);
+        setEnd(right, important);
       } else if (prop === 'margin-inline') {
         const [first, second = first] = parts;
-        start = first;
-        end = second;
+        setStart(first, important);
+        setEnd(second, important);
       } else if (prop === 'margin-inline-start' || prop === 'margin-left') {
-        start = value;
+        setStart(value, important);
       } else {
-        end = value;
+        setEnd(value, important);
       }
     }
     return [['margin-inline-start', start], ['margin-inline-end', end]].filter(([, value]) => value !== null);
@@ -2239,22 +2255,32 @@ test('die Küchen-Listen teilen eine Zeilen-Grammatik', () => {
     const parts = selector.replace(/:(?:is|where)\(([^)]*)\)/g, '$1').trim().split(/[\s>+~]+/);
     return parts.slice(0, -1).join(' ');
   };
+  // Der Zustand des Subjekts gehört ebenfalls zum Schlüssel: sonst gliche
+  // `.kitchen-rows:hover { align-self: start }` eine Lücke aus, die im
+  // Ruhezustand - also fast immer - besteht.
+  const stateOf = (selector) => {
+    const subject = selector.replace(/:(?:is|where)\(([^)]*)\)/g, '$1')
+      .trim().split(/[\s>+~]+/).pop() ?? '';
+    return (subject.match(/:(?!:)[\w-]+(?:\([^)]*\))?/g) ?? []).sort().join('');
+  };
   const sharedRules = scopedRules(shared)
     .flatMap(({ selectors, body }) => selectors.map((sel) => ({
-      keys: subjectKeys(sel), context: contextOf(sel), sel, body,
+      keys: subjectKeys(sel), context: contextOf(sel), state: stateOf(sel), sel, body,
     })))
     .filter(({ keys }) => keys.size > 0);
   const elements = new Map();
-  for (const { keys, context, sel } of sharedRules) {
-    const id = `${context}|${[...keys].sort().join('')}`;
-    if (!elements.has(id)) elements.set(id, { keys, context, label: sel });
+  for (const { keys, context, state, sel } of sharedRules) {
+    const id = `${context}|${state}|${[...keys].sort().join('')}`;
+    if (!elements.has(id)) elements.set(id, { keys, context, state, label: sel });
   }
-  for (const [, { keys, context, label }] of elements) {
+  for (const [, { keys, context, state, label }] of elements) {
     const body = sharedRules
-      // Eine kontextfreie Regel trifft das Element in JEDEM Kontext; eine
-      // kontextgebundene nur in ihrem eigenen.
-      .filter(({ keys: own, context: own2 }) => [...own].every((key) => keys.has(key))
-        && (own2 === '' || own2 === context))
+      // Eine kontext- und zustandsfreie Regel trifft das Element immer; eine
+      // gebundene nur in ihrem eigenen Kontext beziehungsweise Zustand.
+      .filter(({ keys: own, context: ownContext, state: ownState }) =>
+        [...own].every((key) => keys.has(key))
+        && (ownContext === '' || ownContext === context)
+        && (ownState === '' || ownState === state))
       .map(({ body: part }) => part).join(';');
     const selectors = [label];
     if (declaredValue(body, MAX_WIDTH) !== NARROW) continue;
