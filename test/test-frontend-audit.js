@@ -1908,41 +1908,99 @@ test('die Küchen-Listen teilen eine Zeilen-Grammatik', () => {
   // Die Kappung aufs Lesemaß sitzt an den KINDERN des Scrollers, nicht am
   // Scroller selbst (PR #614). Die Begründung dafür stand bisher nur als
   // Kommentar im CSS.
-  const sharedLive = stripCssComments(shared);
+  //
+  // Gescannt wird JEDE Regel JEDER Stylesheet-Datei, nicht der erste Textblock
+  // je Selektor. Zwei Wege führen sonst am Guard vorbei: ein zweiter Block
+  // hinter einem Breakpoint, und das Modul-CSS, das später lädt und auf
+  // demselben Element sitzt (`class="kitchen-list items-list"`).
+  const styleDir = new URL('../public/styles/', import.meta.url);
+  const allRules = readdirSync(styleDir).filter((f) => f.endsWith('.css'))
+    .flatMap((file) => cssRules(read(`../public/styles/${file}`)).map((rule) => ({ file, ...rule })));
 
-  // 1. .kitchen-list ist das Element mit `overflow-y: auto`. Kappt man es aufs
-  //    Lesemaß, endet damit auch sein eigener Trefferbereich fürs Mausrad an
-  //    der Lesespalten-Kante, und auf einem breiten Fenster greift das Rad
-  //    rechts davon ins Leere.
-  assert.doesNotMatch(cssRuleBody(sharedLive, '.kitchen-list'), /max-width:/,
-    '.kitchen-list darf kein max-width setzen: der Scroller muss die volle Breite behalten, sonst endet sein Mausrad-Trefferbereich an der Lesespalten-Kante');
+  // Eine DEKLARATION, kein Textvorkommen: `--eigene-max-width: 40rem` ist
+  // keine, und `--x: var(--content-max-width-narrow)` erfüllt keine Zusage.
+  const declares = (body, prop, value = '') =>
+    new RegExp(`(?:^|;)\\s*${prop}\\s*:\\s*${value}`, 'm').test(body);
+  const NARROW = String.raw`var\(--content-max-width-narrow\)`;
 
-  // 2. Tragen muss sie stattdessen jedes Kind, das ALLEIN Kind des Scrollers
-  //    sein kann: .kitchen-group bei gruppierten Tabs (Einkauf, Vorrat),
-  //    .kitchen-rows ungruppiert (Rezepte). Fehlt sie an einem der beiden,
-  //    läuft der betroffene Tab bildschirmbreit.
-  for (const selector of ['.kitchen-group', '.kitchen-rows']) {
-    assert.match(cssRuleBody(sharedLive, selector), /max-width:\s*var\(--content-max-width-narrow\)/,
-      `${selector} muss das Lesemaß selbst tragen: es kann alleiniges Kind von .kitchen-list sein, und .kitchen-list kappt nicht mehr`);
+  // Zielt der Selektor auf das Element selbst, nicht auf einen Nachfahren?
+  const targets = (selector, cls) =>
+    new RegExp(`\\.${escapeForRegExp(cls)}(?![\\w-])(?:[:.[][^\\s>+~]*)?\\s*$`).test(selector);
+  const rulesFor = (cls) => allRules.filter(({ selectors }) => selectors.some((s) => targets(s, cls)));
+
+  // 1. Der Scroller selbst darf nicht gekappt werden. Er ist das Element mit
+  //    `overflow-y: auto`; kappt man es aufs Lesemaß, endet damit auch sein
+  //    eigener Trefferbereich fürs Mausrad an der Lesespalten-Kante, und auf
+  //    einem breiten Fenster greift das Rad rechts davon ins Leere.
+  //
+  //    Welche Klassen den Scroller mitbenennen, sagt das Markup, nicht diese
+  //    Liste: wer auf demselben Element sitzt, kann seine Breite kappen.
+  const scrollerClasses = new Set(['kitchen-list']);
+  for (const page of ['shopping', 'pantry', 'recipes']) {
+    for (const [, , combo] of read(`../public/pages/${page}.js`)
+      .matchAll(/class(?:Name)?\s*=\s*(['"])([^'"]*\bkitchen-list\b[^'"]*)\1/g)) {
+      combo.trim().split(/\s+/).forEach((cls) => scrollerClasses.add(cls));
+    }
+  }
+  assert.ok(scrollerClasses.size > 1,
+    'kein Modul hängt seine Klasse mehr an .kitchen-list - dann prüft dieser Scan die falschen Regeln');
+  assert.ok(rulesFor('kitchen-list').length > 0,
+    '.kitchen-list ist nirgends definiert: ein leerer Treffer darf hier nicht still grün bleiben');
+  for (const cls of scrollerClasses) {
+    for (const { file, selectors, body } of rulesFor(cls)) {
+      assert.ok(!declares(body, 'max-width'),
+        `${file} ${selectors.join(', ')}: der Scroller darf nicht gekappt werden, sonst endet sein Mausrad-Trefferbereich an der Lesespalten-Kante`);
+    }
+  }
+
+  // 2. Tragen muss die Kappung stattdessen jedes Kind, das ALLEIN Kind des
+  //    Scrollers sein kann: .kitchen-group bei gruppierten Tabs (Einkauf,
+  //    Vorrat), .kitchen-rows ungruppiert (Rezepte). Fehlt sie an einem der
+  //    beiden, läuft der betroffene Tab bildschirmbreit - und ein zweiter
+  //    Block darf sie auch nicht auf einen abweichenden Wert ziehen.
+  for (const cls of ['kitchen-group', 'kitchen-rows']) {
+    const rules = rulesFor(cls);
+    assert.ok(rules.some(({ body }) => declares(body, 'max-width', NARROW)),
+      `.${cls} muss das Lesemaß selbst tragen: es kann alleiniges Kind von .kitchen-list sein, und .kitchen-list kappt nicht mehr`);
+    for (const { file, body } of rules) {
+      if (!declares(body, 'max-width')) continue;
+      assert.ok(declares(body, 'max-width', NARROW),
+        `${file}: .${cls} bekommt hier eine zweite, abweichende Breite - das Lesemaß ist EIN Wert`);
+    }
   }
 
   // 3. Und wer aufs Lesemaß kappt UND clippt, muss auf seine Inhaltshöhe
   //    wachsen dürfen.
   //
-  //    Absichtlich eine Regel und keine Allowlist: das Lesemaß trägt nur, wer
-  //    Kind des Scroller-Grids ist, und `overflow: hidden` (hier für die
-  //    Eckenradien) macht ihn zum Clipper. Ohne `align-self: start` streckt das
-  //    voreingestellte `align-items: stretch` ihn auf die volle Spurhöhe, und
-  //    er schneidet alles darüber still ab, bevor .kitchen-list den Überlauf je
-  //    sieht. Gemessen an einer Rezeptliste mit 50 gespiegelten Einträgen:
-  //    scrollHeight 3249px gegen clientHeight 657px, kein Scrollbalken, kein
-  //    Weg an die übrigen Zeilen. Harmlos ist das nur, solange mehrere kurze
-  //    Gruppen dieselbe Spur teilen.
+  //    Absichtlich eine Regel und keine Allowlist: `overflow: hidden` (hier für
+  //    die Eckenradien) macht aus dem gekappten Kind einen Clipper. Ohne
+  //    `align-self: start` streckt das voreingestellte `align-items: stretch`
+  //    es auf die volle Spurhöhe, und es schneidet alles darüber still ab,
+  //    bevor .kitchen-list den Überlauf je sieht. Gemessen an einer Rezeptliste
+  //    mit 50 gespiegelten Einträgen: scrollHeight 3249px gegen clientHeight
+  //    657px, kein Scrollbalken, kein Weg an die übrigen Zeilen. Harmlos ist
+  //    das nur, solange mehrere kurze Gruppen dieselbe Spur teilen.
+  //
+  //    Der Scan bleibt auf kitchen-row.css, wo die geteilten Bausteine
+  //    definiert werden. Andere Module kappen mit demselben Token Elemente, die
+  //    nie Grid-Item dieses Scrollers werden (shopping.css die Eingabezeile,
+  //    layout.css den Leerzustand) - für die wäre `align-self: start` falsch.
+  //    Innerhalb dieser Datei gilt dieselbe Einschränkung für .kitchen-bulkbar:
+  //    sie steht ÜBER dem Scroller (siehe dort) und trägt das Lesemaß, clippt
+  //    aber nicht. Käme dort ein `overflow: hidden` dazu, meldet dieser Guard
+  //    einen Fall, den ein Mensch entscheiden muss.
   for (const { selectors, body } of cssRules(shared)) {
-    if (!/max-width:\s*var\(--content-max-width-narrow\)/.test(body)) continue;
-    if (!/overflow:\s*hidden/.test(body)) continue;
-    assert.match(body, /align-self:\s*start/,
+    if (!declares(body, 'max-width', NARROW)) continue;
+    if (!declares(body, 'overflow', 'hidden')) continue;
+    assert.ok(declares(body, 'align-self', 'start'),
       `${selectors.join(', ')} kappt aufs Lesemaß und clippt zugleich, ist also ein gekapptes Kind des Scroller-Grids: ohne align-self: start schneidet es den Überlauf ab, bevor .kitchen-list ihn sieht`);
+  }
+
+  // Und kein später geladenes Modul-Stylesheet biegt den Wert wieder um.
+  for (const { file, body } of rulesFor('kitchen-rows')) {
+    if (!declares(body, 'align-self')) continue;
+    assert.ok(declares(body, 'align-self', 'start'),
+      `${file}: .kitchen-rows bekommt hier ein anderes align-self - genau der Rückfall, den die Regel darüber verhindert`);
   }
 });
 
