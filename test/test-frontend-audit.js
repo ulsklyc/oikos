@@ -1935,9 +1935,9 @@ test('die Küchen-Listen teilen eine Zeilen-Grammatik', () => {
     const hits = [...body.matchAll(new RegExp(`(?:^|;)\\s*(${alternatives})\\s*:\\s*([^;]+)`, 'gm'))]
       .map(([, prop, raw]) => ({ prop, raw: raw.trim() }));
     if (!hits.length) return null;
-    const important = hits.filter(({ raw }) => /!\s*important$/.test(raw));
+    const important = hits.filter(({ raw }) => /!\s*important$/i.test(raw));
     const { prop, raw } = (important.length ? important : hits).at(-1);
-    const value = raw.replace(/!\s*important$/, '').trim();
+    const value = raw.replace(/!\s*important$/i, '').trim();
     return prop.startsWith('place-') ? value.split(/\s+/)[0] : value;
   };
   const NARROW = 'var(--content-max-width-narrow)';
@@ -1962,6 +1962,10 @@ test('die Küchen-Listen teilen eine Zeilen-Grammatik', () => {
   const targets = (selector, token) => {
     const subject = selector.replace(/:(?:not|has)\([^)]*\)/g, '');
     const compound = subject.trim().split(/[\s>+~]+/).pop() ?? '';
+    // Ein Pseudo-Element ist ein eigener Kasten, nicht das Element selbst:
+    // `.recipes-list::before { width: 1rem }` kappt den Scroller nicht, und
+    // dort rot zu werden hieße, eine harmlose Dekoration zu verbieten.
+    if (/::|:(?:before|after|first-line|first-letter|marker|backdrop|selection|placeholder)\b/.test(compound)) return false;
     return new RegExp(`${escapeForRegExp(token)}(?![\\w-])`).test(compound);
   };
   const rulesFor = (token) => allRules.filter(({ selectors }) => selectors.some((s) => targets(s, token)));
@@ -2011,7 +2015,10 @@ test('die Küchen-Listen teilen eine Zeilen-Grammatik', () => {
   //    Guard unten vergliche dann zwei Texte, die dasselbe sagen und
   //    Verschiedenes bedeuten.
   for (const { file, selectors, body } of allRules) {
-    if (file === 'tokens.css') continue;
+    // Ausgenommen ist die KANONISCHE Deklaration, nicht die Datei: eine auf
+    // einen Selektor gescopte Neudefinition in tokens.css selbst umginge
+    // dieselbe Invariante, die dieser Block schützt.
+    if (file === 'tokens.css' && selectors.every((s) => /^:root\b/.test(s.trim()))) continue;
     assert.equal(declaredValue(body, '--content-max-width-narrow'), null,
       `${file} ${selectors.join(', ')}: --content-max-width-narrow wird hier lokal umdefiniert - das Lesemaß kommt aus tokens.css und nirgendwo sonst`);
   }
@@ -2026,6 +2033,14 @@ test('die Küchen-Listen teilen eine Zeilen-Grammatik', () => {
     assert.ok(rules.some(({ body }) => declaredValue(body, MAX_WIDTH) === NARROW),
       `${cls} muss das Lesemaß selbst tragen: es kann alleiniges Kind von .kitchen-list sein, und .kitchen-list kappt nicht mehr`);
     for (const { file, body } of rules) {
+      // Eine feste Breite schlägt die Kappung, ohne sie anzufassen: mit
+      // `width: 20rem` bleibt das max-width korrekt stehen und die Liste steht
+      // trotzdem schmal. Prozentwerte und `auto` sind unschädlich - sie messen
+      // den (ungekappten) Scroller, und das max-width begrenzt weiter.
+      const definite = declaredValue(body, ['width', 'inline-size']);
+      assert.ok(definite === null || definite === 'auto' || definite.endsWith('%'),
+        `${file}: ${cls} bekommt hier eine feste Breite (${definite}) - gekappt wird über max-width, sonst steht die Liste unabhängig vom Lesemaß`);
+
       const width = declaredValue(body, MAX_WIDTH);
       if (width === null) continue;
       assert.equal(width, NARROW,
@@ -2055,7 +2070,11 @@ test('die Küchen-Listen teilen eine Zeilen-Grammatik', () => {
   //    einen Fall, den ein Mensch entscheiden muss.
   for (const { selectors, body } of cssRules(shared)) {
     if (declaredValue(body, MAX_WIDTH) !== NARROW) continue;
-    if (declaredValue(body, 'overflow') !== 'hidden') continue;
+    // `clip` kappt wie `hidden`, nur ohne Scrollport - und die Block-Achse
+    // lässt sich auch als Langform setzen. Der Grund für die Zusicherung ist
+    // das Abschneiden, nicht die eine Schreibweise dafür.
+    const overflow = declaredValue(body, ['overflow', 'overflow-y', 'overflow-block']);
+    if (overflow === null || !/\b(?:hidden|clip)\b/.test(overflow)) continue;
     assert.equal(declaredValue(body, ALIGN_SELF), 'start',
       `${selectors.join(', ')} kappt aufs Lesemaß und clippt zugleich, ist also ein gekapptes Kind des Scroller-Grids: ohne align-self: start schneidet es den Überlauf ab, bevor .kitchen-list ihn sieht`);
   }
