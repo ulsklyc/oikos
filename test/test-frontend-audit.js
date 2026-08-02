@@ -1917,15 +1917,37 @@ test('die Küchen-Listen teilen eine Zeilen-Grammatik', () => {
   const allRules = readdirSync(styleDir).filter((f) => f.endsWith('.css'))
     .flatMap((file) => cssRules(read(`../public/styles/${file}`)).map((rule) => ({ file, ...rule })));
 
-  // Eine DEKLARATION, kein Textvorkommen: `--eigene-max-width: 40rem` ist
-  // keine, und `--x: var(--content-max-width-narrow)` erfüllt keine Zusage.
-  const declares = (body, prop, value = '') =>
-    new RegExp(`(?:^|;)\\s*${prop}\\s*:\\s*${value}`, 'm').test(body);
-  const NARROW = String.raw`var\(--content-max-width-narrow\)`;
+  // Der WIRKSAME Wert einer Eigenschaft, oder null. Drei Fallen stecken darin:
+  //
+  //   - Eine Deklaration ist kein Textvorkommen: `--eigene-max-width: 40rem`
+  //     setzt keine Breite, und `--x: var(--content-max-width-narrow)` erfüllt
+  //     keine Zusage.
+  //   - Die LETZTE Deklaration gewinnt, wie im Browser. Sonst gilt
+  //     `max-width: var(--content-max-width-narrow); max-width: none` als
+  //     erfüllt, obwohl das Element bildschirmbreit läuft.
+  //   - Kurzschreibweisen setzen dieselbe Eigenschaft mit: `place-self:
+  //     stretch` setzt `align-self` zurück. Deshalb nimmt die Funktion eine
+  //     Liste und gibt bei `place-*` den ersten Teilwert (die Block-Achse).
+  const declaredValue = (body, props) => {
+    const alternatives = [].concat(props).map((p) => escapeForRegExp(p)).join('|');
+    const hits = [...body.matchAll(new RegExp(`(?:^|;)\\s*(${alternatives})\\s*:\\s*([^;]+)`, 'gm'))];
+    if (!hits.length) return null;
+    const [, prop, raw] = hits[hits.length - 1];
+    const value = raw.trim();
+    return prop.startsWith('place-') ? value.split(/\s+/)[0] : value;
+  };
+  const NARROW = 'var(--content-max-width-narrow)';
+  const ALIGN_SELF = ['align-self', 'place-self'];
 
   // Zielt der Selektor auf das Element selbst, nicht auf einen Nachfahren?
-  const targets = (selector, cls) =>
-    new RegExp(`\\.${escapeForRegExp(cls)}(?![\\w-])(?:[:.[][^\\s>+~]*)?\\s*$`).test(selector);
+  // Geprüft wird der LETZTE Compound, damit auch `.kitchen-list#items-list`,
+  // `.kitchen-list:hover` und `:is(.kitchen-list)` als Treffer gelten -
+  // `.kitchen-list .row` dagegen nicht. `:not(…)` fällt vorher weg, sonst
+  // meldete ausgerechnet der Ausschluss einen Treffer.
+  const targets = (selector, cls) => {
+    const compound = selector.trim().split(/[\s>+~]+/).pop()?.replace(/:not\([^)]*\)/g, '') ?? '';
+    return new RegExp(`\\.${escapeForRegExp(cls)}(?![\\w-])`).test(compound);
+  };
   const rulesFor = (cls) => allRules.filter(({ selectors }) => selectors.some((s) => targets(s, cls)));
 
   // 1. Der Scroller selbst darf nicht gekappt werden. Er ist das Element mit
@@ -1935,20 +1957,23 @@ test('die Küchen-Listen teilen eine Zeilen-Grammatik', () => {
   //
   //    Welche Klassen den Scroller mitbenennen, sagt das Markup, nicht diese
   //    Liste: wer auf demselben Element sitzt, kann seine Breite kappen.
+  //    JEDE geprüfte Seite muss ihre eigene Kombination liefern. Eine globale
+  //    Mindestzahl genügt nicht: fiele nur eine Seite aus der Erkennung, würden
+  //    die beiden anderen sie weiter erfüllen, und deren Modul-Klasse wäre
+  //    ungeprüft.
   const scrollerClasses = new Set(['kitchen-list']);
   for (const page of ['shopping', 'pantry', 'recipes']) {
-    for (const [, , combo] of read(`../public/pages/${page}.js`)
-      .matchAll(/class(?:Name)?\s*=\s*(['"])([^'"]*\bkitchen-list\b[^'"]*)\1/g)) {
-      combo.trim().split(/\s+/).forEach((cls) => scrollerClasses.add(cls));
-    }
+    const combos = [...read(`../public/pages/${page}.js`)
+      .matchAll(/class(?:Name)?\s*=\s*(['"`])([^'"`]*\bkitchen-list\b[^'"`]*)\1/g)];
+    assert.ok(combos.length > 0,
+      `${page}.js hängt seine Klasse nicht mehr literal an .kitchen-list - dieser Scan findet sie dann nicht und prüft den Scroller des Tabs ungewollt gar nicht`);
+    combos.forEach(([, , combo]) => combo.trim().split(/\s+/).forEach((cls) => scrollerClasses.add(cls)));
   }
-  assert.ok(scrollerClasses.size > 1,
-    'kein Modul hängt seine Klasse mehr an .kitchen-list - dann prüft dieser Scan die falschen Regeln');
   assert.ok(rulesFor('kitchen-list').length > 0,
     '.kitchen-list ist nirgends definiert: ein leerer Treffer darf hier nicht still grün bleiben');
   for (const cls of scrollerClasses) {
     for (const { file, selectors, body } of rulesFor(cls)) {
-      assert.ok(!declares(body, 'max-width'),
+      assert.equal(declaredValue(body, 'max-width'), null,
         `${file} ${selectors.join(', ')}: der Scroller darf nicht gekappt werden, sonst endet sein Mausrad-Trefferbereich an der Lesespalten-Kante`);
     }
   }
@@ -1960,11 +1985,12 @@ test('die Küchen-Listen teilen eine Zeilen-Grammatik', () => {
   //    Block darf sie auch nicht auf einen abweichenden Wert ziehen.
   for (const cls of ['kitchen-group', 'kitchen-rows']) {
     const rules = rulesFor(cls);
-    assert.ok(rules.some(({ body }) => declares(body, 'max-width', NARROW)),
+    assert.ok(rules.some(({ body }) => declaredValue(body, 'max-width') === NARROW),
       `.${cls} muss das Lesemaß selbst tragen: es kann alleiniges Kind von .kitchen-list sein, und .kitchen-list kappt nicht mehr`);
     for (const { file, body } of rules) {
-      if (!declares(body, 'max-width')) continue;
-      assert.ok(declares(body, 'max-width', NARROW),
+      const width = declaredValue(body, 'max-width');
+      if (width === null) continue;
+      assert.equal(width, NARROW,
         `${file}: .${cls} bekommt hier eine zweite, abweichende Breite - das Lesemaß ist EIN Wert`);
     }
   }
@@ -1990,16 +2016,18 @@ test('die Küchen-Listen teilen eine Zeilen-Grammatik', () => {
   //    aber nicht. Käme dort ein `overflow: hidden` dazu, meldet dieser Guard
   //    einen Fall, den ein Mensch entscheiden muss.
   for (const { selectors, body } of cssRules(shared)) {
-    if (!declares(body, 'max-width', NARROW)) continue;
-    if (!declares(body, 'overflow', 'hidden')) continue;
-    assert.ok(declares(body, 'align-self', 'start'),
+    if (declaredValue(body, 'max-width') !== NARROW) continue;
+    if (declaredValue(body, 'overflow') !== 'hidden') continue;
+    assert.equal(declaredValue(body, ALIGN_SELF), 'start',
       `${selectors.join(', ')} kappt aufs Lesemaß und clippt zugleich, ist also ein gekapptes Kind des Scroller-Grids: ohne align-self: start schneidet es den Überlauf ab, bevor .kitchen-list ihn sieht`);
   }
 
-  // Und kein später geladenes Modul-Stylesheet biegt den Wert wieder um.
+  // Und kein später geladenes Modul-Stylesheet biegt den Wert wieder um -
+  // auch nicht über die Kurzschreibweise place-self.
   for (const { file, body } of rulesFor('kitchen-rows')) {
-    if (!declares(body, 'align-self')) continue;
-    assert.ok(declares(body, 'align-self', 'start'),
+    const align = declaredValue(body, ALIGN_SELF);
+    if (align === null) continue;
+    assert.equal(align, 'start',
       `${file}: .kitchen-rows bekommt hier ein anderes align-self - genau der Rückfall, den die Regel darüber verhindert`);
   }
 });
