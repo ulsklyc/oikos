@@ -1904,6 +1904,46 @@ test('die Küchen-Listen teilen eine Zeilen-Grammatik', () => {
     '.items-list darf kein horizontales Polster setzen: #list-content trägt schon --page-inline-pad');
   assert.doesNotMatch(shared.match(/\.kitchen-list\s*\{([^}]*)\}/)?.[1] ?? '', /padding-inline:/,
     '.kitchen-list darf kein padding-inline setzen: wo der Spalten-Träger sitzt, ist pro Tab verschieden');
+
+  // Die Kappung aufs Lesemaß sitzt an den KINDERN des Scrollers, nicht am
+  // Scroller selbst (PR #614). Die Begründung dafür stand bisher nur als
+  // Kommentar im CSS.
+  const sharedLive = stripCssComments(shared);
+
+  // 1. .kitchen-list ist das Element mit `overflow-y: auto`. Kappt man es aufs
+  //    Lesemaß, endet damit auch sein eigener Trefferbereich fürs Mausrad an
+  //    der Lesespalten-Kante, und auf einem breiten Fenster greift das Rad
+  //    rechts davon ins Leere.
+  assert.doesNotMatch(cssRuleBody(sharedLive, '.kitchen-list'), /max-width:/,
+    '.kitchen-list darf kein max-width setzen: der Scroller muss die volle Breite behalten, sonst endet sein Mausrad-Trefferbereich an der Lesespalten-Kante');
+
+  // 2. Tragen muss sie stattdessen jedes Kind, das ALLEIN Kind des Scrollers
+  //    sein kann: .kitchen-group bei gruppierten Tabs (Einkauf, Vorrat),
+  //    .kitchen-rows ungruppiert (Rezepte). Fehlt sie an einem der beiden,
+  //    läuft der betroffene Tab bildschirmbreit.
+  for (const selector of ['.kitchen-group', '.kitchen-rows']) {
+    assert.match(cssRuleBody(sharedLive, selector), /max-width:\s*var\(--content-max-width-narrow\)/,
+      `${selector} muss das Lesemaß selbst tragen: es kann alleiniges Kind von .kitchen-list sein, und .kitchen-list kappt nicht mehr`);
+  }
+
+  // 3. Und wer aufs Lesemaß kappt UND clippt, muss auf seine Inhaltshöhe
+  //    wachsen dürfen.
+  //
+  //    Absichtlich eine Regel und keine Allowlist: das Lesemaß trägt nur, wer
+  //    Kind des Scroller-Grids ist, und `overflow: hidden` (hier für die
+  //    Eckenradien) macht ihn zum Clipper. Ohne `align-self: start` streckt das
+  //    voreingestellte `align-items: stretch` ihn auf die volle Spurhöhe, und
+  //    er schneidet alles darüber still ab, bevor .kitchen-list den Überlauf je
+  //    sieht. Gemessen an einer Rezeptliste mit 50 gespiegelten Einträgen:
+  //    scrollHeight 3249px gegen clientHeight 657px, kein Scrollbalken, kein
+  //    Weg an die übrigen Zeilen. Harmlos ist das nur, solange mehrere kurze
+  //    Gruppen dieselbe Spur teilen.
+  for (const { selectors, body } of cssRules(shared)) {
+    if (!/max-width:\s*var\(--content-max-width-narrow\)/.test(body)) continue;
+    if (!/overflow:\s*hidden/.test(body)) continue;
+    assert.match(body, /align-self:\s*start/,
+      `${selectors.join(', ')} kappt aufs Lesemaß und clippt zugleich, ist also ein gekapptes Kind des Scroller-Grids: ohne align-self: start schneidet es den Überlauf ab, bevor .kitchen-list ihn sieht`);
+  }
 });
 
 /**
