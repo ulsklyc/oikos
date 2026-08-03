@@ -619,10 +619,14 @@ async function openRedeemModal(memberId, presetItemId = null) {
 
 async function decideRedemption(id, action, btn) {
   if (action === 'reject' || action === 'cancel') {
-    // Kein `danger`: hier geht nichts verloren. Der Server bucht die reservierten
-    // Punkte per `reversal` zurück (routes/rewards.js), die Anfrage bleibt als
-    // entschieden stehen und lässt sich jederzeit neu stellen. Rot faerben wuerde
-    // eine Endgueltigkeit behaupten, die es nicht gibt.
+    // Kein `danger`: der Server bucht die reservierten Punkte per `reversal`
+    // zurück (routes/rewards.js), es geht also kein Guthaben verloren. Die
+    // Anfrage bleibt als entschieden stehen und lässt sich neu stellen, solange
+    // die Belohnung aktiv im Katalog steht - `POST /redemptions` verlangt
+    // `is_active = 1`. Ist sie inzwischen gelöscht, war das Löschen der
+    // Belohnung die endgültige Handlung, und die trägt ihr eigenes `danger`.
+    // Rot faerben wuerde hier eine Endgueltigkeit behaupten, die die
+    // Entscheidung selbst nicht hat.
     const ok = await confirmModal(
       action === 'reject' ? t('rewards.confirmReject') : t('rewards.confirmCancel'),
       { confirmLabel: action === 'reject' ? t('rewards.reject') : t('common.cancel') },

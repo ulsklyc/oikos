@@ -6107,6 +6107,33 @@ function readCall(src, openIdx) {
   return null;
 }
 
+// Schneidet aus einer gelesenen Argumentliste das Options-Objekt heraus - das
+// letzte Argument der obersten Ebene, das mit `{` beginnt. Ohne diesen Schnitt
+// sucht der Guard im ganzen Aufruf, und ein `detail`-Platzhalter in der
+// Titel-Interpolation (`confirmModal(t('x', { detail: … }), { danger: true })`)
+// wuerde ihn zufriedenstellen, obwohl der Dialog keine Folgen nennt.
+function readOptionsArg(call) {
+  const inner = call.slice(1, -1);
+  const args = [];
+  let depth = 0;
+  let quote = null;
+  let start = 0;
+  for (let i = 0; i < inner.length; i++) {
+    const c = inner[i];
+    if (quote) {
+      if (c === quote && inner[i - 1] !== '\\') quote = null;
+      continue;
+    }
+    if (c === '"' || c === "'" || c === '`') quote = c;
+    else if ('([{'.includes(c)) depth++;
+    else if (')]}'.includes(c)) depth--;
+    else if (c === ',' && depth === 0) { args.push(inner.slice(start, i)); start = i + 1; }
+  }
+  args.push(inner.slice(start));
+  const options = args.filter((arg) => arg.trim().startsWith('{')).pop();
+  return options ?? '';
+}
+
 // Liest den Wert einer Option aus einer gelesenen Argumentliste: ab `name:` bis
 // zum Komma, das ihn beendet - Klammern, Strings und Template-Literals werden
 // mitgezaehlt, damit ein Komma in `t('key', { count })` nicht vorzeitig trennt.
@@ -6168,10 +6195,13 @@ test('jeder als gefaehrlich markierte Dialog nennt seine Folgen', () => {
     'Aufruf liess sich nicht bis zur schliessenden Klammer lesen');
   assert.ok(calls.length >= 40, `Scanner findet nur ${calls.length} Dialoge - laeuft er noch ueber public/?`);
 
-  const gefaehrlich = calls.filter((c) => /\bdanger\s*:\s*true\b/.test(c.call));
+  // Ab hier zaehlt nur noch das Options-Objekt, nicht der ganze Aufruf.
+  const gefaehrlich = calls
+    .map((c) => ({ ...c, options: readOptionsArg(c.call) }))
+    .filter((c) => /\bdanger\s*:\s*true\b/.test(c.options));
   assert.ok(gefaehrlich.length >= 30, `nur ${gefaehrlich.length} danger-Dialoge gefunden`);
 
-  const ohneFolgen = gefaehrlich.filter((c) => !/\bdetail\s*:/.test(c.call));
+  const ohneFolgen = gefaehrlich.filter((c) => !/\bdetail\s*:/.test(c.options));
   assert.deepEqual(
     ohneFolgen.map((c) => `${c.file}:${c.line} (${c.fn})`),
     [],
@@ -6187,7 +6217,7 @@ test('jeder als gefaehrlich markierte Dialog nennt seine Folgen', () => {
   // Grenze: ueber eine Variable eingeschleuste Texte sieht der Guard nicht.
   const detailKeys = new Set();
   for (const call of gefaehrlich) {
-    const value = readOptionValue(call.call, 'detail');
+    const value = readOptionValue(call.options, 'detail');
     const keys = [...value.matchAll(/\bt\(\s*'([^']+)'/g)].map((m) => m[1]);
     // `t(this._…Key)` ist die zulaessige zweite Form: eine geteilte Komponente,
     // deren Folgen erst der Aufrufer kennt. Wer so delegiert, wird vom Guard
@@ -6213,7 +6243,7 @@ test('jeder als gefaehrlich markierte Dialog nennt seine Folgen', () => {
     return typeof value === 'string' ? value.length : 0;
   };
   const zuKnapp = gefaehrlich
-    .map((call) => ({ call, value: readOptionValue(call.call, 'detail') }))
+    .map((call) => ({ call, value: readOptionValue(call.options, 'detail') }))
     .map(({ call, value }) => ({
       call,
       value,
