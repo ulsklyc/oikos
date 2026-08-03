@@ -1328,6 +1328,7 @@ function openTaskCategoryManager(container) {
         labelResolver: (item) => (item.label_key ? t(item.label_key) : (item.name || item.key)),
         titleKey: 'tasks.manageCategories',
         hintKey: 'category.manageHint',
+        deleteDetailKey: 'category.deleteConfirmDetail',
       });
     },
     onClose: () => manager?.removeEventListener('category-manager-changed', onChanged),

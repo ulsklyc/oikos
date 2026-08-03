@@ -1660,6 +1660,9 @@ async function openCategoryManager(container, { fromDeepLink = false } = {}) {
         labelResolver: (item) => categoryLabel(item.name),
         titleKey: 'shopping.manageCategories',
         hintKey: 'settings.shoppingCategoriesHint',
+        // Anders als Budget/Tasks/Kontakte loescht der Einkauf auch belegte
+        // Kategorien und schiebt die Artikel auf die naechste Kategorie.
+        deleteDetailKey: 'shopping.categoryDeleteConfirmDetail',
       });
     },
     onClose: () => {

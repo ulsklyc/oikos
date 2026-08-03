@@ -5,7 +5,8 @@
  * Abhängigkeiten: /api.js, /i18n.js, /utils/html.js
  *
  * Verhalten:
- *   - configure({ basePath, groups, supportsSubcategories, labelResolver, titleKey, hintKey })
+ *   - configure({ basePath, groups, supportsSubcategories, labelResolver, titleKey, hintKey,
+ *                 deleteDetailKey, subDeleteDetailKey })
  *   - Lädt via api.get(basePath); mutiert über post/put/patch/delete relativ zu basePath
  *   - Dispatcht nach jeder Mutation `category-manager-changed`
  *   - Zeigt Server-Guard-Fehler (in-use/last) als Toast
@@ -30,6 +31,14 @@ class CategoryManagerElement extends HTMLElement {
     // mit dem Titel „Lagerorte verwalten" (Critique). titleKey/hintKey waren
     // schon konfigurierbar, das Feld selbst nicht.
     this._addPlaceholderKey = 'category.addPlaceholder';
+    // Was das Loeschen anrichtet, entscheidet der Server des jeweiligen Moduls,
+    // nicht diese Komponente: Budget/Tasks/Kontakte weisen benutzte Kategorien
+    // mit 409 ab, Einkauf schiebt die Artikel auf eine Ersatzkategorie und der
+    // Vorrat laesst sie unzugeordnet zurueck. Ein geteilter Folgentext waere
+    // fuer zwei der fuenf Aufrufer schlicht falsch - dieselbe Falle wie beim
+    // Platzhalter oben, nur folgenreicher.
+    this._deleteDetailKey = 'category.deleteConfirmDetail';
+    this._subDeleteDetailKey = 'category.deleteSubConfirmDetail';
     this._cats = [];
     this._sortables = [];
     this._onClick = this._onClick.bind(this);
@@ -44,6 +53,8 @@ class CategoryManagerElement extends HTMLElement {
     if (opts.titleKey) this._titleKey = opts.titleKey;
     if (opts.hintKey) this._hintKey = opts.hintKey;
     if (opts.addPlaceholderKey) this._addPlaceholderKey = opts.addPlaceholderKey;
+    if (opts.deleteDetailKey) this._deleteDetailKey = opts.deleteDetailKey;
+    if (opts.subDeleteDetailKey) this._subDeleteDetailKey = opts.subDeleteDetailKey;
     this._renderShell();
     this._load();
   }
@@ -563,7 +574,7 @@ class CategoryManagerElement extends HTMLElement {
     const { confirmModal } = await import('/components/modal.js');
     const confirmed = await confirmModal(
       t('category.deleteConfirm', { name: this._labelResolver(cat) }),
-      { danger: true, confirmLabel: t('common.delete'), detail: t('category.deleteConfirmDetail') }
+      { danger: true, confirmLabel: t('common.delete'), detail: t(this._deleteDetailKey) }
     );
     if (!confirmed) return;
     try {
@@ -666,7 +677,7 @@ class CategoryManagerElement extends HTMLElement {
     const { confirmModal } = await import('/components/modal.js');
     const confirmed = await confirmModal(
       t('category.deleteSubConfirm', { name: this._labelResolver(found.sub) }),
-      { danger: true, confirmLabel: t('common.delete'), detail: t('category.deleteSubConfirmDetail') }
+      { danger: true, confirmLabel: t('common.delete'), detail: t(this._subDeleteDetailKey) }
     );
     if (!confirmed) return;
     try {

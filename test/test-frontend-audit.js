@@ -6189,7 +6189,12 @@ test('jeder als gefaehrlich markierte Dialog nennt seine Folgen', () => {
   for (const call of gefaehrlich) {
     const value = readOptionValue(call.call, 'detail');
     const keys = [...value.matchAll(/\bt\(\s*'([^']+)'/g)].map((m) => m[1]);
-    assert.ok(keys.length, `${call.file}:${call.line}: detail muss aus t('key') kommen, ist aber \`${value.trim()}\``);
+    // `t(this._…Key)` ist die zulaessige zweite Form: eine geteilte Komponente,
+    // deren Folgen erst der Aufrufer kennt. Wer so delegiert, wird vom Guard
+    // darunter geprueft - dort, wo die Keys tatsaechlich gesetzt werden.
+    const delegiert = /\bt\(\s*this\._\w*[Kk]ey\b/.test(value);
+    assert.ok(keys.length || delegiert,
+      `${call.file}:${call.line}: detail muss aus t('key') kommen, ist aber \`${value.trim()}\``);
     assert.ok(!/(^|[^\w.])null([^\w]|$)/.test(value),
       `${call.file}:${call.line}: detail faellt in einem Zweig auf null zurueck - dann nennt der Dialog nichts`);
     keys.forEach((key) => detailKeys.add(key));
@@ -6208,16 +6213,79 @@ test('jeder als gefaehrlich markierte Dialog nennt seine Folgen', () => {
     return typeof value === 'string' ? value.length : 0;
   };
   const zuKnapp = gefaehrlich
-    .map((call) => ({
+    .map((call) => ({ call, value: readOptionValue(call.call, 'detail') }))
+    .map(({ call, value }) => ({
       call,
-      keys: [...readOptionValue(call.call, 'detail').matchAll(/\bt\(\s*'([^']+)'/g)].map((m) => m[1]),
+      value,
+      keys: [...value.matchAll(/\bt\(\s*'([^']+)'/g)].map((m) => m[1]),
     }))
+    // Delegierte Aufrufe kennen ihren Key hier nicht - deren Laenge prueft der
+    // Guard, der die Aufrufer der geteilten Komponente durchgeht.
+    .filter(({ value }) => !/\bt\(\s*this\._\w*[Kk]ey\b/.test(value))
     .filter(({ keys }) => !keys.some((key) => laenge(key) >= 80))
     .map(({ call, keys }) => `${call.file}:${call.line} (${keys.join(', ')})`);
   assert.deepEqual(zuKnapp, [], 'kein Folgentext des Dialogs ist lang genug fuer eine Folgenbeschreibung');
 
   // Alle genannten Keys muessen es trotzdem in jede Locale geschafft haben.
   assert.ok(detailKeys.size >= 25, `nur ${detailKeys.size} Folgen-Keys gefunden`);
+});
+
+// Gegenstueck zur Delegation oben. Der Category-Manager bedient fuenf Module,
+// und deren Server-Semantik geht auseinander: Budget, Aufgaben und Kontakte
+// weisen eine belegte Kategorie mit 409 ab, der Einkauf schiebt die Artikel auf
+// die naechste Kategorie, der Vorrat laesst sie unzugeordnet zurueck. Ein
+// geteilter Folgentext waere fuer zwei der fuenf schlicht falsch - eine
+// Fehlerklasse, die es hier schon einmal gab (der Platzhalter „Neue Kategorie"
+// im Lagerort-Dialog). Der Guard sucht die Aufrufer im Bestand, statt sie zu
+// kennen: wer die Komponente einbindet, muss den Folgentext mitliefern.
+test('jeder Nutzer des Category-Managers liefert seinen eigenen Folgentext', () => {
+  const base = new URL('../public/', import.meta.url);
+  const walk = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const child = new URL(`${entry.name}${entry.isDirectory() ? '/' : ''}`, dir);
+    if (entry.isDirectory()) return walk(child);
+    return entry.name.endsWith('.js') ? [child] : [];
+  });
+
+  const de = JSON.parse(read('../public/locales/de.json'));
+  const laenge = (key) => {
+    const value = key.split('.').reduce((o, k) => o?.[k], de);
+    return typeof value === 'string' ? value.length : 0;
+  };
+
+  const nutzer = [];
+  for (const file of walk(base)) {
+    const src = readFileSync(file, 'utf8').replace(/\r/g, '');
+    const label = decodeURIComponent(file.href.slice(base.href.length));
+    if (label === 'components/category-manager.js') continue;
+    if (!src.includes('yuvomi-category-manager')) continue;
+    const at = src.indexOf('.configure(');
+    assert.notEqual(at, -1, `${label}: bindet den Category-Manager ein, ruft aber configure() nicht auf`);
+    const call = readCall(src, src.indexOf('(', at));
+    assert.ok(call, `${label}: configure()-Aufruf liess sich nicht lesen`);
+    nutzer.push({ label, call });
+  }
+
+  // Faellt die Erkennung aus, soll der Test das sagen und nicht still bestehen.
+  assert.ok(nutzer.length >= 5, `nur ${nutzer.length} Nutzer des Category-Managers gefunden`);
+
+  const keys = new Set();
+  for (const { label, call } of nutzer) {
+    const del = readOptionValue(call, 'deleteDetailKey').match(/'([^']+)'/);
+    assert.ok(del, `${label}: configure() braucht deleteDetailKey - was das Loeschen anrichtet, `
+      + 'weiss nur der Server dieses Moduls');
+    keys.add(del[1]);
+    // Unterkategorien hat nur, wer sie einschaltet - dann braucht auch der
+    // zweite Dialog seinen eigenen Text.
+    if (/\bsupportsSubcategories\s*:\s*true\b/.test(call)) {
+      const sub = readOptionValue(call, 'subDeleteDetailKey').match(/'([^']+)'/);
+      assert.ok(sub, `${label}: mit supportsSubcategories braucht configure() auch subDeleteDetailKey`);
+      keys.add(sub[1]);
+    }
+  }
+
+  assertKeysExistInEveryLocale([...keys]);
+  const zuKnapp = [...keys].filter((key) => laenge(key) < 80);
+  assert.deepEqual(zuKnapp, [], 'zu knapp fuer eine Folgenbeschreibung');
 });
 
 // Die fuenf Dialoge aus dem urspruenglichen Befund bleiben namentlich verankert:

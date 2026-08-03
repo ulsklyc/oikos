@@ -1142,6 +1142,9 @@ async function openLocationManager() {
         titleKey: 'pantry.manageLocations',
         hintKey: 'pantry.manageLocationsHint',
         addPlaceholderKey: 'pantry.addLocation',
+        // Lagerorte, keine Kategorien: der Server loescht auch belegte und
+        // laesst die Artikel unzugeordnet zurueck (`orphaned` in der Antwort).
+        deleteDetailKey: 'pantry.locationDeleteConfirmDetail',
         groups: [{ key: '', labelKey: '', addLabelKey: 'common.add' }],
       });
     },

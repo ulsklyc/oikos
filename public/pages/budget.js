@@ -1672,6 +1672,10 @@ function openCategoryManager() {
         labelResolver: (item) => item.label ?? budgetCategoryLabel(item.key, item.name, t),
         titleKey: 'budget.manageCategories',
         hintKey: 'category.manageHint',
+        // Einziger Aufrufer mit Unterkategorien, und der Server weist benutzte
+        // Kategorien mit 409 ab.
+        deleteDetailKey: 'budget.categoryDeleteConfirmDetail',
+        subDeleteDetailKey: 'budget.subcategoryDeleteConfirmDetail',
       });
     },
     onClose: () => manager?.removeEventListener('category-manager-changed', onChanged),
