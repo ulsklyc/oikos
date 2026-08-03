@@ -38,6 +38,7 @@ const {
 const { patchICSTodo } = await import('../server/utils/ics-patch.js');
 const { mapVtodoPriority, mapVtodoStatus, splitDue, sync } =
   await import('../server/services/caldav-reminders-sync.js');
+const { deleteAccount } = await import('../server/services/caldav-sync.js');
 const { parseVTODO } = await import('../server/services/ics-parser.js');
 const { loadTags, loadItemTags, setTags, tagsKey } = await import('../server/utils/task-tags.js');
 const { MAX_OUTBOUND_ATTEMPTS } = await import('../server/services/calendar-outbound.js');
@@ -459,6 +460,67 @@ test('Eine lokale Aufgabe hinterlässt keinen Tombstone', () => {
   assert.strictEqual(pendingDeletions(accountId, 'tasks').length, 0);
 });
 
+// ── Gelöschtes Konto ────────────────────────────────────────────────────────────
+//
+// external_account_id trägt keinen Fremdschlüssel (v45), die Tombstone-Tabelle
+// sehr wohl: eine Zeile, die auf ein gelöschtes Konto zeigt, ließ sich nicht
+// mehr löschen - der Tombstone scheiterte, das lokale DELETE kam nie dazu, und
+// die entfernte Kopie blieb ohnehin unerreichbar stehen.
+
+test('Das Löschen eines Kontos entkoppelt seine gespiegelten Zeilen', () => {
+  const accountId = reset();
+  const task = insertTask({ accountId });
+  const item = insertShoppingItem({ accountId, uid: 'todo-2@test' });
+  db.prepare('UPDATE tasks SET outbound_dirty = 1, outbound_attempts = 2 WHERE id = ?').run(task.id);
+
+  deleteAccount(accountId);
+
+  for (const [label, row] of [
+    ['Aufgabe', reloadTask(task.id)],
+    ['Einkaufsposten', db.prepare('SELECT * FROM shopping_items WHERE id = ?').get(item.id)],
+  ]) {
+    assert.ok(row, `${label}: Nutzerdaten bleiben, nur die Verbindung geht`);
+    assert.strictEqual(row.external_source, 'local', `${label}: gehört ab jetzt Yuvomi allein`);
+    assert.strictEqual(row.external_account_id, null, `${label}: keine tote Kontokennung`);
+    assert.strictEqual(row.external_uid, null, `${label}: die UID bedeutet nichts mehr`);
+    assert.strictEqual(row.external_object_url, null);
+    assert.strictEqual(row.outbound_dirty, 0, `${label}: es gibt niemanden mehr, der das empfinge`);
+    assert.strictEqual(row.outbound_attempts, 0);
+  }
+});
+
+test('Eine entkoppelte Aufgabe lässt sich löschen, ohne am Fremdschlüssel zu scheitern', () => {
+  const accountId = reset();
+  const task = insertTask({ accountId });
+  deleteAccount(accountId);
+
+  // Der Löschpfad in routes/tasks.js liest die Zeile vor dem DELETE - nach der
+  // Entkopplung ist sie lokal, also gibt es nichts vorzumerken.
+  const doomed = reloadTask(task.id);
+  assert.strictEqual(queueTodoDeletion('tasks', doomed), false);
+  db.prepare('DELETE FROM tasks WHERE id = ?').run(task.id);
+  assert.strictEqual(reloadTask(task.id), undefined);
+});
+
+test('Eine Zeile mit toter Kontokennung wird still übersprungen statt zu werfen', () => {
+  // Gedriftete Datenbank: das Konto ist weg, die Kennung steht noch. Ohne
+  // Vorprüfung warf der INSERT in caldav_todo_pending_deletions hier einen
+  // Fremdschlüsselfehler - und der Route-Handler daraufhin eine 500, ohne je
+  // beim lokalen DELETE anzukommen.
+  const accountId = reset();
+  const task = insertTask({ accountId });
+  const item = insertShoppingItem({ accountId, uid: 'todo-2@test' });
+  db.prepare('DELETE FROM caldav_accounts WHERE id = ?').run(accountId);
+
+  assert.strictEqual(queueTodoDeletion('tasks', task), false);
+  assert.strictEqual(queueTodoDeletions('shopping', [item]), 0);
+  // Auch die Bearbeitung: ohne Konto gibt es niemanden, der den Push abholt.
+  assert.strictEqual(
+    markTodoOutbound('tasks', task, { ...task, title: 'Milch und Butter kaufen' }), false
+  );
+  assert.strictEqual(reloadTask(task.id).outbound_dirty, 0);
+});
+
 // ── Ausführung ──────────────────────────────────────────────────────────────────
 
 test('Eine vorgemerkte Änderung landet als PUT auf der Objekt-URL', async () => {
@@ -732,6 +794,66 @@ test('v113 ist additiv und startet mit neutralen Markern', async () => {
   old.prepare('PRAGMA foreign_keys = ON').run();
   old.prepare('DELETE FROM caldav_accounts WHERE id = 1').run();
   assert.strictEqual(old.prepare('SELECT COUNT(*) AS n FROM caldav_todo_pending_deletions').get().n, 0);
+
+  old.close();
+});
+
+test('v123 entkoppelt den Bestand toter Kontokennungen und lässt lebende in Ruhe', async () => {
+  const { mkdtempSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { default: Database } = await import('better-sqlite3-multiple-ciphers');
+  const { MIGRATIONS } = await import('../server/db.js');
+
+  const apply = (conn, migration) => {
+    if (typeof migration.up === 'function') migration.up(conn);
+    else conn.exec(migration.up);
+    migration.afterUp?.(conn);
+  };
+
+  const old = new Database(join(mkdtempSync(join(tmpdir(), 'yuvomi-detachmig-')), 'db.sqlite'));
+  for (const migration of MIGRATIONS.filter((m) => m.version <= 122)) apply(old, migration);
+
+  // Bestand eines Haushalts, der schon einmal ein CalDAV-Konto gelöscht hat:
+  // Konto 1 lebt, Konto 2 gab es einmal und die Zeilen wissen nichts davon.
+  old.prepare("INSERT INTO users (id, username, display_name, password_hash, role) VALUES (1,'admin','Admin','x','admin')").run();
+  old.prepare(`INSERT INTO caldav_accounts (id, name, caldav_url, username, password)
+               VALUES (1, 'Radicale', 'https://dav.example/', 'u', 'p')`).run();
+  old.prepare("INSERT INTO shopping_lists (id, name, created_by) VALUES (3, 'Einkauf', 1)").run();
+
+  const mkTask = old.prepare(`
+    INSERT INTO tasks (id, title, created_by, external_uid, external_source,
+                       external_account_id, external_object_url, outbound_dirty, outbound_attempts)
+    VALUES (?, ?, 1, ?, 'caldav', ?, 'https://dav.example/o.ics', ?, ?)
+  `);
+  mkTask.run(7, 'Milch kaufen', 'todo-1@test', 1, 1, 3);   // lebendes Konto
+  mkTask.run(8, 'Reifen wechseln', 'todo-2@test', 2, 1, 0); // verwaist
+  old.prepare(`INSERT INTO shopping_items (id, list_id, name, external_uid, external_source,
+                                           external_account_id, external_object_url)
+               VALUES (5, 3, 'Butter', 'todo-3@test', 'caldav', 2, 'https://dav.example/b.ics')`).run();
+
+  apply(old, MIGRATIONS.find((m) => m.version === 123));
+
+  const orphan = old.prepare('SELECT * FROM tasks WHERE id = 8').get();
+  assert.strictEqual(orphan.title, 'Reifen wechseln', 'die Aufgabe selbst bleibt - sie ist Nutzerdatum');
+  assert.strictEqual(orphan.external_source, 'local');
+  assert.strictEqual(orphan.external_account_id, null);
+  assert.strictEqual(orphan.external_uid, null);
+  assert.strictEqual(orphan.external_object_url, null);
+  assert.strictEqual(orphan.outbound_dirty, 0);
+
+  const orphanItem = old.prepare('SELECT * FROM shopping_items WHERE id = 5').get();
+  assert.strictEqual(orphanItem.external_source, 'local');
+  assert.strictEqual(orphanItem.external_account_id, null);
+
+  // Ein noch verbundenes Konto darf die Migration nicht mit abräumen, sonst
+  // stünde nach dem Update ein ganzer Spiegel still.
+  const live = old.prepare('SELECT * FROM tasks WHERE id = 7').get();
+  assert.strictEqual(live.external_source, 'caldav');
+  assert.strictEqual(live.external_account_id, 1);
+  assert.strictEqual(live.external_uid, 'todo-1@test');
+  assert.strictEqual(live.outbound_dirty, 1, 'eine wartende Bearbeitung bleibt vorgemerkt');
+  assert.strictEqual(live.outbound_attempts, 3);
 
   old.close();
 });

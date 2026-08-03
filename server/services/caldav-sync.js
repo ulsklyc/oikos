@@ -13,6 +13,7 @@ import { assignDefaultToEvent } from './sync-assignment.js';
 import { pruneDeletedEvents } from './calendar-prune.js';
 import * as outbound from './calendar-outbound.js';
 import { processPendingDeletions, processPendingUpdates, flushAccount } from './caldav-outbound.js';
+import { detachAccountRows } from './caldav-todo-outbound.js';
 import { toICSDatetime, escapeICSText } from '../utils/ics-format.js';
 import { createCalDAVClient } from '../utils/caldav-client.js';
 
@@ -270,12 +271,26 @@ function deleteAccount(accountId) {
     throw new Error(`Account ${accountId} not found.`);
   }
 
-  // CASCADE will delete caldav_calendar_selection entries
-  db.get().prepare('DELETE FROM caldav_accounts WHERE id = ?').run(accountId);
+  // CASCADE räumt nur, was dem Konto selbst gehört: Kalender- und
+  // Listenauswahl und die offenen VTODO-Löschungen. Die gespiegelten Aufgaben
+  // und Einkaufsposten sind Nutzerdaten und bleiben - aber ihre
+  // external_account_id trägt keinen Fremdschlüssel und zeigte danach ins Leere
+  // (#617). Beim nächsten Löschen so einer Zeile scheiterte der Tombstone am
+  // Fremdschlüssel von caldav_todo_pending_deletions: die Aufgabe ließe sich
+  // lokal nicht mehr löschen, während die entfernte Kopie ohne Konto ohnehin
+  // unerreichbar ist. Also entkoppeln, bevor das Konto verschwindet - beides in
+  // einem Zug, damit keine Hälfte allein stehen bleibt.
+  const detached = db.get().transaction(() => {
+    const rows = detachAccountRows(accountId);
+    db.get().prepare('DELETE FROM caldav_accounts WHERE id = ?').run(accountId);
+    return rows;
+  })();
 
   // Events with calendar_ref_id to deleted account remain (orphaned but visible)
 
-  log.info(`Deleted CalDAV account ${accountId} ("${account.name}").`);
+  log.info(
+    `Deleted CalDAV account ${accountId} ("${account.name}"), detached ${detached} mirrored row(s).`
+  );
 
   return { success: true };
 }

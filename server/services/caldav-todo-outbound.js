@@ -170,12 +170,54 @@ function hasCompleted(icsText) {
 // Vormerkung: Löschung
 // --------------------------------------------------------
 
+/** Gibt es das Konto noch? */
+function accountExists(accountId) {
+  return !!db.get().prepare('SELECT 1 FROM caldav_accounts WHERE id = ?').get(accountId);
+}
+
 /**
  * Ist dieser Eintrag ein CalDAV-Spiegel, für den die Rückrichtung überhaupt gilt?
  * Lokale Aufgaben haben external_source = 'local' und gehen nirgendwohin.
+ *
+ * Das Konto muss es noch geben. `external_account_id` trägt keinen
+ * Fremdschlüssel (v45), eine gedriftete Datenbank kann also auf ein längst
+ * gelöschtes Konto zeigen - und der Tombstone darauf scheiterte am
+ * Fremdschlüssel von caldav_todo_pending_deletions, womit sich die Aufgabe
+ * lokal nicht mehr löschen ließe. Ohne Konto gibt es keinen Rückweg, also ist
+ * hier nichts vorzumerken: dieselbe Vorprüfung wie acceptsOutbound() bei den
+ * Terminen. Der Regelfall ist ohnehin abgedeckt - caldavSync.deleteAccount
+ * entkoppelt seine Zeilen (detachAccountRows), Migration v123 den Bestand.
  */
 function isMirrored(row) {
-  return !!row && row.external_source === 'caldav' && !!row.external_uid && !!row.external_account_id;
+  if (!row || row.external_source !== 'caldav') return false;
+  if (!row.external_uid || !row.external_account_id) return false;
+  return accountExists(row.external_account_id);
+}
+
+/**
+ * Löst die gespiegelten Zeilen eines Kontos von ihm ab - zu rufen, bevor das
+ * Konto verschwindet. Was hier steht, sind Nutzerdaten und bleibt; nur die
+ * Verbindung zum Server geht. Danach ist es eine gewöhnliche Aufgabe bzw. ein
+ * gewöhnlicher Einkaufsposten: kein Tombstone, kein Push, und der Prune-Lauf
+ * eines anderen Kontos fasst sie nicht an.
+ *
+ * @returns {number} Anzahl entkoppelter Zeilen
+ */
+export function detachAccountRows(accountId) {
+  let detached = 0;
+  for (const def of Object.values(MODULES)) {
+    detached += db.get().prepare(`
+      UPDATE ${def.table}
+         SET external_source     = 'local',
+             external_uid        = NULL,
+             external_account_id = NULL,
+             external_object_url = NULL,
+             outbound_dirty      = 0,
+             outbound_attempts   = 0
+       WHERE external_source = 'caldav' AND external_account_id = ?
+    `).run(accountId).changes;
+  }
+  return detached;
 }
 
 /**
