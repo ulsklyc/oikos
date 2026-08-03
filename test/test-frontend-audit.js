@@ -6130,8 +6130,14 @@ function readOptionsArg(call) {
     else if (c === ',' && depth === 0) { args.push(inner.slice(start, i)); start = i + 1; }
   }
   args.push(inner.slice(start));
-  const options = args.filter((arg) => arg.trim().startsWith('{')).pop();
-  return options ?? '';
+  const rest = args.slice(1).map((arg) => arg.trim()).filter(Boolean);
+  const literal = rest.filter((arg) => arg.startsWith('{')).pop();
+  // `null` heisst: es gibt ein Options-Argument, aber es ist von hier aus nicht
+  // lesbar (etwa eine Variable). Das darf der Guard nicht als "keine Optionen"
+  // verbuchen - sonst faellt `const o = { danger: true }; confirmModal(t, o)`
+  // still aus der Pruefung. Der Aufrufer entscheidet, was damit geschieht.
+  if (!literal && rest.length) return null;
+  return literal ?? '';
 }
 
 // Liest den Wert einer Option aus einer gelesenen Argumentliste: ab `name:` bis
@@ -6174,9 +6180,14 @@ function collectDialogCalls() {
       const re = new RegExp(`\\b${fn}\\s*\\(`, 'g');
       let match;
       while ((match = re.exec(src)) !== null) {
-        // JSDoc- und Kommentarzeilen nennen die Funktionen ebenfalls.
+        // JSDoc- und Kommentarzeilen nennen die Funktionen ebenfalls, und die
+        // Definition selbst ist kein Aufruf: `export async function
+        // confirmOverModal(message, opts = {})` sah sonst wie ein Dialog aus,
+        // dessen Optionen nicht lesbar sind.
         const lineStart = src.lastIndexOf('\n', match.index) + 1;
-        if (/^\s*(\*|\/\/)/.test(src.slice(lineStart, match.index))) continue;
+        const vorText = src.slice(lineStart, match.index);
+        if (/^\s*(\*|\/\/)/.test(vorText)) continue;
+        if (/\bfunction\s+$/.test(vorText)) continue;
         const call = readCall(src, match.index + match[0].length - 1);
         const line = src.slice(0, match.index).split('\n').length;
         calls.push({ file: label, line, fn, call });
@@ -6196,9 +6207,27 @@ test('jeder als gefaehrlich markierte Dialog nennt seine Folgen', () => {
   assert.ok(calls.length >= 40, `Scanner findet nur ${calls.length} Dialoge - laeuft er noch ueber public/?`);
 
   // Ab hier zaehlt nur noch das Options-Objekt, nicht der ganze Aufruf.
-  const gefaehrlich = calls
-    .map((c) => ({ ...c, options: readOptionsArg(c.call) }))
-    .filter((c) => /\bdanger\s*:\s*true\b/.test(c.options));
+  const mitOptionen = calls.map((c) => ({ ...c, options: readOptionsArg(c.call) }));
+
+  // Ein Options-Argument, das der Guard nicht lesen kann (eine Variable etwa),
+  // faellt sonst lautlos aus der Pruefung - `danger: true` waere dort
+  // unsichtbar. Ausgenommen ist die Datei, die die Dialoge selbst definiert:
+  // dort IST das Durchreichen fremder Optionen die Implementierung. Das ist
+  // eine Eigenschaft des Moduls, keine Namensliste - wer `confirmModal`
+  // exportiert, ist die Definitionsstelle.
+  const undurchsichtig = mitOptionen.filter((c) => {
+    if (c.options !== null) return false;
+    const src = readFileSync(new URL(`../public/${c.file}`, import.meta.url), 'utf8');
+    return !new RegExp(`export (async )?function ${c.fn}\\b`).test(src);
+  });
+  assert.deepEqual(
+    undurchsichtig.map((c) => `${c.file}:${c.line} (${c.fn})`),
+    [],
+    'Die Optionen des Dialogs stehen nicht als Objektliteral im Aufruf. So laesst sich '
+    + 'nicht pruefen, ob er danger: true traegt - schreib sie direkt in den Aufruf.',
+  );
+
+  const gefaehrlich = mitOptionen.filter((c) => /\bdanger\s*:\s*true\b/.test(c.options ?? ''));
   assert.ok(gefaehrlich.length >= 30, `nur ${gefaehrlich.length} danger-Dialoge gefunden`);
 
   const ohneFolgen = gefaehrlich.filter((c) => !/\bdetail\s*:/.test(c.options));
