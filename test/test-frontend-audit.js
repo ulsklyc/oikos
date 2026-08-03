@@ -6131,7 +6131,10 @@ function readOptionsArg(call) {
   }
   args.push(inner.slice(start));
   const rest = args.slice(1).map((arg) => arg.trim()).filter(Boolean);
-  const literal = rest.filter((arg) => arg.startsWith('{')).pop();
+  // Ein Spread im Options-Literal ist genauso undurchsichtig wie eine Variable:
+  // `{ ...destructiveOptions }` sieht nach einem lesbaren Objekt aus, waehrend
+  // `danger: true` von aussen kommt und der Regex nichts findet.
+  const literal = rest.filter((arg) => arg.startsWith('{') && !arg.includes('...')).pop();
   // `null` heisst: es gibt ein Options-Argument, aber es ist von hier aus nicht
   // lesbar (etwa eine Variable). Das darf der Guard nicht als "keine Optionen"
   // verbuchen - sonst faellt `const o = { danger: true }; confirmModal(t, o)`
