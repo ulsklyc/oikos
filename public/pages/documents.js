@@ -704,7 +704,7 @@ async function renameFolder(folder) {
 async function deleteFolder(folder) {
   const confirmed = await confirmModal(
     t('documents.deleteFolderConfirm', { name: folder.name }),
-    { danger: true, confirmLabel: t('documents.deleteFolder') },
+    { danger: true, confirmLabel: t('documents.deleteFolder'), detail: t('documents.deleteFolderConfirmDetail') },
   );
   if (!confirmed) return;
   try {
@@ -1103,7 +1103,7 @@ async function deleteSelected() {
   if (!docs.length) return;
   const confirmed = await confirmModal(
     t('documents.bulkDeleteConfirm', { count: docs.length }),
-    { danger: true, confirmLabel: t('common.delete') },
+    { danger: true, confirmLabel: t('common.delete'), detail: t('documents.bulkDeleteConfirmDetail') },
   );
   if (!confirmed) return;
   exitSelectMode();

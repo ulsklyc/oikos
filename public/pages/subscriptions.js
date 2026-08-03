@@ -1211,7 +1211,8 @@ async function renewSubscription(subscription) {
 }
 
 async function deleteSubscription(subscription) {
-  const confirmed = await confirmModal(t('subscriptions.deleteConfirm', { name: subscription.name }), { danger: true });
+  const confirmed = await confirmModal(t('subscriptions.deleteConfirm', { name: subscription.name }),
+    { danger: true, detail: t('subscriptions.deleteConfirmDetail') });
   if (!confirmed) return;
   try {
     await api.delete(`/budget/subscriptions/${subscription.id}`);
@@ -1481,9 +1482,19 @@ function openMetadataModal() {
           // „Abbrechen" gibt es mitsamt Scrollposition und Fokus zurück. Nur
           // nach echtem Löschen wird es neu aufgebaut - die Liste hat sich
           // geändert.
+          // Der Folgentext haengt nicht daran, ob gerade ein Abo zugeordnet ist:
+          // bei einer Kategorie faellt die verknuepfte Budget-Unterkategorie in
+          // jedem Fall mit (routes/subscriptions.js). Frueher stand `detail` bei
+          // usage_count 0 auf null - dann nannte der Dialog gar keine Folge.
+          const warnung = inUse ? `${t('subscriptions.metaInUseWarning', { count: inUse })} ` : '';
           const confirmed = await confirmOverModal(
             t(isCat ? 'subscriptions.deleteCategoryConfirm' : 'subscriptions.deletePaymentMethodConfirm', { name }),
-            { danger: true, detail: inUse ? t('subscriptions.metaInUseWarning', { count: inUse }) : null },
+            {
+              danger: true,
+              detail: isCat
+                ? `${warnung}${t('subscriptions.deleteCategoryConfirmDetail')}`
+                : `${warnung}${t('subscriptions.deletePaymentMethodConfirmDetail')}`,
+            },
           );
           if (!confirmed) return;
           try {

@@ -563,7 +563,7 @@ class CategoryManagerElement extends HTMLElement {
     const { confirmModal } = await import('/components/modal.js');
     const confirmed = await confirmModal(
       t('category.deleteConfirm', { name: this._labelResolver(cat) }),
-      { danger: true, confirmLabel: t('common.delete') }
+      { danger: true, confirmLabel: t('common.delete'), detail: t('category.deleteConfirmDetail') }
     );
     if (!confirmed) return;
     try {
@@ -666,7 +666,7 @@ class CategoryManagerElement extends HTMLElement {
     const { confirmModal } = await import('/components/modal.js');
     const confirmed = await confirmModal(
       t('category.deleteSubConfirm', { name: this._labelResolver(found.sub) }),
-      { danger: true, confirmLabel: t('common.delete') }
+      { danger: true, confirmLabel: t('common.delete'), detail: t('category.deleteSubConfirmDetail') }
     );
     if (!confirmed) return;
     try {

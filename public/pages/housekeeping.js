@@ -506,7 +506,7 @@ function renderTasks(content) {
       if (!task) return;
       if (!await confirmModal(
         t('housekeeping.deleteTaskConfirm', { name: task.name }),
-        { danger: true, confirmLabel: t('common.delete') },
+        { danger: true, confirmLabel: t('common.delete'), detail: t('housekeeping.deleteTaskConfirmDetail') },
       )) return;
       try {
         await api.delete(`/housekeeping/decay-tasks/${task.id}`);
@@ -744,7 +744,8 @@ function renderStaff(content) {
     btn.addEventListener('click', async () => {
       const visit = state.staffVisits.find((item) => String(item.id) === btn.dataset.deleteVisit);
       if (!visit) return;
-      if (!await confirmModal(t('housekeeping.deleteVisitConfirm'), { danger: true, confirmLabel: t('common.delete') })) return;
+      if (!await confirmModal(t('housekeeping.deleteVisitConfirm'),
+        { danger: true, confirmLabel: t('common.delete'), detail: t('housekeeping.deleteVisitConfirmDetail') })) return;
       try {
         await api.delete(`/housekeeping/visits/${visit.id}`);
         window.yuvomi?.showToast(t('housekeeping.visitDeletedToast'), 'success');

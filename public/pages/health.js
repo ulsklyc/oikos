@@ -1519,7 +1519,8 @@ function collectMedBody(panel) {
 
 async function deleteMed(med) {
   if (!med?.id) return;
-  if (!(await confirmOverModal(t('health.meds.deleteConfirm'), { danger: true, confirmLabel: t('common.delete') }))) return;
+  if (!(await confirmOverModal(t('health.meds.deleteConfirm'),
+    { danger: true, confirmLabel: t('common.delete'), detail: t('health.meds.deleteConfirmDetail') }))) return;
   try {
     await api.delete(`/health/medications/${med.id}`);
     window.yuvomi?.showToast(t('health.meds.deleted'), 'success');
@@ -2165,7 +2166,8 @@ function collectLabHead(panel) {
 
 async function deleteLabReport(report) {
   if (!report?.id) return;
-  if (!(await confirmOverModal(t('health.labs.deleteConfirm'), { danger: true, confirmLabel: t('common.delete') }))) return;
+  if (!(await confirmOverModal(t('health.labs.deleteConfirm'),
+    { danger: true, confirmLabel: t('common.delete'), detail: t('health.labs.deleteConfirmDetail') }))) return;
   try {
     await api.delete(`/health/labs/${report.id}`);
     window.yuvomi?.showToast(t('health.labs.deleted'), 'success');
@@ -2781,7 +2783,8 @@ function collectActivityBody(panel) {
 
 async function deleteActivity(row) {
   if (!row?.id) return;
-  if (!(await confirmOverModal(t('health.activity.deleteConfirm'), { danger: true, confirmLabel: t('common.delete') }))) return;
+  if (!(await confirmOverModal(t('health.activity.deleteConfirm'),
+    { danger: true, confirmLabel: t('common.delete'), detail: t('health.activity.deleteConfirmDetail') }))) return;
   try {
     await api.delete(`/health/activities/${row.id}`);
     window.yuvomi?.showToast(t('health.activity.deleted'), 'success');
@@ -3921,7 +3924,10 @@ function openPeriodModal(period) {
 
 async function deletePeriod(period) {
   if (!period?.id) return;
-  if (!(await confirmOverModal(t('health.cycle.deleteConfirm'), { danger: true, confirmLabel: t('common.delete') }))) return;
+  // Eigener Folgentext je Ziel: der Confirm-Titel ist für Periode und Tages-Log
+  // derselbe, die Folgen sind es nicht (Vorhersage vs. Tageswerte).
+  if (!(await confirmOverModal(t('health.cycle.deleteConfirm'),
+    { danger: true, confirmLabel: t('common.delete'), detail: t('health.cycle.periodDeleteConfirmDetail') }))) return;
   try {
     await api.delete(`/health/cycle/periods/${period.id}`);
     window.yuvomi?.showToast(t('health.cycle.deleted'), 'success');
@@ -4034,7 +4040,8 @@ function openDayLogModal(dateKey) {
 
 async function deleteDayLog(log) {
   if (!log?.id) return;
-  if (!(await confirmOverModal(t('health.cycle.deleteConfirm'), { danger: true, confirmLabel: t('common.delete') }))) return;
+  if (!(await confirmOverModal(t('health.cycle.deleteConfirm'),
+    { danger: true, confirmLabel: t('common.delete'), detail: t('health.cycle.logDeleteConfirmDetail') }))) return;
   try {
     await api.delete(`/health/cycle/logs/${log.id}`);
     window.yuvomi?.showToast(t('health.cycle.deleted'), 'success');

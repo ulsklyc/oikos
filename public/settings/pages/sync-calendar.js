@@ -642,6 +642,7 @@ function buildIcsActions(container, sub, subs, user) {
     if (!await confirmModal(t('settings.ics.confirm_delete'), {
       danger: true,
       confirmLabel: t('common.delete'),
+      detail: t('settings.ics.confirm_delete_detail'),
     })) return;
     try {
       await api.delete(`/calendar/subscriptions/${sub.id}`);
@@ -905,7 +906,8 @@ function buildGoogleProvider(googleStatus, user) {
       disconnectBtn.className = 'btn btn--danger-outline';
       disconnectBtn.textContent = t('settings.disconnect');
       disconnectBtn.addEventListener('click', async () => {
-        if (!await confirmModal(t('settings.googleDisconnectConfirm'), { danger: true })) return;
+        if (!await confirmModal(t('settings.googleDisconnectConfirm'),
+          { danger: true, detail: t('settings.googleDisconnectConfirmDetail') })) return;
         try {
           await api.delete('/calendar/google/disconnect');
           showToast(t('settings.disconnectedToast', { provider: 'Google Calendar' }), 'default');
@@ -1106,7 +1108,8 @@ function buildAppleProvider(appleStatus, user) {
       disconnectBtn.className = 'btn btn--danger-outline';
       disconnectBtn.textContent = t('settings.disconnect');
       disconnectBtn.addEventListener('click', async () => {
-        if (!await confirmModal(t('settings.appleDisconnectConfirm'), { danger: true })) return;
+        if (!await confirmModal(t('settings.appleDisconnectConfirm'),
+          { danger: true, detail: t('settings.appleDisconnectConfirmDetail') })) return;
         try {
           await api.delete('/calendar/apple/disconnect');
           showToast(t('settings.disconnectedToast', { provider: 'Apple Calendar' }), 'default');
@@ -1284,7 +1287,8 @@ async function loadFeedExport(container, user) {
     }
   });
   body.querySelector('#feed-regen')?.addEventListener('click', async () => {
-    if (!await confirmModal(t('settings.feedExportRegenerateConfirm'), { danger: true })) return;
+    if (!await confirmModal(t('settings.feedExportRegenerateConfirm'),
+      { danger: true, detail: t('settings.feedExportRegenerateConfirmDetail') })) return;
     try {
       await api.post('/calendar/feed/regenerate');
       await reload();
@@ -1293,7 +1297,8 @@ async function loadFeedExport(container, user) {
     }
   });
   body.querySelector('#feed-disable')?.addEventListener('click', async () => {
-    if (!await confirmModal(t('settings.feedExportDisableConfirm'), { danger: true })) return;
+    if (!await confirmModal(t('settings.feedExportDisableConfirm'),
+      { danger: true, detail: t('settings.feedExportDisableConfirmDetail') })) return;
     try {
       await api.delete('/calendar/feed');
       await reload();

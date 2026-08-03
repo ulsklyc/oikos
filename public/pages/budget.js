@@ -1164,7 +1164,7 @@ function openAccountModal(account = null) {
         // der Nutzer, ist es beim Weiterlaufen hier bereits geschlossen.
         const ok = await confirmOverModal(
           t('budget.deleteAccountConfirm', { name: account.name }),
-          { confirmLabel: t('common.delete'), danger: true },
+          { confirmLabel: t('common.delete'), danger: true, detail: t('budget.deleteAccountConfirmDetail') },
         );
         if (!ok) return;
         try {

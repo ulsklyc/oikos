@@ -295,6 +295,7 @@ async function setupChannelControls(container, user) {
       const confirmed = await confirmModal(t('settings.notificationChannelDeleteConfirm'), {
         confirmLabel: t('settings.notificationChannelDelete'),
         danger: true,
+        detail: t('settings.notificationChannelDeleteConfirmDetail'),
       });
       if (!confirmed) return;
       try {

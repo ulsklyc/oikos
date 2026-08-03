@@ -6062,7 +6062,169 @@ test('Avatar-Initialen waehlen die lesbare Textfarbe', async () => {
 // loeschen?" loeschte einen Menschen, ohne eine davon zu nennen, waehrend der
 // harmlosere Budget-Dialog "Zugeordnete Buchungen bleiben erhalten" sagt
 // (Critique 2026-07-27, zweiter Lauf).
-test('destruktive Settings-Dialoge nennen ihre Folgen und sind als gefaehrlich markiert', () => {
+//
+// Der Guard war zuerst eine Allowlist aus fuenf Dateien und deckte damit nicht
+// die Regel ab, sondern fuenf Dateien: 25 weitere danger-Dialoge standen ohne
+// Folgentext da, ohne dass er anschlug. Er laeuft jetzt ueber ganz public/.
+// Acht davon waren `confirmOverModal` - ein Scan, der nur nach `confirmModal(`
+// sucht, findet die nie, weil der Name den kuerzeren nicht enthaelt.
+//
+// `readCall` liest die Argumentliste per Klammer-Balancing statt mit einem
+// Fenster fester Laenge. Das Fenster war die zweite Schwachstelle der alten
+// Fassung: ein mehrzeiliger Aufruf ragt darueber hinaus, und `detail:` faellt
+// still hinten runter - der Test bleibt gruen, der Dialog schweigt trotzdem.
+const DIALOG_FNS = ['confirmModal', 'confirmOverModal'];
+
+// Liest ab der oeffnenden Klammer bis zur passenden schliessenden. Strings,
+// Template-Literals samt `${}` und Kommentare werden uebersprungen, damit eine
+// Klammer im Anzeigetext den Aufruf nicht vorzeitig beendet.
+function readCall(src, openIdx) {
+  let depth = 0;
+  let i = openIdx;
+  let quote = null;
+  while (i < src.length) {
+    const c = src[i];
+    const prev = src[i - 1];
+    if (quote) {
+      if (c === quote && prev !== '\\') quote = null;
+      else if (quote === '`' && c === '{' && prev === '$') {
+        let d = 1;
+        i++;
+        while (i < src.length && d > 0) {
+          if (src[i] === '{') d++;
+          else if (src[i] === '}') d--;
+          i++;
+        }
+        continue;
+      }
+    } else if (c === '"' || c === "'" || c === '`') quote = c;
+    else if (c === '/' && src[i + 1] === '/') { i = src.indexOf('\n', i); if (i === -1) break; }
+    else if (c === '/' && src[i + 1] === '*') { i = src.indexOf('*/', i) + 2; continue; }
+    else if (c === '(') depth++;
+    else if (c === ')') { depth--; if (depth === 0) return src.slice(openIdx, i + 1); }
+    i++;
+  }
+  return null;
+}
+
+// Liest den Wert einer Option aus einer gelesenen Argumentliste: ab `name:` bis
+// zum Komma, das ihn beendet - Klammern, Strings und Template-Literals werden
+// mitgezaehlt, damit ein Komma in `t('key', { count })` nicht vorzeitig trennt.
+function readOptionValue(call, name) {
+  const at = call.search(new RegExp(`\\b${name}\\s*:`));
+  if (at === -1) return '';
+  let i = call.indexOf(':', at) + 1;
+  const start = i;
+  let depth = 0;
+  let quote = null;
+  for (; i < call.length; i++) {
+    const c = call[i];
+    if (quote) {
+      if (c === quote && call[i - 1] !== '\\') quote = null;
+      continue;
+    }
+    if (c === '"' || c === "'" || c === '`') quote = c;
+    else if ('([{'.includes(c)) depth++;
+    else if (')]}'.includes(c)) { if (depth === 0) break; depth--; }
+    else if (c === ',' && depth === 0) break;
+  }
+  return call.slice(start, i);
+}
+
+function collectDialogCalls() {
+  const base = new URL('../public/', import.meta.url);
+  const walk = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const child = new URL(`${entry.name}${entry.isDirectory() ? '/' : ''}`, dir);
+    if (entry.isDirectory()) return walk(child);
+    return entry.name.endsWith('.js') ? [child] : [];
+  });
+
+  const calls = [];
+  for (const file of walk(base)) {
+    const src = readFileSync(file, 'utf8').replace(/\r/g, '');
+    const label = decodeURIComponent(file.href.slice(base.href.length));
+    for (const fn of DIALOG_FNS) {
+      const re = new RegExp(`\\b${fn}\\s*\\(`, 'g');
+      let match;
+      while ((match = re.exec(src)) !== null) {
+        // JSDoc- und Kommentarzeilen nennen die Funktionen ebenfalls.
+        const lineStart = src.lastIndexOf('\n', match.index) + 1;
+        if (/^\s*(\*|\/\/)/.test(src.slice(lineStart, match.index))) continue;
+        const call = readCall(src, match.index + match[0].length - 1);
+        const line = src.slice(0, match.index).split('\n').length;
+        calls.push({ file: label, line, fn, call });
+      }
+    }
+  }
+  return calls;
+}
+
+test('jeder als gefaehrlich markierte Dialog nennt seine Folgen', () => {
+  const calls = collectDialogCalls();
+  // Reisst der Scanner, ist das ein Befund und kein Grund, still nichts zu
+  // pruefen - sonst faellt der Guard bei einem Syntaxfehler auf null Dialoge.
+  const unparsed = calls.filter((c) => c.call === null);
+  assert.deepEqual(unparsed.map((c) => `${c.file}:${c.line}`), [],
+    'Aufruf liess sich nicht bis zur schliessenden Klammer lesen');
+  assert.ok(calls.length >= 40, `Scanner findet nur ${calls.length} Dialoge - laeuft er noch ueber public/?`);
+
+  const gefaehrlich = calls.filter((c) => /\bdanger\s*:\s*true\b/.test(c.call));
+  assert.ok(gefaehrlich.length >= 30, `nur ${gefaehrlich.length} danger-Dialoge gefunden`);
+
+  const ohneFolgen = gefaehrlich.filter((c) => !/\bdetail\s*:/.test(c.call));
+  assert.deepEqual(
+    ohneFolgen.map((c) => `${c.file}:${c.line} (${c.fn})`),
+    [],
+    'danger: true ohne detail - der Dialog sagt nicht, was er zerstoert. Nennt er keine '
+    + 'unwiederbringliche Folge, gehoert danger: true weg statt ein erfundener Detailtext hin.',
+  );
+
+  // Jeder Folgentext kommt aus t(), nicht aus einem hartkodierten String. Der
+  // Wert wird bis zum trennenden Komma gelesen statt per Regex: `detail` ist
+  // nicht immer ein blankes t() - subscriptions.js setzt einen Grundtext und
+  // haengt bei belegten Kategorien die Nutzungswarnung davor. Beide Zweige
+  // muessen einen Key nennen, ein `: null` faellt damit auf.
+  // Grenze: ueber eine Variable eingeschleuste Texte sieht der Guard nicht.
+  const detailKeys = new Set();
+  for (const call of gefaehrlich) {
+    const value = readOptionValue(call.call, 'detail');
+    const keys = [...value.matchAll(/\bt\(\s*'([^']+)'/g)].map((m) => m[1]);
+    assert.ok(keys.length, `${call.file}:${call.line}: detail muss aus t('key') kommen, ist aber \`${value.trim()}\``);
+    assert.ok(!/(^|[^\w.])null([^\w]|$)/.test(value),
+      `${call.file}:${call.line}: detail faellt in einem Zweig auf null zurueck - dann nennt der Dialog nichts`);
+    keys.forEach((key) => detailKeys.add(key));
+  }
+
+  assertKeysExistInEveryLocale([...detailKeys]);
+
+  // Der Text muss die Folgen benennen, nicht nur warnen: Mindestlaenge als
+  // grober Schutz gegen ein spaeteres "Wirklich?" als Detail. Geprueft wird pro
+  // Dialog, nicht pro Key - ein Aufruf darf ein kurzes Fragment voranstellen
+  // (subscriptions.js haengt die Nutzungswarnung an), solange mindestens ein
+  // Key die Folge ausformuliert.
+  const de = JSON.parse(read('../public/locales/de.json'));
+  const laenge = (key) => {
+    const value = key.split('.').reduce((o, k) => o?.[k], de);
+    return typeof value === 'string' ? value.length : 0;
+  };
+  const zuKnapp = gefaehrlich
+    .map((call) => ({
+      call,
+      keys: [...readOptionValue(call.call, 'detail').matchAll(/\bt\(\s*'([^']+)'/g)].map((m) => m[1]),
+    }))
+    .filter(({ keys }) => !keys.some((key) => laenge(key) >= 80))
+    .map(({ call, keys }) => `${call.file}:${call.line} (${keys.join(', ')})`);
+  assert.deepEqual(zuKnapp, [], 'kein Folgentext des Dialogs ist lang genug fuer eine Folgenbeschreibung');
+
+  // Alle genannten Keys muessen es trotzdem in jede Locale geschafft haben.
+  assert.ok(detailKeys.size >= 25, `nur ${detailKeys.size} Folgen-Keys gefunden`);
+});
+
+// Die fuenf Dialoge aus dem urspruenglichen Befund bleiben namentlich verankert:
+// die Regel oben wuerde auch gruen, wenn jemand `danger: true` entfernte, statt
+// die Folgen zu nennen. Bei einem geloeschten Menschen oder einem
+// zurueckgespielten Backup ist das keine zulaessige Antwort.
+test('die schwersten Settings-Dialoge bleiben als gefaehrlich markiert', () => {
   const dialoge = [
     ['admin-family.js', 'settings.deleteMemberConfirm', 'settings.deleteMemberConfirmDetail'],
     ['admin-family.js', 'settings.invites.revokeConfirm', 'settings.invites.revokeConfirmDetail'],
@@ -6073,21 +6235,14 @@ test('destruktive Settings-Dialoge nennen ihre Folgen und sind als gefaehrlich m
 
   for (const [datei, confirmKey, detailKey] of dialoge) {
     const source = read(`../public/settings/pages/${datei}`);
-    // Fenster fester Laenge statt bis `})`: der Confirm-Text interpoliert
-    // selbst (`{ name }`) und wuerde den Block zu frueh abschneiden.
-    const block = source.slice(source.indexOf(confirmKey), source.indexOf(confirmKey) + 320);
-    assert.ok(block.includes('danger: true'), `${datei}: ${confirmKey} braucht danger: true`);
+    const at = source.indexOf(confirmKey);
+    assert.notEqual(at, -1, `${datei}: ${confirmKey} kommt nicht mehr vor`);
+    // Vom Schluesssel aus rueckwaerts zur oeffnenden Klammer des Aufrufs, dann
+    // balanciert lesen - der Confirm-Text interpoliert selbst (`{ name }`).
+    const open = Math.max(source.lastIndexOf('confirmModal(', at), source.lastIndexOf('confirmOverModal(', at));
+    const block = readCall(source, source.indexOf('(', open));
+    assert.ok(block?.includes('danger: true'), `${datei}: ${confirmKey} braucht danger: true`);
     assert.ok(block.includes(detailKey), `${datei}: ${confirmKey} braucht den Folgen-Text ${detailKey}`);
-  }
-
-  assertKeysExistInEveryLocale(dialoge.map(([, , detailKey]) => detailKey));
-
-  // Der Text muss die Folgen benennen, nicht nur warnen: Mindestlaenge als
-  // grober Schutz gegen ein spaeteres "Wirklich?" als Detail.
-  const de = JSON.parse(read('../public/locales/de.json'));
-  for (const [, , detailKey] of dialoge) {
-    const value = detailKey.split('.').reduce((o, k) => o?.[k], de);
-    assert.ok(value.length >= 80, `${detailKey} ist zu knapp fuer eine Folgenbeschreibung`);
   }
 });
 

@@ -1572,7 +1572,7 @@ function wireListContentEvents(container) {
         state.items.length
           ? t('shopping.deleteListConfirm', { name: state.activeList?.name ?? '', count: state.items.length })
           : t('shopping.deleteListConfirmEmpty', { name: state.activeList?.name ?? '' }),
-        { danger: true, confirmLabel: t('common.delete') },
+        { danger: true, confirmLabel: t('common.delete'), detail: t('shopping.deleteListConfirmDetail') },
       );
       if (!confirmed) return;
 

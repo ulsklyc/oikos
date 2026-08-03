@@ -113,7 +113,8 @@ function renderAccount(listEl, account, reload) {
   delBtn.className = 'btn btn--danger btn--sm';
   delBtn.textContent = t('settings.dmsRemove');
   delBtn.addEventListener('click', async () => {
-    if (!await confirmModal(t('settings.dmsRemoveConfirm'), { danger: true })) return;
+    if (!await confirmModal(t('settings.dmsRemoveConfirm'),
+      { danger: true, detail: t('settings.dmsRemoveConfirmDetail') })) return;
     try {
       await api.delete(`/documents/dms/accounts/${account.id}`);
       await reload();

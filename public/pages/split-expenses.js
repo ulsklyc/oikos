@@ -494,6 +494,7 @@ async function deleteGroup(groupId) {
   const confirmed = await confirmModal(t('splitExpenses.deleteGroupConfirm'), {
     danger: true,
     confirmLabel: t('splitExpenses.deleteGroup'),
+    detail: t('splitExpenses.deleteGroupConfirmDetail'),
   });
   if (!confirmed) return;
   await api.delete(`/split-expenses/groups/${groupId}`);
@@ -980,6 +981,7 @@ function openExpenseModal(expense = null) {
         const confirmed = await confirmOverModal(t('splitExpenses.deleteExpenseConfirm'), {
           danger: true,
           confirmLabel: t('common.delete'),
+          detail: t('splitExpenses.deleteExpenseConfirmDetail'),
         });
         if (!confirmed) return;
         await api.delete(`/split-expenses/expenses/${expense.id}`);
