@@ -6258,11 +6258,22 @@ test('jeder Nutzer des Category-Managers liefert seinen eigenen Folgentext', () 
     const label = decodeURIComponent(file.href.slice(base.href.length));
     if (label === 'components/category-manager.js') continue;
     if (!src.includes('yuvomi-category-manager')) continue;
-    const at = src.indexOf('.configure(');
-    assert.notEqual(at, -1, `${label}: bindet den Category-Manager ein, ruft aber configure() nicht auf`);
-    const call = readCall(src, src.indexOf('(', at));
-    assert.ok(call, `${label}: configure()-Aufruf liess sich nicht lesen`);
-    nutzer.push({ label, call });
+    // JEDER configure()-Aufruf der Datei, nicht der erste: eine Seite darf zwei
+    // Manager mounten, und der zweite waere sonst ungeprueft durchgelaufen.
+    // `basePath` ist die Signatur dieser Komponente und haelt fremde
+    // configure()-Aufrufe draussen.
+    const vorher = nutzer.length;
+    const re = /\.configure\s*\(/g;
+    let match;
+    while ((match = re.exec(src)) !== null) {
+      const call = readCall(src, match.index + match[0].length - 1);
+      assert.ok(call, `${label}: configure()-Aufruf liess sich nicht lesen`);
+      if (!/\bbasePath\s*:/.test(call)) continue;
+      const line = src.slice(0, match.index).split('\n').length;
+      nutzer.push({ label: `${label}:${line}`, call });
+    }
+    assert.notEqual(vorher, nutzer.length,
+      `${label}: bindet den Category-Manager ein, ruft aber configure() nicht auf`);
   }
 
   // Faellt die Erkennung aus, soll der Test das sagen und nicht still bestehen.
