@@ -22,10 +22,10 @@ const conn = db.get();
 
 const OWNER = conn.prepare(`INSERT INTO users (username, display_name, password_hash, role) VALUES ('owner','Owner','x','member')`).run().lastInsertRowid;
 
-function newAccount(name = 'Zuhause') {
+function newAccount(name = 'Zuhause', provider = 'mealie') {
   return conn.prepare(`
-    INSERT INTO recipe_provider_accounts (name, base_url, api_token, created_by) VALUES (?, ?, 'tok', ?)
-  `).run(name, `https://${name.toLowerCase()}.example.com`, OWNER).lastInsertRowid;
+    INSERT INTO recipe_provider_accounts (name, base_url, api_token, provider, created_by) VALUES (?, ?, 'tok', ?, ?)
+  `).run(name, `https://${name.toLowerCase()}.example.com`, provider, OWNER).lastInsertRowid;
 }
 
 function mirroredRecipes(accountId) {
@@ -257,11 +257,47 @@ test('sync(): SICHERHEIT - fehlgeschlagener Abruf löscht den lokalen Mirror nic
   assert.match(account.last_error, /network down/);
 });
 
+test('sync(): SICHERHEIT - fehlgeschlagener Abruf löscht den lokalen Mirror nicht und setzt last_error (Tandoor-Account)', async () => {
+  const accountId = newAccount('AusfallsicherTandoor', 'tandoor');
+  _setAdapterFactory(fakeAdapter(
+    [{ id: 'uuid-tx', ref: 'tx', updatedAt: 't1' }],
+    { tx: { id: 'uuid-tx', updatedAt: 't1', slug: 'tx', title: 'TX', notes: null, hasImage: false, ingredients: [] } },
+  ));
+  await sync.sync();
+  assert.equal(mirroredRecipes(accountId).length, 1);
+
+  _setAdapterFactory(fakeAdapter([], {}, { fail: true }));
+  const result = await sync.sync();
+  assert.equal(result.syncedAccounts, 0);
+  assert.equal(result.deleted, 0);
+  assert.equal(mirroredRecipes(accountId).length, 1); // unverändert, NICHT geleert
+
+  const account = conn.prepare('SELECT last_error FROM recipe_provider_accounts WHERE id = ?').get(accountId);
+  assert.match(account.last_error, /network down/);
+});
+
 test('sync(): SICHERHEIT - leere Rezeptliste bei bestehendem Mirror wird als Fehler behandelt, nicht als Leerung', async () => {
   const accountId = newAccount('LeerGuard');
   _setAdapterFactory(fakeAdapter(
     [{ id: 'uuid-y', ref: 'y', updatedAt: 't1' }],
     { y: { id: 'uuid-y', updatedAt: 't1', slug: 'y', title: 'Y', notes: null, hasImage: false, ingredients: [] } },
+  ));
+  await sync.sync();
+  assert.equal(mirroredRecipes(accountId).length, 1);
+
+  // Verbindung klappt (testConnection ok), aber die Liste kommt leer zurück -
+  // eher ein stiller Server-/Auth-Fehler als eine tatsächlich geleerte Sammlung.
+  _setAdapterFactory(fakeAdapter([], {}));
+  const result = await sync.sync();
+  assert.equal(result.deleted, 0);
+  assert.equal(mirroredRecipes(accountId).length, 1);
+});
+
+test('sync(): SICHERHEIT - leere Rezeptliste bei bestehendem Mirror wird als Fehler behandelt, nicht als Leerung (Tandoor-Account)', async () => {
+  const accountId = newAccount('LeerGuardTandoor', 'tandoor');
+  _setAdapterFactory(fakeAdapter(
+    [{ id: 'uuid-ty', ref: 'ty', updatedAt: 't1' }],
+    { ty: { id: 'uuid-ty', updatedAt: 't1', slug: 'ty', title: 'TY', notes: null, hasImage: false, ingredients: [] } },
   ));
   await sync.sync();
   assert.equal(mirroredRecipes(accountId).length, 1);

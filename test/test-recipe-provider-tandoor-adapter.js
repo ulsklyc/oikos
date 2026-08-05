@@ -1,44 +1,84 @@
 /**
  * Modul: Recipe-Provider-Adapter-Test (Tandoor)
  * Zweck: Validiert TandoorAdapter (testConnection/listRecipeSummaries/getRecipe/
- *        recipeUrl/fetchThumbnail) gegen ein gemocktes fetch - keine echte
- *        Netzwerkverbindung. Analog zu test-recipe-provider-adapter.js (Mealie)
- *        und test-dms-papra-adapter.js (zweiter Provider desselben DMS-Musters).
+ *        recipeUrl/fetchThumbnail) gegen einen echten lokalen HTTP-Server -
+ *        keine echte Netzwerkverbindung nach außen. Seit der SSRF-Härtung läuft
+ *        der Adapter über server/utils/http.js#safeRequest statt globalem
+ *        fetch(), deshalb wird hier gegen einen echten Server getestet - gleiche
+ *        Konvention wie test-ics-subscription.js#fetchAndParse und
+ *        test-recipe-provider-adapter.js (Mealie, erster Provider desselben
+ *        Musters). Deckt zusätzlich zwei sicherheitsrelevante Verhalten ab, die
+ *        über ein reines fetch()-Mock nicht sinnvoll testbar wären: Origin-Pinning
+ *        des Thumbnail-Bildpfads (kein Bearer-Token an einen abweichenden Host)
+ *        und host-agnostisches Parsing des DRF-`next`-Links (Reverse-Proxy).
  * Ausführen: node --test test/test-recipe-provider-tandoor-adapter.js
  */
 import assert from 'node:assert/strict';
-import test, { beforeEach, afterEach } from 'node:test';
+import test, { before, after, beforeEach } from 'node:test';
+import http from 'node:http';
 import { TandoorAdapter } from '../server/services/recipe-providers/tandoor.js';
 
-const account = { base_url: 'https://tandoor.example.com/', api_token: 'tok123' };
+const ENV_FLAG = 'RECIPE_PROVIDER_ALLOW_PRIVATE_NETWORK';
 
 let calls;
-const realFetch = globalThis.fetch;
-beforeEach(() => { calls = []; });
-afterEach(() => { globalThis.fetch = realFetch; });
+let handler;
+let server;
+let base;
+let account;
 
-function mockFetch(handler) {
-  globalThis.fetch = async (url, opts) => {
-    calls.push({ url: String(url), opts });
-    return handler(String(url), opts);
-  };
+before(async () => {
+  // Ohne das Opt-in würde safeRequest()s Anti-Rebinding-Lookup jede Anfrage an
+  // 127.0.0.1 (dieser Testserver) als privates Netzwerkziel blocken. Die
+  // Guard-Logik selbst ist in test-ssrf.js/test-http.js abgedeckt.
+  process.env[ENV_FLAG] = 'true';
+  server = http.createServer((req, res) => {
+    calls.push({ url: `${base}${req.url}`, opts: { headers: { Authorization: req.headers.authorization } } });
+    handler(req, res);
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  base = `http://127.0.0.1:${server.address().port}`;
+  account = { base_url: base, api_token: 'tok123' };
+});
+
+after(async () => {
+  delete process.env[ENV_FLAG];
+  await new Promise((resolve) => server.close(resolve));
+});
+
+beforeEach(() => {
+  calls = [];
+  handler = (_req, res) => { res.writeHead(500); res.end(); };
+});
+
+function mockHandler(fn) {
+  handler = fn;
 }
 
-function jsonResponse(body, status = 200) {
-  return { ok: status >= 200 && status < 300, status, json: async () => body };
+function sendJson(res, body, status = 200) {
+  const buf = Buffer.from(JSON.stringify(body));
+  res.writeHead(status, { 'Content-Type': 'application/json', 'Content-Length': buf.length });
+  res.end(buf);
 }
 
-function binaryResponse(buffer, mime, status = 200) {
-  return {
-    ok: status >= 200 && status < 300, status,
-    headers: { get: (h) => (h.toLowerCase() === 'content-type' ? mime : null) },
-    arrayBuffer: async () => buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength),
-  };
+function sendBinary(res, buffer, mime, status = 200) {
+  res.writeHead(status, { 'Content-Type': mime, 'Content-Length': buffer.length });
+  res.end(buffer);
+}
+
+// Für den Netzwerkfehler-Test: ein Port, an dem garantiert niemand lauscht
+// (Server kurz geöffnet, sofort wieder geschlossen) → ECONNREFUSED über eine
+// echte Verbindung, statt globalThis.fetch zu werfen.
+async function deadBaseUrl() {
+  const s = http.createServer();
+  await new Promise((r) => s.listen(0, '127.0.0.1', r));
+  const port = s.address().port;
+  await new Promise((r) => s.close(r));
+  return `http://127.0.0.1:${port}`;
 }
 
 test('Konstruktor entfernt trailing slash von base_url', () => {
-  const adapter = new TandoorAdapter(account);
-  assert.equal(adapter.base, 'https://tandoor.example.com');
+  const adapter = new TandoorAdapter({ ...account, base_url: `${base}/` });
+  assert.equal(adapter.base, base);
 });
 
 // --------------------------------------------------------------------------
@@ -46,7 +86,7 @@ test('Konstruktor entfernt trailing slash von base_url', () => {
 // --------------------------------------------------------------------------
 
 test('Bearer-Authorization-Header wird bei jedem Request gesetzt', async () => {
-  mockFetch(() => jsonResponse({ results: [], next: null }));
+  mockHandler((req, res) => sendJson(res, { results: [], next: null }));
   const adapter = new TandoorAdapter(account);
   await adapter.listRecipeSummaries();
   assert.equal(calls.length, 1);
@@ -58,17 +98,17 @@ test('Bearer-Authorization-Header wird bei jedem Request gesetzt', async () => {
 // --------------------------------------------------------------------------
 
 test('testConnection: ok=true bei 200 auf /api/recipe/?page_size=1', async () => {
-  mockFetch(() => jsonResponse({ count: 0, results: [] }));
+  mockHandler((req, res) => sendJson(res, { count: 0, results: [] }));
   const adapter = new TandoorAdapter(account);
   const out = await adapter.testConnection();
-  assert.equal(calls[0].url, 'https://tandoor.example.com/api/recipe/?page_size=1');
+  assert.equal(calls[0].url, `${base}/api/recipe/?page_size=1`);
   assert.equal(calls[0].opts.headers.Authorization, 'Bearer tok123');
   assert.equal(out.ok, true);
   assert.equal(out.status, 200);
 });
 
 test('testConnection: ok=false bei 401, kein Wurf', async () => {
-  mockFetch(() => jsonResponse({}, 401));
+  mockHandler((req, res) => sendJson(res, {}, 401));
   const adapter = new TandoorAdapter(account);
   const out = await adapter.testConnection();
   assert.equal(out.ok, false);
@@ -76,8 +116,7 @@ test('testConnection: ok=false bei 401, kein Wurf', async () => {
 });
 
 test('testConnection: Netzwerkfehler → ok=false, status=0, error gesetzt', async () => {
-  globalThis.fetch = async () => { throw new Error('ECONNREFUSED'); };
-  const adapter = new TandoorAdapter(account);
+  const adapter = new TandoorAdapter({ ...account, base_url: await deadBaseUrl() });
   const out = await adapter.testConnection();
   assert.equal(out.ok, false);
   assert.equal(out.status, 0);
@@ -89,17 +128,19 @@ test('testConnection: Netzwerkfehler → ok=false, status=0, error gesetzt', asy
 // --------------------------------------------------------------------------
 
 test('listRecipeSummaries: folgt dem next-Link über mehrere Seiten', async () => {
-  mockFetch((url) => {
-    if (url === 'https://tandoor.example.com/api/recipe/?page=1&page_size=50') {
-      return jsonResponse({
+  mockHandler((req, res) => {
+    const url = new URL(req.url, base);
+    const page = url.searchParams.get('page');
+    if (page === '1') {
+      return sendJson(res, {
         results: [{ id: 1, updated_at: 't1' }, { id: 2, updated_at: 't2' }],
-        next: 'https://tandoor.example.com/api/recipe/?page=2&page_size=50',
+        next: `${base}/api/recipe/?page=2&page_size=50`,
       });
     }
-    if (url === 'https://tandoor.example.com/api/recipe/?page=2&page_size=50') {
-      return jsonResponse({ results: [{ id: 3, updated_at: 't3' }], next: null });
+    if (page === '2') {
+      return sendJson(res, { results: [{ id: 3, updated_at: 't3' }], next: null });
     }
-    throw new Error(`unerwartete URL: ${url}`);
+    throw new Error(`unerwartete Seite: ${page}`);
   });
   const adapter = new TandoorAdapter(account);
   const summaries = await adapter.listRecipeSummaries();
@@ -110,11 +151,32 @@ test('listRecipeSummaries: folgt dem next-Link über mehrere Seiten', async () =
 });
 
 test('listRecipeSummaries: next=null → genau ein Request', async () => {
-  mockFetch(() => jsonResponse({ results: [{ id: 9, updated_at: 't9' }], next: null }));
+  mockHandler((req, res) => sendJson(res, { results: [{ id: 9, updated_at: 't9' }], next: null }));
   const adapter = new TandoorAdapter(account);
   const summaries = await adapter.listRecipeSummaries();
   assert.equal(calls.length, 1);
   assert.equal(summaries.length, 1);
+});
+
+test('listRecipeSummaries: next-Link mit abweichendem Host (Reverse-Proxy) wird trotzdem gegen base_url angefragt', async () => {
+  // DRF meldet `next` mit dem Host, den der Proxy selbst für sich hält - die
+  // zweite Seite muss trotzdem gegen this.base gehen, sonst ECONNREFUSED/Timeout
+  // gegen einen Host, den der Server gar nicht erreichen kann.
+  mockHandler((req, res) => {
+    const page = new URL(req.url, base).searchParams.get('page');
+    if (page === '1') {
+      return sendJson(res, {
+        results: [{ id: 1, updated_at: 't1' }],
+        next: 'https://public-facing-host.example.com/api/recipe/?page=2&page_size=50',
+      });
+    }
+    return sendJson(res, { results: [{ id: 2, updated_at: 't2' }], next: null });
+  });
+  const adapter = new TandoorAdapter(account);
+  const summaries = await adapter.listRecipeSummaries();
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1].url, `${base}/api/recipe/?page=2&page_size=50`);
+  assert.deepEqual(summaries.map((s) => s.id), ['1', '2']);
 });
 
 // --------------------------------------------------------------------------
@@ -122,7 +184,7 @@ test('listRecipeSummaries: next=null → genau ein Request', async () => {
 // --------------------------------------------------------------------------
 
 test('getRecipe: flacht Zutaten über alle steps hinweg, überspringt is_header-Zeilen', async () => {
-  mockFetch(() => jsonResponse({
+  mockHandler((req, res) => sendJson(res, {
     id: 5, updated_at: 't5', name: 'Soup', description: 'Tasty', image: '/media/recipe_images/soup.jpg',
     steps: [
       {
@@ -140,7 +202,7 @@ test('getRecipe: flacht Zutaten über alle steps hinweg, überspringt is_header-
   }));
   const adapter = new TandoorAdapter(account);
   const recipe = await adapter.getRecipe('5');
-  assert.equal(calls[0].url, 'https://tandoor.example.com/api/recipe/5/');
+  assert.equal(calls[0].url, `${base}/api/recipe/5/`);
   assert.equal(recipe.id, '5');
   assert.equal(recipe.title, 'Soup');
   assert.equal(recipe.notes, 'Tasty');
@@ -150,7 +212,7 @@ test('getRecipe: flacht Zutaten über alle steps hinweg, überspringt is_header-
 });
 
 test('getRecipe: null-Menge bei no_amount=true oder falsy amount', async () => {
-  mockFetch(() => jsonResponse({
+  mockHandler((req, res) => sendJson(res, {
     id: 6, updated_at: 't6', name: 'Salad', description: null, image: null,
     steps: [
       {
@@ -173,7 +235,7 @@ test('getRecipe: null-Menge bei no_amount=true oder falsy amount', async () => {
 });
 
 test('getRecipe: HTTP-Fehler wirft mit Statuscode', async () => {
-  mockFetch(() => jsonResponse({}, 404));
+  mockHandler((req, res) => sendJson(res, {}, 404));
   const adapter = new TandoorAdapter(account);
   await assert.rejects(() => adapter.getRecipe('missing'), /Tandoor request failed \(404\)/);
 });
@@ -184,15 +246,15 @@ test('getRecipe: HTTP-Fehler wirft mit Statuscode', async () => {
 
 test('recipeUrl: baut /view/recipe/{id}, ignoriert linkContext (auch null/undefined)', () => {
   const adapter = new TandoorAdapter(account);
-  assert.equal(adapter.recipeUrl(null, { id: 42 }), 'https://tandoor.example.com/view/recipe/42');
-  assert.equal(adapter.recipeUrl(undefined, { id: 42 }), 'https://tandoor.example.com/view/recipe/42');
-  assert.equal(adapter.recipeUrl({ groupSlug: 'irrelevant' }, { id: 42 }), 'https://tandoor.example.com/view/recipe/42');
+  assert.equal(adapter.recipeUrl(null, { id: 42 }), `${base}/view/recipe/42`);
+  assert.equal(adapter.recipeUrl(undefined, { id: 42 }), `${base}/view/recipe/42`);
+  assert.equal(adapter.recipeUrl({ groupSlug: 'irrelevant' }, { id: 42 }), `${base}/view/recipe/42`);
 });
 
 test('recipeUrl: nutzt external_url statt base_url, wenn gesetzt', () => {
   const adapter = new TandoorAdapter({ ...account, external_url: 'https://recipes.example.com/' });
   assert.equal(adapter.recipeUrl(null, { id: 7 }), 'https://recipes.example.com/view/recipe/7');
-  assert.equal(adapter.base, 'https://tandoor.example.com');
+  assert.equal(adapter.base, base);
 });
 
 // --------------------------------------------------------------------------
@@ -200,7 +262,7 @@ test('recipeUrl: nutzt external_url statt base_url, wenn gesetzt', () => {
 // --------------------------------------------------------------------------
 
 test('fetchThumbnail: fehlender slug → wirft 404 ohne Request', async () => {
-  mockFetch(() => { throw new Error('sollte nicht aufgerufen werden'); });
+  mockHandler(() => { throw new Error('sollte nicht aufgerufen werden'); });
   const adapter = new TandoorAdapter(account);
   await assert.rejects(() => adapter.fetchThumbnail({ slug: null }), (err) => {
     assert.equal(err.status, 404);
@@ -211,27 +273,41 @@ test('fetchThumbnail: fehlender slug → wirft 404 ohne Request', async () => {
 
 test('fetchThumbnail: lädt Binärdaten vom gespeicherten Bildpfad, gibt buffer + mime zurück', async () => {
   const buf = Buffer.from('\x89PNG fake');
-  mockFetch(() => binaryResponse(buf, 'image/png'));
+  mockHandler((req, res) => sendBinary(res, buf, 'image/png'));
   const adapter = new TandoorAdapter(account);
   const out = await adapter.fetchThumbnail({ slug: '/media/recipe_images/soup.jpg' });
-  assert.equal(calls[0].url, 'https://tandoor.example.com/media/recipe_images/soup.jpg');
+  assert.equal(calls[0].url, `${base}/media/recipe_images/soup.jpg`);
   assert.equal(calls[0].opts.headers.Authorization, 'Bearer tok123');
   assert.equal(out.mime, 'image/png');
   assert.ok(Buffer.isBuffer(out.buffer));
   assert.equal(out.buffer.toString(), '\x89PNG fake');
 });
 
-test('fetchThumbnail: gespeicherter Bildpfad ist eine absolute URL (Tandoors serializer baut sie via build_absolute_uri) - kein Doppel-Host', async () => {
+test('fetchThumbnail: gespeicherter Bildpfad ist eine absolute URL auf demselben Host (Tandoors serializer baut sie via build_absolute_uri) - kein Doppel-Host', async () => {
   const buf = Buffer.from('\x89PNG fake');
-  mockFetch(() => binaryResponse(buf, 'image/png'));
+  mockHandler((req, res) => sendBinary(res, buf, 'image/png'));
   const adapter = new TandoorAdapter(account);
-  const out = await adapter.fetchThumbnail({ slug: 'https://tandoor.example.com/media/recipes/abc123_5.webp' });
-  assert.equal(calls[0].url, 'https://tandoor.example.com/media/recipes/abc123_5.webp');
+  const out = await adapter.fetchThumbnail({ slug: `${base}/media/recipes/abc123_5.webp` });
+  assert.equal(calls[0].url, `${base}/media/recipes/abc123_5.webp`);
   assert.equal(out.mime, 'image/png');
 });
 
+test('fetchThumbnail: absolute URL mit abweichendem Host wird abgelehnt (502), kein Bearer-Token verlässt den konfigurierten Host', async () => {
+  mockHandler(() => { throw new Error('sollte nicht aufgerufen werden'); });
+  const adapter = new TandoorAdapter(account);
+  await assert.rejects(
+    () => adapter.fetchThumbnail({ slug: 'https://attacker.example.com/steal.jpg' }),
+    (err) => {
+      assert.equal(err.status, 502);
+      assert.match(err.message, /does not match the configured account/);
+      return true;
+    },
+  );
+  assert.equal(calls.length, 0);
+});
+
 test('fetchThumbnail: HTTP-Fehler wirft mit Statuscode', async () => {
-  mockFetch(() => jsonResponse({}, 500));
+  mockHandler((req, res) => sendJson(res, {}, 500));
   const adapter = new TandoorAdapter(account);
   await assert.rejects(() => adapter.fetchThumbnail({ slug: '/media/x.jpg' }), /Tandoor thumbnail request failed \(500\)/);
 });
