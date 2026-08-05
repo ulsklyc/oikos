@@ -39,7 +39,7 @@ jobs:
 
       - name: Checkout repository
         if: env.CLAUDE_CODE_OAUTH_TOKEN != ''
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
 

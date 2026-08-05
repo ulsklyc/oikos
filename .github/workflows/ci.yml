@@ -19,7 +19,7 @@ jobs:
         node-version: [22.x]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
