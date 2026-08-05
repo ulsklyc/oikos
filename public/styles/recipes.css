@@ -233,6 +233,14 @@
   transition: transform var(--transition-fast);
 }
 
+/* Gespiegelte Zeile ganz ohne Detail (recipes.js, isMirrored && !hasDetail):
+ * derselbe Chevron als reiner Breiten-Platzhalter, unsichtbar statt entfernt.
+ * `display: none` würde ihn wieder aus dem Flex-Fluss nehmen und das Badge
+ * erneut verschieben - genau das Problem, das er lösen soll. */
+.recipe-row__chevron--placeholder {
+  visibility: hidden;
+}
+
 .recipe-row__toggle[aria-expanded="true"] .recipe-row__chevron {
   transform: rotate(180deg);
 }

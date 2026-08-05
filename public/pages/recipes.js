@@ -505,12 +505,16 @@ function renderRecipeList() {
     // Klick nachweislich nichts tat (Kartenhöhe 408 → 408px an sechs Karten
     // gemessen, Critique 2026-07-30). Jetzt ist die Zahl die Beschriftung
     // dessen, was das Aufklappen zeigt.
-    if (ingredients.length) {
-      const meta = document.createElement('span');
-      meta.className = 'kitchen-row__meta';
-      meta.textContent = t('meals.ingredientCount', { count: ingredients.length });
-      toggle.appendChild(meta);
-    }
+    //
+    // IMMER gerendert, auch bei 0: die Mindestbreite von .kitchen-row__meta
+    // (15ch, siehe recipes.css) hält alles davor - das Mealie/Tandoor-Badge -
+    // an derselben Stelle. Fehlte das Element ganz, würde der Name per
+    // flex-grow den freiwerdenden Platz schlucken und das Badge nach rechts
+    // schieben, sobald ein Rezept ganz ohne Zutaten in der Liste steht.
+    const meta = document.createElement('span');
+    meta.className = 'kitchen-row__meta';
+    meta.textContent = t('meals.ingredientCount', { count: ingredients.length });
+    toggle.appendChild(meta);
 
     if (hasDetail) {
       toggle.setAttribute('aria-expanded', 'false');
@@ -532,6 +536,12 @@ function renderRecipeList() {
       delete toggle.dataset.action;
       toggle.classList.remove('kitchen-row__main--interactive');
       toggle.tabIndex = -1;
+      // Trotzdem einen (unsichtbaren) Chevron-Platzhalter einfügen: sonst
+      // wächst der Name per flex-grow um genau dessen Breite, und das Badge
+      // vor ihm rutscht gegenüber jeder anderen gespiegelten Zeile nach
+      // rechts - derselbe Mechanismus wie bei der Zutatenzahl oben.
+      toggle.insertAdjacentHTML('beforeend',
+        '<i data-lucide="chevron-down" class="icon-sm recipe-row__chevron recipe-row__chevron--placeholder" aria-hidden="true"></i>');
     }
 
     heading.appendChild(toggle);
