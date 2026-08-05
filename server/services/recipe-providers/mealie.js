@@ -2,7 +2,9 @@
  * Modul: Mealie API Adapter
  * Zweck: Bearer-authentifizierter Read-Only-Client gegen eine selbst gehostete
  *        Mealie-Instanz. Kein Schreibzugriff - Mealie bleibt Quelle der Wahrheit
- *        für Rezeptinhalte, dieser Adapter liest nur zum Spiegeln (mealie-sync.js).
+ *        für Rezeptinhalte, dieser Adapter liest nur zum Spiegeln
+ *        (recipe-provider-sync.js). Implementiert das gemeinsame Adapter-
+ *        Interface aus ./index.js.
  * Dependencies: global fetch (Node >=22), ./categorize.js
  */
 import { categorizeIngredient } from './categorize.js';
@@ -27,9 +29,10 @@ function formatQuantity(quantity, unit) {
  * Mealies recipeIngredient-Objekt (quantity/unit/food getrennt) auf das flache
  * name/quantity/category-Schema von recipe_ingredients abbilden. Ohne verknüpftes
  * food (freie Texteingabe in Mealie) übernimmt display/originalText die komplette
- * Zeile als Name, Menge bleibt leer - sie steckt dann schon im Text.
+ * Zeile als Name, Menge bleibt leer - sie steckt dann schon im Text. Nur intern
+ * gebraucht (innerhalb getRecipe()), kein anderes Modul importiert diese Funktion.
  */
-export function flattenIngredient(ing) {
+function flattenIngredient(ing) {
   const foodName = ing.food?.name?.trim();
   const name = foodName || (ing.display || ing.originalText || '').trim() || '?';
   const quantity = foodName ? formatQuantity(ing.quantity, ing.unit) : null;
@@ -39,6 +42,7 @@ export function flattenIngredient(ing) {
 
 export class MealieAdapter {
   constructor(account) {
+    this.provider = 'mealie';
     this.base = String(account.base_url || '').replace(/\/+$/, '');
     this.token = account.api_token;
     // `base_url` muss vom Server aus erreichbar sein (z. B. ein Docker-internes
@@ -77,7 +81,7 @@ export class MealieAdapter {
       });
       if (!res.ok) return { ok: false, status: res.status };
       const user = await res.json();
-      return { ok: true, status: res.status, groupSlug: user.groupSlug || null };
+      return { ok: true, status: res.status, linkContext: { groupSlug: user.groupSlug || null } };
     } catch (err) {
       return { ok: false, status: 0, error: err.message };
     }
@@ -85,6 +89,8 @@ export class MealieAdapter {
 
   // Zusammenfassungen aller Rezepte (ohne Zutaten - die liefert erst getRecipe()
   // pro Rezept; die Mealie-Listenroute gibt bewusst nur Summaries zurück).
+  // summary.id ist Mealies stabile UUID (Upsert-Key, überlebt Umbenennungen),
+  // summary.slug wird als `ref` für den Detail-Abruf gebraucht.
   async listRecipeSummaries() {
     const summaries = [];
     let page = 1;
@@ -92,21 +98,32 @@ export class MealieAdapter {
     do {
       const res = await this.#request(`/api/recipes?page=${page}&perPage=${PAGE_SIZE}`);
       const body = await res.json();
-      summaries.push(...(body.items || []));
+      for (const item of body.items || []) {
+        summaries.push({ id: item.id, ref: item.slug, updatedAt: item.updatedAt });
+      }
       totalPages = body.total_pages || 1;
       page += 1;
     } while (page <= totalPages);
     return summaries;
   }
 
-  async getRecipe(slug) {
-    const res = await this.#request(`/api/recipes/${encodeURIComponent(slug)}`);
-    return res.json();
+  async getRecipe(ref) {
+    const res = await this.#request(`/api/recipes/${encodeURIComponent(ref)}`);
+    const detail = await res.json();
+    return {
+      id: detail.id,
+      updatedAt: detail.updatedAt,
+      slug: detail.slug,
+      title: detail.name,
+      notes: detail.description || null,
+      hasImage: Boolean(detail.image),
+      ingredients: (detail.recipeIngredient || []).map(flattenIngredient),
+    };
   }
 
-  recipeUrl(groupSlug, slug) {
-    if (!groupSlug) return null;
-    return `${this.linkBase}/g/${encodeURIComponent(groupSlug)}/r/${encodeURIComponent(slug)}`;
+  recipeUrl(linkContext, { slug }) {
+    if (!linkContext?.groupSlug) return null;
+    return `${this.linkBase}/g/${encodeURIComponent(linkContext.groupSlug)}/r/${encodeURIComponent(slug)}`;
   }
 
   // Mealies eigenes Thumbnail (min-original.webp, eine kleinere Ableitung des
@@ -115,8 +132,8 @@ export class MealieAdapter {
   // Der Token darf den Client nie erreichen (server/routes/recipes.js proxied
   // die Bytes), deshalb kann kein <img src> direkt auf Mealie zeigen - die
   // Medien-Route dort verlangt denselben Bearer-Token wie jeder andere Endpunkt.
-  async fetchThumbnail(mealieRecipeId) {
-    const res = await fetch(`${this.base}/api/media/recipes/${encodeURIComponent(mealieRecipeId)}/images/min-original.webp`, {
+  async fetchThumbnail({ id }) {
+    const res = await fetch(`${this.base}/api/media/recipes/${encodeURIComponent(id)}/images/min-original.webp`, {
       headers: this.headers({ Accept: 'image/*' }),
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
