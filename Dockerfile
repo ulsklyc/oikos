@@ -1,4 +1,4 @@
-FROM node:22-slim AS build
+FROM node:25-slim AS build
 
 # Toolchain als Fallback für native Module: better-sqlite3-multiple-ciphers zieht
 # normalerweise ein Prebuild (node-v127-linux-{x64,arm64}); schlägt der Download
@@ -17,7 +17,7 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 
 # ---- Runtime stage ----
-FROM node:22-slim
+FROM node:25-slim
 
 RUN apt-get update && apt-get install -y \
     gosu \
