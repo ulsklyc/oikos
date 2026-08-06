@@ -6788,3 +6788,44 @@ test('Die Einkaufsliste sagt Umsortierungen über eine Live-Region an', () => {
   assert.match(source, /t\('category\.reorderAnnounce'/,
     'Wiederverwendeter Ansage-Text statt einer zweiten Fassung in 24 Sprachen.');
 });
+
+test('Die Handsortierung schickt je Kategorie nur eine Anfrage gleichzeitig', () => {
+  // Zwei schnell gedrückte Pfeiltasten schickten sonst zwei PATCHes parallel,
+  // und es entschied die Ankunftsreihenfolge beim Server statt die
+  // Bedienreihenfolge: traf der erste zuletzt ein, schrieb er den Zwischenstand
+  // fest, während das DOM den zweiten Zug zeigte. Der Nutzer sah seine
+  // Reihenfolge und bekam beim nächsten Laden eine andere.
+  const source = read('../public/pages/shopping.js');
+
+  assert.match(source, /orderRuns\s*=\s*new Map\(\)/,
+    'Es braucht eine Buchführung über laufende Sicherungen je Kategorie.');
+  assert.match(source, /const running = orderRuns\.get\(category\);\s*\n\s*if \(running\) \{ running\.again = true; return; \}/,
+    'Ein Zug während eines Laufs darf nur eine Nachfolge vormerken, keine zweite Anfrage starten.');
+  assert.match(source, /while \(run\.again/,
+    'Nach dem Lauf muss eine vorgemerkte Nachfolge abgearbeitet werden.');
+  assert.match(source, /orderRuns\.delete\(category\)/,
+    'Der Eintrag muss auch im Fehlerfall verschwinden (finally), sonst blockiert die Kategorie dauerhaft.');
+
+  // Die Reihenfolge wird IM Lauf aus dem DOM gelesen, nicht beim Einreihen
+  // eingefroren - nur so trägt eine Nachfolge den Endstand statt eines
+  // Zwischenstands, und N Züge kommen mit zwei Anfragen aus.
+  assert.match(source, /async function sendItemOrder\(groupEl, container, listId\)[\s\S]{0,600}querySelectorAll\(':scope > \.swipe-row'\)/,
+    'sendItemOrder muss die Reihenfolge beim Senden frisch aus dem DOM lesen.');
+});
+
+test('Die Handsortierung bindet ihre Anfrage an die Liste, in der gezogen wurde', () => {
+  // Wechselt der Nutzer die Liste, während eine Nachfolge aussteht, hält das
+  // Gruppen-Element noch die abgehängten Zeilen der alten Liste. Deren IDs
+  // gegen die inzwischen aktive Liste zu schicken, quittiert die Route zu Recht
+  // mit 400 - und die Antwort dürfte den State der neuen Liste nie überschreiben.
+  const source = read('../public/pages/shopping.js');
+
+  assert.match(source, /const listId = state\.activeListId;/,
+    'Die Listen-ID muss beim Einreihen feststehen, nicht beim Senden gelesen werden.');
+  assert.match(source, /api\.patch\(`\/shopping\/\$\{listId\}\/items\/reorder`/,
+    'Die Anfrage muss an die festgehaltene Liste gehen, nicht an state.activeListId.');
+  assert.match(source, /if \(listId === state\.activeListId\) state\.items =/,
+    'Der State darf nur nachziehen, solange dieselbe Liste offen ist.');
+  assert.match(source, /if \(listId !== state\.activeListId\) return false;/,
+    'Ein Fehler einer nicht mehr offenen Liste darf weder tosten noch die sichtbare Liste neu bauen.');
+});

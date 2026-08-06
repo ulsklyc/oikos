@@ -746,36 +746,92 @@ function announceItemMove(container, row) {
   });
 }
 
-/**
- * Neue Reihenfolge einer Gruppe sichern. Geteilter Persistenz-Pfad von Drag und
- * Pfeiltasten - beide haben das DOM vorher schon umgestellt, deshalb baut der
- * Fehlerfall die Liste aus dem unveränderten State neu auf.
- *
- * @param {HTMLElement} [movedRow] - die bewegte Zeile, für die Ansage
- */
-async function persistItemOrder(groupEl, container, movedRow) {
-  const rowsEl   = groupEl?.querySelector('.kitchen-rows');
-  const category = groupEl?.dataset.category;
-  if (!rowsEl || !category) return;
+/** Kategorien mit laufender Sicherung: Name -> { again: boolean }. */
+const orderRuns = new Map();
 
-  refreshHandleLabels(rowsEl);
-  announceItemMove(container, movedRow);
+/**
+ * Einen Sicherungslauf ausführen: liest die Reihenfolge JETZT aus dem DOM.
+ *
+ * `listId` kommt vom Einreihen und nicht aus `state.activeListId`: wechselt der
+ * Nutzer die Liste, während eine Nachfolge aussteht, hält `groupEl` noch die
+ * abgehängten Zeilen der alten Liste. Deren IDs gegen die inzwischen aktive
+ * Liste zu schicken, quittiert die Route zu Recht mit 400 - gemeint war der Zug
+ * in der alten Liste, und dorthin gehört er auch gesichert.
+ */
+async function sendItemOrder(groupEl, container, listId) {
+  const rowsEl   = groupEl.querySelector('.kitchen-rows');
+  const category = groupEl.dataset.category;
+  if (!rowsEl) return true;
 
   // Alle Artikel der Kategorie, auch die abgehakten: die Route verlangt die
   // vollständige Gruppe, sonst kollidieren die neuen Ränge mit den alten.
   const order = Array.from(rowsEl.querySelectorAll(':scope > .swipe-row'))
     .map((row) => Number(row.dataset.swipeId));
+  if (!order.length) return true;
 
   try {
-    const data = await api.patch(`/shopping/${state.activeListId}/items/reorder`, { category, order });
+    const data = await api.patch(`/shopping/${listId}/items/reorder`, { category, order });
     // Nur den State nachziehen, nicht neu zeichnen: das DOM steht bereits
     // richtig, und ein Re-Render würde den Fokus vom Griff nehmen - mitten in
     // einer Tastaturbedienung wäre das das Ende der Bedienkette.
-    state.items = data.data ?? state.items;
+    //
+    // Und nur, solange dieselbe Liste offen ist: die Antwort trägt die Artikel
+    // VON `listId`, ein zwischenzeitlicher Listenwechsel bekäme sonst den
+    // Bestand der alten Liste in seinen State geschrieben.
+    if (listId === state.activeListId) state.items = data.data ?? state.items;
+    return true;
   } catch (err) {
+    // Fehler einer Liste, die gar nicht mehr offen ist, nicht dem Nutzer
+    // vorlegen und erst recht nicht die sichtbare Liste dafür neu bauen.
+    if (listId !== state.activeListId) return false;
     window.yuvomi.showToast(err.data?.error ?? t('common.errorGeneric'), 'danger');
     updateItemsList(container);
+    return false;
   }
+}
+
+/**
+ * Neue Reihenfolge einer Gruppe sichern. Geteilter Persistenz-Pfad von Drag und
+ * Pfeiltasten - beide haben das DOM vorher schon umgestellt, deshalb baut der
+ * Fehlerfall die Liste aus dem unveränderten State neu auf.
+ *
+ * JE KATEGORIE IMMER NUR EINE LAUFENDE ANFRAGE. Zwei schnell nacheinander
+ * gedrückte Pfeiltasten schickten sonst zwei PATCHes parallel los, und es
+ * entschied die Ankunftsreihenfolge beim Server statt die Bedienreihenfolge:
+ * traf der erste zuletzt ein, schrieb er den Zwischenstand fest, das DOM zeigte
+ * aber den zweiten Zug. Der Nutzer sah seine Reihenfolge und bekam beim
+ * nächsten Laden eine andere. Bewusst als Warteschlange und nicht als Entprellung:
+ * die Sicherung bleibt sofort, nur eben der Reihe nach.
+ *
+ * Weitere Züge während eines Laufs werden zu EINER Nachfolge zusammengefasst -
+ * die liest die dann aktuelle Reihenfolge, also genügt sie für beliebig viele.
+ *
+ * @param {HTMLElement} [movedRow] - die bewegte Zeile, für die Ansage
+ */
+function persistItemOrder(groupEl, container, movedRow) {
+  const category = groupEl?.dataset.category;
+  if (!groupEl || !category) return;
+
+  refreshHandleLabels(groupEl.querySelector('.kitchen-rows'));
+  announceItemMove(container, movedRow);
+
+  const running = orderRuns.get(category);
+  if (running) { running.again = true; return; }
+
+  const run    = { again: false };
+  const listId = state.activeListId;
+  orderRuns.set(category, run);
+  (async () => {
+    try {
+      let ok = true;
+      do {
+        run.again = false;
+        ok = await sendItemOrder(groupEl, container, listId);
+      } while (run.again && ok);   // nach einem Fehler hat updateItemsList das DOM zurückgesetzt
+    } finally {
+      orderRuns.delete(category);
+    }
+  })();
 }
 
 /**
