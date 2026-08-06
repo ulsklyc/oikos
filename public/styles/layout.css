@@ -191,8 +191,11 @@
  *
  * NUR MIT FAB: `:has()` fragt die Seite, statt eine Klasse zu verlangen, die
  * beim nächsten neuen Modul vergessen wird. `:not([hidden])`, weil eine Seite
- * ihren FAB zeitweise verbergen kann - dann gehört ihr der Platz. */
-.app-content:has(.page-fab:not([hidden])) {
+ * ihren FAB zeitweise verbergen kann - dann gehört ihr der Platz.
+ *
+ * Gefragt wird an der SHELL, nicht am Scrollport: der FAB hängt seit #634 in
+ * `.fab-layer` neben `.app-content`, nicht mehr darin. */
+.app-shell:has(.fab-layer > .page-fab:not([hidden])) .app-content {
   margin-block-end: var(--fab-safe-zone);
 }
 
@@ -998,6 +1001,29 @@ html:has(.search-overlay--visible) yuvomi-install-prompt {
   from  { transform: scale(0.5) translateY(12px); opacity: 0; }
   65%   { transform: scale(1.07) translateY(-2px); opacity: 1; }
   to    { transform: scale(1)   translateY(0);    opacity: 1; }
+}
+
+/* Wohnort des FAB: ein Shell-Kind neben dem Scrollport, kein Kind von ihm.
+ *
+ * Der FAB ist fixiert, hing aber im Modul-Root und damit im scrollenden
+ * `.app-content`. Ein fixiertes Kind eines Scrollers ist auf iOS nicht
+ * verlässlich viewport-fest (Compositor-Layer des Scrollers) - dieselbe Falle,
+ * die die Bottom-Nav schon aus `position: fixed` geholt hat, siehe dort. Es war
+ * das letzte fixierte Element im Scrollport (#634).
+ *
+ * Die Layer selbst trägt KEIN Layout: 0×0 an der Shell-Ecke. Sichtbar ist allein
+ * ihr fixiertes Kind, dessen Geometrie unverändert aus den --fab-*-Tokens kommt.
+ * Bewusst kein z-index → kein eigener Stacking-Context, die Reihenfolge
+ * gegenüber Nav/Modal/Toast bleibt exakt die alte. Der Modulakzent kommt aus
+ * --active-module-accent (Router setzt es je Route und je Theme), weil die
+ * Vererbung über den Modul-Root hier endet. */
+.fab-layer {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  --module-accent: var(--active-module-accent, var(--color-accent));
 }
 
 .page-fab {

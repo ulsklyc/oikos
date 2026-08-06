@@ -12,6 +12,7 @@ import { stagger } from '/utils/ux.js';
 import { renderSkeletonList } from '/utils/skeleton.js';
 import { formatMoney, amountPlaceholder, toDecimalString, amountIsSavable, smallestUnitLabel } from '/utils/money.js';
 import { wireTablist } from '/utils/tablist.js';
+import { findPageFab } from '/utils/fab.js';
 
 let state = {
   meta: null,
@@ -180,7 +181,7 @@ async function loadMemberCandidates() {
 function bindShell() {
   _container.querySelector('#split-add-group')?.addEventListener('click', () => openGroupModal());
   _container.querySelector('#split-add-expense')?.addEventListener('click', () => openExpenseModal());
-  _container.querySelector('#split-fab')?.addEventListener('click', () => openExpenseModal());
+  findPageFab('split-fab')?.addEventListener('click', () => openExpenseModal());
   let groupSearchTimer;
   _container.querySelector('#split-group-search')?.addEventListener('input', (e) => {
     const value = e.target.value.trim();
@@ -235,7 +236,7 @@ function renderStatusFilter() {
   _statusTablist?.sync(state.groupStatus);
   const addExpense = _container.querySelector('#split-add-expense');
   if (addExpense) addExpense.hidden = isArchivedView();
-  const fab = _container.querySelector('#split-fab');
+  const fab = findPageFab('split-fab');
   if (fab) fab.hidden = isArchivedView();
 }
 

@@ -5,15 +5,19 @@
  * zuvor pro Seite handgeschriebene `<button class="page-fab">`-Markup und gibt
  * Tab-Modulen einen Kontext-FAB, dessen Aktion dem aktiven Tab folgt.
  *
- * Drei Wege:
+ * Vier Wege:
  *   - pageFabHtml()      → HTML-String für Template-Literal-Seiten (eigene Klick-Verdrahtung).
  *   - createPageFab()    → DOM-Element mit onClick, für DOM-basierte / dynamische Seiten.
+ *   - findPageFab()      → den FAB der aktuellen Seite finden (dokumentweit, siehe dort).
  *   - setPageFabAction() → Aktion/Label/Sichtbarkeit eines Kontext-FAB je Tab aktualisieren.
  *
- * Der FAB muss INNERHALB des Modul-Page-Roots hängen (das `--module-accent`
- * setzt), damit er modulfarben wird. Styling lebt in layout.css (.page-fab).
- * Icon-Default: plus (Lucide rendert 24px). Nach dem Einfügen einmal
- * `lucide.createIcons({ el })` auf dem Container aufrufen.
+ * WO DER FAB LEBT: Eine Seite legt ihn in ihrem Page-Root an, aber dort bleibt er
+ * nicht - der Router hebt ihn nach dem Rendern in die Shell-Layer neben dem
+ * Scrollport (adoptPageFab(), #634). Deshalb sucht man ihn dokumentweit und
+ * niemals im Seiten-Container, und deshalb kommt seine Farbe aus
+ * `--active-module-accent` statt aus dem `--module-accent` des Page-Roots.
+ * Styling lebt in layout.css (.page-fab). Icon-Default: plus (Lucide rendert
+ * 24px). Nach dem Einfügen einmal `lucide.createIcons({ el })` aufrufen.
  */
 
 /** Gemeinsame FAB-Markup als HTML-String (Label kommt aus t(), keine Nutzdaten). */
@@ -36,6 +40,18 @@ export function createPageFab({ id = 'page-fab', label = '', icon = 'plus', onCl
   fab.appendChild(glyph);
   if (onClick) fab.addEventListener('click', onClick);
   return fab;
+}
+
+/**
+ * Den FAB einer Seite finden - dokumentweit, nicht im Seiten-Container.
+ *
+ * Ein `container.querySelector('#fab-…')` fand ihn, solange er im Page-Root hing.
+ * Seit er in der Shell lebt (#634), liefert dieselbe Zeile still `null`, und die
+ * Verdrahtung entfällt lautlos: der Knopf ist sichtbar und tut nichts. Diese
+ * Funktion ist die eine Stelle, an der der Ort steht.
+ */
+export function findPageFab(id) {
+  return document.getElementById(id);
 }
 
 /**

@@ -21,6 +21,7 @@ import { wireTablist } from '/utils/tablist.js';
 import { localizeBirthdayEvent } from '/utils/birthday-event.js';
 import { googleTargetValue, caldavTargetValue } from '/utils/sync-target.js';
 import { renderSkeletonList } from '/utils/skeleton.js';
+import { findPageFab } from '/utils/fab.js';
 
 // --------------------------------------------------------
 // Konstanten
@@ -972,7 +973,7 @@ export async function render(container, { user }) {
   renderView();
   bodyEl.removeAttribute('aria-busy');
 
-  container.querySelector('#fab-new-event')?.addEventListener('click', () => openEventModal({ mode: 'create' }));
+  findPageFab('fab-new-event')?.addEventListener('click', () => openEventModal({ mode: 'create' }));
 
   if (initialEvent) {
     const targetDate = deepLinkTargetDate(initialEvent, dateParam);

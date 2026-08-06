@@ -18,6 +18,7 @@ import { addLocalDays, startOfLocalWeekKey, toLocalDateKey } from '/utils/date.j
 import { normalizeRecipeMealTypes, recipeSupportsMealType } from '/utils/recipe-meal-types.js';
 import { mountEmptyState, mountLoadError, emptyStateEl } from '/utils/empty-state.js';
 import { mealPayloadFromRecipe } from '/utils/recipe-to-meal.js';
+import { findPageFab } from '/utils/fab.js';
 
 // --------------------------------------------------------
 // Konstanten
@@ -272,7 +273,7 @@ export async function render(container, { user }) {
   wireRecipeSidebar();
   wireRailToggle();
 
-  container.querySelector('#fab-new-meal').addEventListener('click', () => {
+  findPageFab('fab-new-meal').addEventListener('click', () => {
     const firstType = state.visibleMealTypes[0] ?? 'lunch';
     openMealModal({ mode: 'create', date: today, mealType: firstType });
   });

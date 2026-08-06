@@ -206,7 +206,10 @@
   background-color: color-mix(in srgb, var(--c-accent) 12%, transparent);
 }
 
-.contacts-page.is-selecting .page-fab {
+/* Auswahlmodus verdeckt die Anlege-Affordance. Gefragt wird über :has() am
+ * Dokument, weil der FAB seit #634 nicht mehr unter `.contacts-page` hängt,
+ * sondern in der Shell-Layer neben dem Scrollport. */
+html:has(.contacts-page.is-selecting) .page-fab {
   display: none;
 }
 

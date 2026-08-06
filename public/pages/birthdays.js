@@ -6,6 +6,7 @@ import { esc } from '/utils/html.js';
 import { renderSkeletonList } from '/utils/skeleton.js';
 import { toLocalDateKey } from '/utils/date.js';
 import { renderPageSearch, wirePageSearch } from '/utils/page-search.js';
+import { findPageFab } from '/utils/fab.js';
 
 let state = {
   birthdays: [],
@@ -229,7 +230,7 @@ function renderPage() {
 }
 
 function bindEvents() {
-  _container.querySelector('#fab-new-birthday').addEventListener('click', () => openBirthdayModal({ mode: 'create' }));
+  findPageFab('fab-new-birthday').addEventListener('click', () => openBirthdayModal({ mode: 'create' }));
   _container.querySelector('#birthdays-import-btn')?.addEventListener('click', () => openImportModal());
 
   // Deep-Link aus dem Kontakt-Import („Zu Geburtstagen"): Kandidaten-Modal direkt

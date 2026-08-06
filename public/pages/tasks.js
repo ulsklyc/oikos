@@ -18,6 +18,7 @@ import { renderPageSearch, wirePageSearch } from '/utils/page-search.js';
 import { isPreviewable } from '/utils/document-preview.js';
 import '/components/category-manager.js';
 import '/components/tag-manager.js';
+import { findPageFab } from '/utils/fab.js';
 
 // --------------------------------------------------------
 // Konstanten
@@ -2600,7 +2601,7 @@ function wireNewTaskBtn(container) {
     openTaskModal({ users: state.users }, container);
   };
   container.querySelector('#btn-new-task')?.addEventListener('click', handler);
-  container.querySelector('#fab-new-task')?.addEventListener('click', handler);
+  findPageFab('fab-new-task')?.addEventListener('click', handler);
 }
 
 function updateBulkActionsBar(container) {

@@ -15,6 +15,7 @@ import { renderKitchenTabsBar, refreshKitchenBadges } from '/utils/kitchen-tabs.
 import { mountEmptyState, mountLoadError } from '/utils/empty-state.js';
 import { popoverMenuHtml, installPopoverMenus } from '/utils/popover-menu.js';
 import '/components/category-manager.js';
+import { findPageFab } from '/utils/fab.js';
 
 // --------------------------------------------------------
 // Konstanten
@@ -571,7 +572,7 @@ function _flashAddBtn(btn) {
  */
 function syncQuickAddDisclosure(container, open) {
   const page = container.querySelector('.shopping-page');
-  const fab = container.querySelector('#fab-new-item');
+  const fab = findPageFab('fab-new-item');
   if (!page || !fab) return;
 
   const collapsible = window.matchMedia('(hover: none)').matches && Boolean(state.activeList);
@@ -601,7 +602,7 @@ function wireQuickAdd(container) {
     if (!page?.classList.contains('shopping-page--adding')) return;
     e.stopPropagation();
     syncQuickAddDisclosure(container, false);
-    container.querySelector('#fab-new-item')?.focus();
+    findPageFab('fab-new-item')?.focus();
   });
 
   form.addEventListener('submit', async (e) => {
@@ -1754,7 +1755,7 @@ export async function render(container, { user }) {
   renderListContent(container);
   wireListContentEvents(container);
 
-  container.querySelector('#fab-new-item')?.addEventListener('click', (e) => {
+  findPageFab('fab-new-item')?.addEventListener('click', (e) => {
     const input = container.querySelector('#item-name-input');
     if (!input) {
       // Keine Liste aktiv → neue Liste erstellen

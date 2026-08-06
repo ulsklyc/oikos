@@ -2355,7 +2355,7 @@ test('der FAB weicht der Zeile, statt eine Gasse zu reservieren', () => {
     '--fab-safe-zone muss aus --fab-gap und --fab-size abgeleitet werden');
   assert.match(tokens, /--fab-offset-bottom:\s*calc\([^;]*--fab-gap[^;]*\)/,
     '--fab-offset-bottom und --fab-safe-zone müssen dieselbe Quelle (--fab-gap) haben');
-  assert.match(layout, /\.app-content:has\(\.page-fab[\s\S]*?\{[^}]*margin-block-end:\s*var\(--fab-safe-zone\)/,
+  assert.match(layout, /:has\([^)]*\.page-fab[^)]*\)[^{]*\.app-content\s*\{[^}]*margin-block-end:\s*var\(--fab-safe-zone\)/,
     'der Scrollport muss über der FAB-Zone enden (Marge an .app-content)');
 
   // Die drei auseinandergedrifteten Kopien bleiben abgeschafft. Sie rechneten
@@ -2408,6 +2408,61 @@ test('der FAB weicht der Zeile, statt eine Gasse zu reservieren', () => {
         `${file} blendet den FAB per opacity aus - genau der Zustand aus #634`);
       assert.doesNotMatch(rule, /pointer-events:\s*none/,
         `${file} nimmt dem FAB die Bedienbarkeit - genau der Zustand aus #634`);
+    }
+  }
+});
+
+/**
+ * #634, dritte Runde: der FAB gehört nicht in den Scrollport.
+ *
+ * Nach Retract und Tastatur-Erkennung meldete derselbe Nutzer den Defekt ein
+ * drittes Mal - in der PWA, ohne Adressleiste, ohne Tastatur. Was blieb, war der
+ * Ort: der FAB ist `position: fixed`, hing aber im Modul-Root und damit INNERHALB
+ * von `.app-content`, dem Container, der auf den meisten Routen scrollt. Ein
+ * fixiertes Kind eines Scrollers ist auf iOS nicht verlässlich viewport-fest; es
+ * wird gegen den gescrollten Inhalt aufgelöst und wandert mit der wachsenden
+ * Liste aus dem Bild. Genau die Falle, die die Bottom-Nav schon aus
+ * `position: fixed` geholt hatte - der FAB war das letzte fixierte Element, das
+ * noch im Scrollport stand.
+ *
+ * Die Zusicherung ist der ORT, nicht der Weg dorthin: der FAB hängt in einer
+ * Shell-Layer neben `.app-content`, und kein Stylesheet darf ihn wieder über
+ * einen Modul-Kontext adressieren - eine solche Kette existiert nach dem Umzug
+ * nicht mehr und wäre still wirkungslos.
+ */
+test('der Page-FAB hängt in der Shell, nicht im Scrollport', () => {
+  const router = read('../public/router.js');
+  const layout = read('../public/styles/layout.css');
+  const styleDir = new URL('../public/styles/', import.meta.url);
+
+  // 1. Die Layer ist ein Geschwister von .app-content, kein Kind.
+  assert.match(router, /shellNodes\s*=\s*\[[^\]]*\bmain\b\s*,\s*fabLayer\s*,\s*bottomNav/,
+    'die FAB-Layer muss als Shell-Kind zwischen Scrollport und Bottom-Nav hängen (#634)');
+  assert.match(layout, /\.fab-layer\s*\{[^}]*position:\s*absolute/,
+    '.fab-layer braucht einen eigenen Kasten an der Shell-Ecke (#634)');
+
+  // 2. Jede Seite zieht ihren FAB dorthin um - auch die, die ihn erst nach den
+  //    Daten anlegt, und auch die Soft-Navigation zwischen Tabs.
+  assert.ok((router.match(/adoptPageFab\(\)/g) ?? []).length >= 4,
+    'adoptPageFab() muss definiert und an allen Renderpfaden aufgerufen werden (#634)');
+  assert.match(router, /clearPageFab\(\)/,
+    'der FAB der alten Seite muss mit ihrem Inhalt verschwinden, nicht später (#634)');
+
+  // 3. Und niemand adressiert ihn wieder über einen Modul-Vorfahren. Das ist eine
+  //    Regel über alle Stylesheets, keine Allowlist: erlaubt sind nur Wurzeln,
+  //    die den Umzug überleben (Dokument, Shell, Layer).
+  const ALLOWED_ROOT = /^(html|body|:root|\.app-shell|\.fab-layer|\.keyboard-visible)/;
+  for (const file of readdirSync(styleDir).filter((f) => f.endsWith('.css'))) {
+    const live = read(`../public/styles/${file}`).replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const block of live.match(/[^{}]*\{[^}]*\}/g) ?? []) {
+      const selectors = block.slice(0, block.indexOf('{')).split(',');
+      for (const selector of selectors) {
+        if (!selector.includes('.page-fab')) continue;
+        const prefix = selector.slice(0, selector.indexOf('.page-fab')).trim();
+        assert.ok(prefix === '' || ALLOWED_ROOT.test(prefix),
+          `${file}: "${selector.trim()}" adressiert den FAB über einen Modul-Kontext - `
+          + 'seit #634 hängt er in der Shell, die Kette greift nicht mehr');
+      }
     }
   }
 });

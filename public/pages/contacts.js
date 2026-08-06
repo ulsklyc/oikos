@@ -16,6 +16,7 @@ import { parseVCards } from '/utils/vcard.js';
 import { composeDisplayName, contactSortKey, splitDisplayName } from '/utils/contact-name.js';
 import { getPhoneFormatter, createAsYouType, countryFromRegion } from '/utils/phone.js';
 import '/components/category-manager.js';
+import { findPageFab } from '/utils/fab.js';
 
 // --------------------------------------------------------
 // Konstanten
@@ -252,7 +253,7 @@ export async function render(container, { user }) {
   // Neu
   const addHandler = () => openContactModal({ mode: 'create' });
   _container.querySelector('#contacts-add-btn').addEventListener('click', addHandler);
-  _container.querySelector('#fab-new-contact').addEventListener('click', addHandler);
+  findPageFab('fab-new-contact').addEventListener('click', addHandler);
 
   // Auswahl-Modus (opt-in): Toggle in der Toolbar + Aktionen in der Auswahl-Leiste.
   _container.querySelector('#contacts-select-btn').addEventListener('click', () => {

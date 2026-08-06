@@ -12,6 +12,7 @@ import { esc, renderMarkdownLight } from '/utils/html.js';
 import { getReadableTextColor } from '/utils/color.js';
 import { renderSkeletonList } from '/utils/skeleton.js';
 import { renderPageSearch, wirePageSearch } from '/utils/page-search.js';
+import { findPageFab } from '/utils/fab.js';
 
 // --------------------------------------------------------
 // Konstanten
@@ -108,7 +109,7 @@ export async function render(container, { user }) {
   // #notes-add-btn ist per .toolbar-new-btn global ausgeblendet (FAB übernimmt),
   // bleibt aber als einheitliches Modul-Muster erhalten (frontend-audit 1.9).
   _container.querySelector('#notes-add-btn').addEventListener('click', addHandler);
-  _container.querySelector('#fab-new-note').addEventListener('click', addHandler);
+  findPageFab('fab-new-note').addEventListener('click', addHandler);
 
   wirePageSearch(_container, {
     id: 'notes-search',

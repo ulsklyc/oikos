@@ -23,6 +23,7 @@ import { budgetCategoryLabel } from '/utils/category-labels.js';
 import { intervalUnitLabel } from '/rrule-ui.js';
 import { appendCurrencyOptions } from '/settings/currency.js';
 import '/components/category-manager.js';
+import { findPageFab } from '/utils/fab.js';
 
 // --------------------------------------------------------
 // Konstanten
@@ -536,7 +537,7 @@ function wireNav() {
     }
   };
   _container.querySelector('#budget-add').addEventListener('click', addHandler);
-  _container.querySelector('#fab-new-budget').addEventListener('click', addHandler);
+  findPageFab('fab-new-budget').addEventListener('click', addHandler);
   // Geteilte Tablist-Verhaltensschicht (Klick + Pfeiltasten/Home/End + Roving-
   // Tabindex + ARIA) — dieselbe Grammatik wie Rewards/Haushaltshilfe statt einer
   // modul-eigenen Nachbildung (utils/tablist.js). wireTablist malt den aktiven
@@ -855,7 +856,7 @@ function updateTabs() {
       addBtn.setAttribute('title', addLabel);
     }
   }
-  const fab = _container.querySelector('#fab-new-budget');
+  const fab = findPageFab('fab-new-budget');
   if (fab) {
     fab.hidden = !caps.add;
     if (caps.add) fab.setAttribute('aria-label', addLabel);

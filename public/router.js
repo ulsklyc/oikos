@@ -709,6 +709,9 @@ async function navigate(path, userOrPushState = true, pushState = true) {
         // weil kein Teardown existiert, an den man sich hängen könnte.
         const main = document.getElementById('main-content');
         if (main) main.scrollTop = scrollTarget;
+        // Ein Tabwechsel kann einen neuen FAB anlegen (Health-Tabs) - der muss
+        // denselben Weg aus dem Scrollport nehmen wie beim vollen Rendern.
+        adoptPageFab();
         updateNav(topLevelSection(basePath));
         return;
       }
@@ -1119,6 +1122,11 @@ async function renderPage(route, previousPath = null, scrollTarget = 0) {
     // Wiederherstellung bei popstate darf und soll das dagegen überschreiben,
     // sie steht deshalb unten hinter dem await.
     content.scrollTop = 0;
+    // Der FAB der alten Seite lebt in der Shell und fiele sonst nicht mit ihrem
+    // Inhalt weg - er bliebe über der neuen Seite stehen, bis diese adoptiert.
+    // Hier und nicht eine Zeile höher: der Scroll-Reset gehört unmittelbar an
+    // den Inhaltstausch (Guard in test-mobile-scroll-layout.js).
+    clearPageFab();
     style.cleanup();
 
     // Teardown abgeschlossen: ein evtl. gemerktes Soft-Update-Ziel ist jetzt
@@ -1133,6 +1141,11 @@ async function renderPage(route, previousPath = null, scrollTarget = 0) {
     // wodurch jedes vor dem Daten-await geseedete Skeleton beim Erstladen nie
     // erschien). Der Rest von render() (Daten + Verdrahtung) wird danach abgewartet.
     const renderPromise = module.render(pageWrapper, { user: currentUser });
+
+    // Schon jetzt umziehen, nicht erst nach den Daten: die meisten Seiten legen
+    // ihren FAB im synchronen Teil an, und er soll gar nicht erst im Scrollport
+    // erscheinen. Der zweite Aufruf unten holt die Nachzügler.
+    adoptPageFab();
 
     // Sichtbar machen und Einblend-Animation starten (Skeleton/Grundgerüst).
     pageWrapper.style.opacity = shouldAnimate ? '' : '1';
@@ -1164,7 +1177,7 @@ async function renderPage(route, previousPath = null, scrollTarget = 0) {
     _renderedModuleName = route.module;
 
     // FAB Long Loop: Einstiegsanimation nach FAB_SEEN_MAX Views pro Modul deaktivieren
-    const pageFab = pageWrapper.querySelector('.page-fab');
+    const pageFab = adoptPageFab();
     if (pageFab) {
       // Shortcut-Discoverability (Audit P3): der 'n'-Chord öffnet den FAB — als
       // Tooltip-Titel + aria-keyshortcuts sichtbar bzw. vorlesbar machen.
@@ -1424,6 +1437,13 @@ function renderAppShell(container) {
   main.id = 'main-content';
   main.tabIndex = -1;
 
+  // Wohnort des Page-FAB, außerhalb des Scrollports (#634). Der Knopf gehört
+  // inhaltlich zur Seite, aber nicht in den scrollenden Container - Begründung
+  // an `.fab-layer` in layout.css und an adoptPageFab().
+  const fabLayer = document.createElement('div');
+  fabLayer.className = 'fab-layer';
+  fabLayer.id = 'fab-layer';
+
   const bottomNav = document.createElement('nav');
   bottomNav.className = 'nav-bottom';
   bottomNav.setAttribute('aria-label', t('nav.navigation'));
@@ -1567,7 +1587,7 @@ function renderAppShell(container) {
     lgBackdrop.appendChild(blob);
   }
 
-  const shellNodes = [skipLink, lgBackdrop, sidebar, main, bottomNav];
+  const shellNodes = [skipLink, lgBackdrop, sidebar, main, fabLayer, bottomNav];
   if (backdrop)   shellNodes.push(backdrop);
   if (moreSheet)  shellNodes.push(moreSheet);
   shellNodes.push(searchOverlay, toastContainerPolite, toastContainerAssertive, routeAnnouncer);
@@ -1602,6 +1622,46 @@ function renderAppShell(container) {
   // Hauptnavigation im Leerlauf vorwärmen — die erste Modulnavigation soll
   // ohne Kaltstart-Wasserfall auskommen.
   warmPrimaryRoutes();
+}
+
+/**
+ * Den Page-FAB der aktuellen Seite in die App-Shell heben (#634).
+ *
+ * WARUM AUS DEM SCROLLPORT HERAUS. Der FAB ist `position: fixed`, hing aber im
+ * Modul-Root und damit INNERHALB von `.app-content` - dem Container, der auf
+ * den meisten Routen scrollt. Auf iOS bekommt ein solcher Scroller einen
+ * eigenen Compositor-Layer, und ein fixiertes Kind darin ist dort nicht
+ * verlässlich viewport-fest: es wird gegen den gescrollten Inhalt statt gegen
+ * den Viewport aufgelöst, wandert beim Laden mit der wachsenden Liste nach
+ * unten aus dem Bild und kommt ohne Repaint nicht zurück. Genau das
+ * beschreibt der Melder in #634 - erst mittig rechts, dann weg, und zwar in
+ * den Modulen, in denen .app-content wirklich scrollt (Aufgaben, Vorrat),
+ * während er anderswo nach dem Laden an seinen Platz springt.
+ *
+ * Dieselbe Falle hatte die Bottom-Nav schon einmal: sie ist deshalb längst
+ * `position: relative` und ein Flex-Kind der Shell (Begründung an `.nav-bottom`
+ * in layout.css). Der FAB war das letzte fixierte Element im Scrollport.
+ *
+ * Der Modulakzent geht dabei nicht verloren: die Layer liest ihn aus
+ * `--active-module-accent`, das applyModuleAccentForRoute() ohnehin bei jeder
+ * Navigation (und bei jedem Theme-Wechsel) auf <html> setzt.
+ *
+ * Idempotent: Der Aufruf sucht einen FAB im Inhalt und zieht ihn um; ist
+ * keiner da, bleibt der bereits umgezogene stehen. Ein DOM-Umzug behält
+ * Event-Listener, Referenzen (health/housekeeping/rewards halten ihren FAB)
+ * bleiben gültig.
+ */
+function adoptPageFab() {
+  const layer = document.getElementById('fab-layer');
+  if (!layer) return null;
+  const fresh = document.querySelector('#main-content .page-fab');
+  if (fresh) layer.replaceChildren(fresh);
+  return layer.firstElementChild;
+}
+
+/** FAB der alten Seite abräumen - zusammen mit deren Inhalt, nicht später. */
+function clearPageFab() {
+  document.getElementById('fab-layer')?.replaceChildren();
 }
 
 const FAB_SEEN_KEY = (module) => `yuvomi:fabSeen:${module}`;

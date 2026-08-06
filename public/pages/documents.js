@@ -12,6 +12,7 @@ import { stagger, wireScrollFade, scheduleUndoableDelete } from '/utils/ux.js';
 import { renderSkeletonList } from '/utils/skeleton.js';
 import { renderPageSearch, wirePageSearch } from '/utils/page-search.js';
 import { previewKind } from '/utils/document-preview.js';
+import { findPageFab } from '/utils/fab.js';
 
 const CATEGORIES = ['medical', 'school', 'identity', 'insurance', 'finance', 'home', 'vehicle', 'legal', 'travel', 'pets', 'warranty', 'taxes', 'work', 'other'];
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -242,7 +243,7 @@ function applyFilters() {
 
 function bindPageEvents() {
   _container.querySelector('#documents-folder-add')?.addEventListener('click', () => openFolderModal());
-  _container.querySelector('#fab-new-document')?.addEventListener('click', () => openDocumentModal());
+  findPageFab('fab-new-document')?.addEventListener('click', () => openDocumentModal());
 
   _search = wirePageSearch(_container, {
     id: 'documents-search',
