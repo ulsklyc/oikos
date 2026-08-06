@@ -1,12 +1,12 @@
 /**
- * Test-Suite: Migration v131 - mealie_accounts -> recipe_provider_accounts.
+ * Test-Suite: Migration v132 - mealie_accounts -> recipe_provider_accounts.
  *
  * Deckt die Rename-Transition selbst ab (RENAME TO / RENAME COLUMN statt
  * Rebuild-Migration): Bestandszeilen überleben, der updated_at-Trigger feuert
  * nach der Umbenennung weiter, das FK-Ziel und der partielle UNIQUE-Index
  * werden korrekt umgeleitet, und Cascade-Delete funktioniert weiterhin unter
  * den neuen Spaltennamen. Alle übrigen Recipe-Provider-Tests booten bereits
- * gegen ein Schema mit angewandter v131 - nur dieser Test prüft die
+ * gegen ein Schema mit angewandter v132 - nur dieser Test prüft die
  * Migration selbst, analog zu test/test-rename-migration.js (dort für die
  * Legacy-DB-Datei-Migration) und den migration-vNN-Tests in
  * test/test-document-storage.js (dort für v51).
@@ -71,7 +71,7 @@ function buildV130Database(t) {
   return db;
 }
 
-// Bestand direkt vor v131: ein mealie_accounts-Konto, ein darauf gespiegeltes
+// Bestand direkt vor v132: ein mealie_accounts-Konto, ein darauf gespiegeltes
 // Rezept (alte mealie_*-Spalten befüllt) und eine daran hängende Zutat.
 function seedPreMigrationData(db) {
   const userId = db.prepare(`
@@ -102,11 +102,11 @@ function seedPreMigrationData(db) {
   return { userId, accountId, recipeId, ingredientId };
 }
 
-test('migration v131: mealie_accounts -> recipe_provider_accounts rename erhält Konto-, Rezept- und Zutatendaten', (t) => {
+test('migration v132: mealie_accounts -> recipe_provider_accounts rename erhält Konto-, Rezept- und Zutatendaten', (t) => {
   const db = buildV130Database(t);
   const { accountId, recipeId, ingredientId } = seedPreMigrationData(db);
-  const migration = MIGRATIONS.find(({ version }) => version === 131);
-  assert.ok(migration, 'migration v131 must exist');
+  const migration = MIGRATIONS.find(({ version }) => version === 132);
+  assert.ok(migration, 'migration v132 must exist');
 
   applyMigration(db, migration);
 
@@ -142,10 +142,10 @@ test('migration v131: mealie_accounts -> recipe_provider_accounts rename erhält
   assert.deepEqual(db.pragma('foreign_key_check'), [], 'DB muss nach der Migration FK-konsistent bleiben');
 });
 
-test('migration v131: provider-CHECK erlaubt mealie/tandoor, lehnt unbekannte Provider ab', (t) => {
+test('migration v132: provider-CHECK erlaubt mealie/tandoor, lehnt unbekannte Provider ab', (t) => {
   const db = buildV130Database(t);
   const { userId } = seedPreMigrationData(db);
-  applyMigration(db, MIGRATIONS.find(({ version }) => version === 131));
+  applyMigration(db, MIGRATIONS.find(({ version }) => version === 132));
 
   assert.doesNotThrow(() => db.prepare(`
     INSERT INTO recipe_provider_accounts (name, base_url, api_token, provider, created_by)
@@ -158,10 +158,10 @@ test('migration v131: provider-CHECK erlaubt mealie/tandoor, lehnt unbekannte Pr
   `).run(userId), /CHECK constraint failed/, 'unbekannter provider-Wert muss am CHECK scheitern');
 });
 
-test('migration v131: updated_at-Trigger feuert nach der Umbenennung weiter', (t) => {
+test('migration v132: updated_at-Trigger feuert nach der Umbenennung weiter', (t) => {
   const db = buildV130Database(t);
   const { accountId } = seedPreMigrationData(db);
-  applyMigration(db, MIGRATIONS.find(({ version }) => version === 131));
+  applyMigration(db, MIGRATIONS.find(({ version }) => version === 132));
 
   // trg_mealie_accounts_updated_at feuert AFTER UPDATE ON (jetzt)
   // recipe_provider_accounts. Ein manuell gesetzter Sentinel-Wert wird vom
@@ -172,10 +172,10 @@ test('migration v131: updated_at-Trigger feuert nach der Umbenennung weiter', (t
   assert.notEqual(row.updated_at, '2000-01-01T00:00:00Z', 'Trigger muss den manuell gesetzten Wert überschreiben');
 });
 
-test('migration v131: partieller UNIQUE-Index und ON-DELETE-CASCADE bleiben unter den neuen Spaltennamen aktiv', (t) => {
+test('migration v132: partieller UNIQUE-Index und ON-DELETE-CASCADE bleiben unter den neuen Spaltennamen aktiv', (t) => {
   const db = buildV130Database(t);
   const { userId, accountId, recipeId, ingredientId } = seedPreMigrationData(db);
-  applyMigration(db, MIGRATIONS.find(({ version }) => version === 131));
+  applyMigration(db, MIGRATIONS.find(({ version }) => version === 132));
 
   // idx_recipes_mealie_unique deckte (mealie_account_id, mealie_recipe_id) ab
   // und muss nach dem Spalten-Rename weiter (provider_account_id,

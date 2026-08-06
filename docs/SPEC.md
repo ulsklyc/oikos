@@ -264,11 +264,11 @@ Reusable recipe cards that can be pre-filled into meal slots.
 | recipe_url | TEXT | nullable |
 | meal_types | TEXT | NOT NULL, default `breakfast,lunch,dinner,snack` — comma-separated suitability list; drives which planner slots a recipe fits and the week randomizer's candidate pool (v1.3.0) |
 | created_by | INTEGER | FK → Users (CASCADE delete) |
-| provider_account_id | INTEGER | nullable, FK → Recipe Provider Accounts (CASCADE delete); NULL = native recipe, set = mirrored (migration v118, renamed v131) |
-| provider_recipe_id | TEXT | nullable (the provider's own recipe ID; upsert key on repeated syncs, migration v118, renamed v131) |
-| provider_updated_at | TEXT | nullable (the provider's `updatedAt`; unchanged recipes are skipped, migration v118, renamed v131) |
-| provider_slug | TEXT | nullable, adapter-defined (Mealie: its recipe slug, for rebuilding `recipe_url` without a re-fetch; Tandoor: the relative image path, for the thumbnail proxy; migration v120, renamed v131) |
-| provider_has_image | INTEGER | 0/1, NOT NULL default 0 (migration v120, renamed v131) |
+| provider_account_id | INTEGER | nullable, FK → Recipe Provider Accounts (CASCADE delete); NULL = native recipe, set = mirrored (migration v118, renamed v132) |
+| provider_recipe_id | TEXT | nullable (the provider's own recipe ID; upsert key on repeated syncs, migration v118, renamed v132) |
+| provider_updated_at | TEXT | nullable (the provider's `updatedAt`; unchanged recipes are skipped, migration v118, renamed v132) |
+| provider_slug | TEXT | nullable, adapter-defined (Mealie: its recipe slug, for rebuilding `recipe_url` without a re-fetch; Tandoor: the relative image path, for the thumbnail proxy; migration v120, renamed v132) |
+| provider_has_image | INTEGER | 0/1, NOT NULL default 0 (migration v120, renamed v132) |
 
 UNIQUE partial index on `(provider_account_id, provider_recipe_id)` where `provider_account_id IS NOT NULL`.
 
@@ -280,7 +280,7 @@ UNIQUE partial index on `(provider_account_id, provider_recipe_id)` where `provi
 | quantity | TEXT | |
 | category | TEXT | NOT NULL (default 'Sonstiges') |
 
-### Recipe Provider Accounts (migration v118, v119, v131)
+### Recipe Provider Accounts (migration v118, v119, v132)
 Connections to a self-hosted recipe provider instance ([Mealie](https://mealie.io) or [Tandoor](https://tandoor.dev))
 for the Recipes module. Admin-managed in Settings → Kitchen. The mirror is **read-only**: the provider
 stays the source of truth for recipe content, so editing or deleting a mirrored recipe returns 403
@@ -288,7 +288,7 @@ server-side (not merely hidden in the UI) — "Duplicate" forks one into an edit
 
 | Column | Type | Constraint |
 |--------|------|-----------|
-| provider | TEXT | NOT NULL, default `'mealie'`, CHECK IN (`'mealie'`, `'tandoor'`) (migration v131) |
+| provider | TEXT | NOT NULL, default `'mealie'`, CHECK IN (`'mealie'`, `'tandoor'`) (migration v132) |
 | name | TEXT | NOT NULL (display name) |
 | base_url | TEXT | NOT NULL, UNIQUE — must be reachable **from the server** (often a Docker-internal Compose hostname) |
 | external_url | TEXT | nullable (migration v119) — public address used only to build "Open in Mealie/Tandoor" deep links; falls back to `base_url` when blank |
