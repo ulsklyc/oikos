@@ -444,7 +444,10 @@
         "toPantryDoneAt_few": "{{location}} में {{count}} आइटम जोड़े गए।",
         "toPantryDone": "{{count}} वस्तुएँ भंडार में जोड़ी गईं.",
         "toPantryDone_one": "{{count}} वस्तु भंडार में जोड़ी गई.",
-        "toPantryNothing": "भंडार में कुछ नहीं जोड़ा गया. „भंडार में\" फिर खोलें और मात्रा जाँचें."
+        "toPantryNothing": "भंडार में कुछ नहीं जोड़ा गया. „भंडार में\" फिर खोलें और मात्रा जाँचें.",
+        "reorderHandle": "क्रम बदलें: {{name}}",
+        "reorderHandleHint": "क्रम बदलने के लिए खींचें या तीर कुंजियों का उपयोग करें",
+        "reorderPosition": "{{total}} में से स्थान {{index}}"
     },
     "meals": {
         "randomizeSuccess_few": "{{count}} भोजन योजनाबद्ध किए गए।",

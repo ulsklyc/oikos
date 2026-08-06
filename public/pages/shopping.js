@@ -16,6 +16,7 @@ import { mountEmptyState, mountLoadError } from '/utils/empty-state.js';
 import { popoverMenuHtml, installPopoverMenus } from '/utils/popover-menu.js';
 import '/components/category-manager.js';
 import { findPageFab } from '/utils/fab.js';
+import { makeSortable } from '/utils/sortable.js';
 
 // --------------------------------------------------------
 // Konstanten
@@ -280,12 +281,19 @@ function renderListContent(container) {
     <!-- Artikel-Liste; Inhalt via mountItems(), damit der Leerzustand über den
          geteilten Renderer läuft statt als HTML-String hier drin. -->
     <div class="kitchen-list items-list" id="items-list"></div>
+
+    <!-- Ansage für Umsortierungen (#678), wie im Kategorie-Manager: das
+         aria-label des Griffs allein ist zu leise - ob ein Screenreader die
+         Label-Änderung am fokussierten Element vorliest, ist von Programm zu
+         Programm verschieden. Eine Live-Region ist die verlässliche Zusage. -->
+    <div class="sr-only" role="status" aria-live="polite" id="items-reorder-announce"></div>
   `);
 
   mountItems(content.querySelector('#items-list'), container);
 
   if (window.lucide) window.lucide.createIcons({ el: content });
   stagger(content.querySelectorAll('.shopping-item'));
+  wireItemReorder(container);
   wireAutocomplete(container);
   wireQuickAdd(container);
   syncQuickAddDisclosure(container, false);
@@ -348,7 +356,7 @@ function renderItems() {
   // sind flächenlos - vorher war Einkaufen eine Trennlinien-Liste und der Vorrat
   // eine Kartenliste, dieselbe Sache in zwei Paradigmen (Critique 2026-07-30).
   return groups.map(([cat, items]) => `
-    <div class="kitchen-group item-category">
+    <div class="kitchen-group item-category" data-category="${esc(cat)}">
       <div class="kitchen-group__title">
         <i data-lucide="${catIcon(cat)}" class="icon-sm" aria-hidden="true"></i>
         ${esc(categoryLabel(cat))}
@@ -424,6 +432,17 @@ function renderItem(item) {
              vorher hingen die zwei Buttons als direkte Flex-Kinder in der Zeile,
              wodurch die Bedienzone in jedem Tab anders zusammengesetzt war. -->
         <div class="kitchen-row__actions">
+          <!-- Griff für die Handsortierung (#678). Ein BUTTON, kein role="img"
+               wie im Kategorie-Manager: dort steht daneben ein Auf/Ab-Paar als
+               Tastaturpfad, hier trägt der Griff ihn selbst (Pfeiltasten bei
+               Fokus). Die Einkaufszeile hat schon Abhaken, Details, Löschen und
+               zwei Wischgesten - zwei weitere Knöpfe hätten die Bedienzone auf
+               dem Handy zugestellt. -->
+          <button class="row-action kitchen-row__drag" data-action="reorder-handle" data-id="${item.id}"
+                  aria-label="${t('shopping.reorderHandle', { name: esc(item.name) })}"
+                  title="${t('shopping.reorderHandleHint')}">
+            <i data-lucide="grip-vertical" class="icon-md" aria-hidden="true"></i>
+          </button>
           <button class="row-action" data-action="item-details" data-id="${item.id}"
                   aria-label="${t('shopping.detailsLabel', { name: esc(item.name) })}">
             <i data-lucide="pencil" class="icon-md" aria-hidden="true"></i>
@@ -662,6 +681,166 @@ function maybeShowSwipeHint(container) {
 }
 
 // --------------------------------------------------------
+// Handsortierung innerhalb einer Kategorie (#678)
+// --------------------------------------------------------
+
+/** Laufende Sortable-Instanzen, damit ein Neuaufbau der Liste sie abräumt. */
+let itemSortables = [];
+
+function destroyItemSortables() {
+  itemSortables.forEach((inst) => { try { inst.destroy(); } catch { /* schon abgeräumt */ } });
+  itemSortables = [];
+}
+
+/** Ziehbare (= nicht abgehakte) Zeilen einer Gruppe in DOM-Reihenfolge. */
+function movableRows(rowsEl) {
+  return Array.from(rowsEl.querySelectorAll(':scope > .swipe-row:not([data-swipe-checked="1"])'));
+}
+
+/**
+ * Schreibt Position und Gesamtzahl in die Griff-Beschriftungen einer Gruppe.
+ *
+ * Nach jedem Zug erneut: der Griff ist bei der Tastaturbedienung das fokussierte
+ * Element, und seine Beschriftung ist die einzige Rückmeldung darüber, wo der
+ * Artikel jetzt steht. Ein statisches „Reihenfolge ändern" ließe Screenreader-
+ * Nutzer nach dem Tastendruck ohne Bestätigung zurück.
+ */
+function refreshHandleLabels(rowsEl) {
+  if (!rowsEl) return;
+  const rows = movableRows(rowsEl);
+  rows.forEach((row, idx) => {
+    const handle = row.querySelector('.kitchen-row__drag');
+    const name   = row.querySelector('.kitchen-row__name')?.textContent?.trim() ?? '';
+    if (!handle) return;
+    handle.removeAttribute('disabled');
+    handle.setAttribute('aria-label', `${t('shopping.reorderHandle', { name })}, ${
+      t('shopping.reorderPosition', { index: idx + 1, total: rows.length })}`);
+  });
+  // Abgehakte Artikel sortieren sich nicht: sie stehen ohnehin am Ende ihrer
+  // Kategorie (ORDER BY is_checked vor sort_order), ein Zug an ihnen wäre
+  // folgenlos. Der Griff bleibt sichtbar, damit die Zeile ihre Form behält.
+  //
+  // Beide Richtungen in EINER Funktion: das Zurückholen eines Artikels ist so
+  // alltäglich wie das Abhaken, und ein nur gesetztes `disabled` hätte den Griff
+  // bis zum nächsten Voll-Render tot gelassen.
+  rowsEl.querySelectorAll(':scope > [data-swipe-checked="1"] .kitchen-row__drag')
+    .forEach((handle) => handle.setAttribute('disabled', ''));
+}
+
+/**
+ * Sagt die neue Position einer bewegten Zeile über die Live-Region an.
+ * Nutzt bewusst `category.reorderAnnounce` mit: der Satz ist wortgleich, und
+ * eine zweite Fassung derselben Aussage wäre 24 Übersetzungen, die
+ * auseinanderlaufen können.
+ */
+function announceItemMove(container, row) {
+  const el = container?.querySelector('#items-reorder-announce');
+  if (!el || !row) return;
+  const rows = movableRows(row.parentElement);
+  const idx  = rows.indexOf(row);
+  if (idx === -1) return;
+  el.textContent = t('category.reorderAnnounce', {
+    name:     row.querySelector('.kitchen-row__name')?.textContent?.trim() ?? '',
+    position: idx + 1,
+    total:    rows.length,
+  });
+}
+
+/**
+ * Neue Reihenfolge einer Gruppe sichern. Geteilter Persistenz-Pfad von Drag und
+ * Pfeiltasten - beide haben das DOM vorher schon umgestellt, deshalb baut der
+ * Fehlerfall die Liste aus dem unveränderten State neu auf.
+ *
+ * @param {HTMLElement} [movedRow] - die bewegte Zeile, für die Ansage
+ */
+async function persistItemOrder(groupEl, container, movedRow) {
+  const rowsEl   = groupEl?.querySelector('.kitchen-rows');
+  const category = groupEl?.dataset.category;
+  if (!rowsEl || !category) return;
+
+  refreshHandleLabels(rowsEl);
+  announceItemMove(container, movedRow);
+
+  // Alle Artikel der Kategorie, auch die abgehakten: die Route verlangt die
+  // vollständige Gruppe, sonst kollidieren die neuen Ränge mit den alten.
+  const order = Array.from(rowsEl.querySelectorAll(':scope > .swipe-row'))
+    .map((row) => Number(row.dataset.swipeId));
+
+  try {
+    const data = await api.patch(`/shopping/${state.activeListId}/items/reorder`, { category, order });
+    // Nur den State nachziehen, nicht neu zeichnen: das DOM steht bereits
+    // richtig, und ein Re-Render würde den Fokus vom Griff nehmen - mitten in
+    // einer Tastaturbedienung wäre das das Ende der Bedienkette.
+    state.items = data.data ?? state.items;
+  } catch (err) {
+    window.yuvomi.showToast(err.data?.error ?? t('common.errorGeneric'), 'danger');
+    updateItemsList(container);
+  }
+}
+
+/**
+ * Verschiebt eine Zeile um einen Platz und hält den Fokus auf ihrem Griff.
+ * @param {HTMLElement} row
+ * @param {-1|1} delta
+ */
+function moveItemRow(row, delta, container) {
+  const rowsEl = row.parentElement;
+  const rows   = movableRows(rowsEl);
+  const idx    = rows.indexOf(row);
+  const target = idx + delta;
+  if (idx === -1 || target < 0 || target >= rows.length) return;
+
+  if (delta < 0) rowsEl.insertBefore(row, rows[target]);
+  else           rowsEl.insertBefore(row, rows[target].nextSibling);
+
+  vibrate(15);
+  row.querySelector('.kitchen-row__drag')?.focus();
+  persistItemOrder(rowsEl.closest('.kitchen-group'), container, row);
+}
+
+/**
+ * Verdrahtet je Kategorie-Gruppe das Ziehen und die Pfeiltasten am Griff.
+ *
+ * Je Gruppe eine eigene Instanz und kein `group`-Verbund: ein Zug von „Obst"
+ * nach „Backwaren" wäre ein Kategoriewechsel, keine Umsortierung - dafür gibt es
+ * den Detail-Dialog, und die Ränge gelten ohnehin je Kategorie.
+ */
+function wireItemReorder(container) {
+  const listEl = container.querySelector('#items-list');
+  if (!listEl) return;
+  destroyItemSortables();
+
+  listEl.querySelectorAll('.kitchen-group').forEach((groupEl) => {
+    const rowsEl = groupEl.querySelector('.kitchen-rows');
+    if (!rowsEl) return;
+    refreshHandleLabels(rowsEl);
+
+    makeSortable(rowsEl, {
+      handle: '.kitchen-row__drag',
+      draggable: '.swipe-row',
+      // Abgehaktes bleibt liegen: es steht am Ende der Kategorie, und ein Zug
+      // daran würde beim nächsten Laden zurückspringen.
+      filter: '[data-swipe-checked="1"]',
+      onEnd: (evt) => persistItemOrder(groupEl, container, evt?.item),
+    }).then((inst) => { if (inst) itemSortables.push(inst); })
+      .catch(() => { /* ohne SortableJS bleibt der Tastaturpfad */ });
+  });
+
+  // Tastaturpfad, delegiert: derselbe Persistenz-Handler wie das Drag-Ende.
+  // Einmal pro #items-list-Element - mountItems() tauscht nur dessen Inhalt aus,
+  // ein Listener pro Aufruf hätte sich mit jedem Nachladen gestapelt.
+  if (listEl.dataset.reorderWired) return;
+  listEl.dataset.reorderWired = '1';
+  listEl.addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+    const handle = e.target.closest?.('.kitchen-row__drag');
+    if (!handle || handle.disabled) return;
+    e.preventDefault();
+    moveItemRow(handle.closest('.swipe-row'), e.key === 'ArrowUp' ? -1 : 1, container);
+  });
+}
+
+// --------------------------------------------------------
 // Swipe-Gesten
 // --------------------------------------------------------
 
@@ -687,6 +866,10 @@ function wireSwipeGestures(container) {
 
     row.addEventListener('touchstart', (e) => {
       if (document.getElementById('shared-modal-overlay')) return;
+      // Am Sortiergriff gehört die Geste dem Ziehen (#678). Ohne diese Ausnahme
+      // liefe beim Hochziehen einer Zeile das seitliche Wackeln als Wischweg mit
+      // und die Karte würde unter dem Finger nach „erledigt" rutschen.
+      if (e.target.closest?.('.kitchen-row__drag')) { locked = 'scroll'; return; }
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
       dx     = 0;
@@ -831,6 +1014,10 @@ function updateItemRow(container, item) {
       ? t('shopping.markUndoneLabel', { name: item.name })
       : t('shopping.markDoneLabel', { name: item.name }));
   }
+
+  // Der Sortiergriff hängt am Erledigt-Zustand (#678): abgehaktes sortiert sich
+  // nicht, und die Positionsangaben der Gruppe verschieben sich mit.
+  refreshHandleLabels(row.closest('.kitchen-rows'));
 
   // Swipe-Affordance (links) spiegelt den neuen Status
   const reveal = row.querySelector('.swipe-reveal--done');
@@ -1020,6 +1207,7 @@ function updateItemsList(container) {
     if (window.lucide) window.lucide.createIcons({ el: listEl });
     stagger(listEl.querySelectorAll('.shopping-item'));
     wireSwipeGestures(container);
+    wireItemReorder(container);
     maybeShowSwipeHint(container);
   }
   updateCheckedActions(container);

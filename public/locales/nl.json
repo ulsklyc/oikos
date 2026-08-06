@@ -444,7 +444,10 @@
         "toPantryDoneAt_few": "{{count}} artikelen toegevoegd aan {{location}}.",
         "toPantryDone": "{{count}} artikelen aan de voorraad toegevoegd.",
         "toPantryDone_one": "{{count}} artikel aan de voorraad toegevoegd.",
-        "toPantryNothing": "Er is niets aan de voorraad toegevoegd. Open \"Naar de voorraad\" opnieuw en controleer de hoeveelheden."
+        "toPantryNothing": "Er is niets aan de voorraad toegevoegd. Open \"Naar de voorraad\" opnieuw en controleer de hoeveelheden.",
+        "reorderHandle": "Volgorde wijzigen: {{name}}",
+        "reorderHandleHint": "Sleep of gebruik de pijltoetsen om te sorteren",
+        "reorderPosition": "Positie {{index}} van {{total}}"
     },
     "meals": {
         "randomizeSuccess_few": "{{count}} maaltijden gepland.",

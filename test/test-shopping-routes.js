@@ -219,6 +219,153 @@ test('DELETE /items/:itemId: löscht Artikel', async () => {
   assert.equal(db.prepare('SELECT COUNT(*) c FROM shopping_items WHERE id = ?').get(item.id).c, 0);
 });
 
+// --------------------------------------------------------------------------
+// Handsortierung innerhalb einer Kategorie (#678)
+// --------------------------------------------------------------------------
+
+/** Legt drei Artikel einer Kategorie an und gibt Liste + IDs zurück. */
+async function seedOrderable(cat = 'Obst & Gemüse', names = ['A', 'B', 'C']) {
+  const list = await newList('Sortierbar');
+  const ids = [];
+  for (const name of names) {
+    ids.push((await call('POST', `/${list}/items`, { name, category: cat })).body.data.id);
+  }
+  return { list, ids };
+}
+
+const namesOf = (listId) => call('GET', `/${listId}/items`).then((r) => r.body.data.map((i) => i.name));
+
+test('PATCH /:listId/items/reorder: setzt die Reihenfolge innerhalb der Kategorie', async () => {
+  const { list, ids } = await seedOrderable();
+  const r = await call('PATCH', `/${list}/items/reorder`, {
+    category: 'Obst & Gemüse',
+    order: [ids[2], ids[0], ids[1]],
+  });
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.body.data.map((i) => i.name), ['C', 'A', 'B']);
+  // Und dauerhaft: das nächste Laden zeigt dasselbe wie die Antwort.
+  assert.deepEqual(await namesOf(list), ['C', 'A', 'B']);
+});
+
+test('PATCH /:listId/items/reorder: unbekannte Liste → 404', async () => {
+  const r = await call('PATCH', '/999999/items/reorder', { category: 'Obst & Gemüse', order: [1] });
+  assert.equal(r.status, 404);
+});
+
+test('PATCH /:listId/items/reorder: leeres/kein Array → 400', async () => {
+  const { list } = await seedOrderable();
+  assert.equal((await call('PATCH', `/${list}/items/reorder`, { category: 'Obst & Gemüse', order: [] })).status, 400);
+  assert.equal((await call('PATCH', `/${list}/items/reorder`, { category: 'Obst & Gemüse' })).status, 400);
+});
+
+test('PATCH /:listId/items/reorder: fehlende oder ungültige Kategorie → 400', async () => {
+  const { list, ids } = await seedOrderable();
+  assert.equal((await call('PATCH', `/${list}/items/reorder`, { order: ids })).status, 400);
+  assert.equal((await call('PATCH', `/${list}/items/reorder`, { category: 'Quatsch', order: ids })).status, 400);
+});
+
+test('PATCH /:listId/items/reorder: doppelte ID → 400', async () => {
+  const { list, ids } = await seedOrderable();
+  const r = await call('PATCH', `/${list}/items/reorder`, {
+    category: 'Obst & Gemüse',
+    order: [ids[0], ids[0], ids[1]],
+  });
+  assert.equal(r.status, 400);
+});
+
+test('PATCH /:listId/items/reorder: fremder Artikel → 400, ohne fremde Ränge zu berühren', async () => {
+  const { list, ids } = await seedOrderable();
+  const fremd = await seedOrderable('Backwaren', ['Brot']);
+  const vorher = db.prepare('SELECT sort_order FROM shopping_items WHERE id = ?').get(fremd.ids[0]).sort_order;
+
+  const r = await call('PATCH', `/${list}/items/reorder`, {
+    category: 'Obst & Gemüse',
+    order: [ids[0], ids[1], fremd.ids[0]],
+  });
+  assert.equal(r.status, 400);
+  assert.equal(
+    db.prepare('SELECT sort_order FROM shopping_items WHERE id = ?').get(fremd.ids[0]).sort_order,
+    vorher,
+  );
+});
+
+test('PATCH /:listId/items/reorder: Teilmenge der Kategorie → 400', async () => {
+  const { list, ids } = await seedOrderable();
+  // Zwei von drei: die neu vergebenen Ränge kollidierten sonst mit dem dritten.
+  const r = await call('PATCH', `/${list}/items/reorder`, {
+    category: 'Obst & Gemüse',
+    order: [ids[1], ids[0]],
+  });
+  assert.equal(r.status, 400);
+});
+
+test('Neuer Artikel landet hinter den handsortierten seiner Kategorie', async () => {
+  const { list, ids } = await seedOrderable();
+  await call('PATCH', `/${list}/items/reorder`, { category: 'Obst & Gemüse', order: [ids[2], ids[0], ids[1]] });
+  await call('POST', `/${list}/items`, { name: 'D', category: 'Obst & Gemüse' });
+  assert.deepEqual(await namesOf(list), ['C', 'A', 'B', 'D']);
+});
+
+test('Auch ein direkter INSERT bekommt einen Rang (Trigger deckt alle Einfügewege ab)', async () => {
+  const { list, ids } = await seedOrderable();
+  await call('PATCH', `/${list}/items/reorder`, { category: 'Obst & Gemüse', order: [ids[2], ids[0], ids[1]] });
+
+  // So fügen meals.js, recipes.js, housekeeping.js und der CalDAV-Sync ein:
+  // an der Route vorbei, ohne sort_order. Ohne den Trigger stünde die Zeile mit
+  // Rang 0 vor allem anderen - genau der Fehler, den die Spalte vermeiden soll.
+  db.prepare(`INSERT INTO shopping_items (list_id, name, quantity, category)
+              VALUES (?, 'Direkt', NULL, 'Obst & Gemüse')`).run(list);
+  assert.deepEqual(await namesOf(list), ['C', 'A', 'B', 'Direkt']);
+});
+
+test('Kategoriewechsel stellt den Artikel ans Ende der neuen Kategorie', async () => {
+  const { list, ids } = await seedOrderable();
+  await call('POST', `/${list}/items`, { name: 'Brot', category: 'Backwaren' });
+  await call('POST', `/${list}/items`, { name: 'Brezel', category: 'Backwaren' });
+
+  // 'A' wandert zu den Backwaren: sein alter Rang 1 gilt dort nicht, sonst
+  // stünde er vor Brot und Brezel.
+  const r = await call('PATCH', `/items/${ids[0]}`, { category: 'Backwaren' });
+  assert.equal(r.status, 200);
+  assert.deepEqual(await namesOf(list), ['B', 'C', 'Brot', 'Brezel', 'A']);
+});
+
+test('Kategorie löschen: Umzügler landen hinter der Handsortierung des Ziels', async () => {
+  const list = await newList('Umzug');
+
+  // Eigene Wegwerf-Kategorie statt einer geseedeten: die Suite teilt sich eine
+  // DB, und ein gelöschtes 'Backwaren' fehlte allen folgenden Tests.
+  const weg = (await call('POST', '/categories', { name: 'Umzugskiste' })).body.data;
+
+  // Das Ziel des Fallbacks ist die erste Kategorie nach sort_order.
+  const ziel = (await call('GET', '/categories')).body.data[0].name;
+  const zielIds = [];
+  for (const name of ['Erstes', 'Zweites']) {
+    zielIds.push((await call('POST', `/${list}/items`, { name, category: ziel })).body.data.id);
+  }
+  await call('PATCH', `/${list}/items/reorder`, { category: ziel, order: [zielIds[1], zielIds[0]] });
+
+  const umzug = [];
+  for (const name of ['Kiste A', 'Kiste B']) {
+    umzug.push((await call('POST', `/${list}/items`, { name, category: 'Umzugskiste' })).body.data.id);
+  }
+  await call('PATCH', `/${list}/items/reorder`, { category: 'Umzugskiste', order: [umzug[1], umzug[0]] });
+
+  assert.equal((await call('DELETE', `/categories/${weg.id}`)).status, 200);
+
+  // Das Ziel behält seine Handsortierung, die Umzügler hängen sich in ihrer
+  // eigenen dahinter - statt sich per Rang 1/2 davor zu drängen.
+  assert.deepEqual(await namesOf(list), ['Zweites', 'Erstes', 'Kiste B', 'Kiste A']);
+});
+
+test('Abgehaktes bleibt am Ende der Kategorie, auch mit vorderem Rang', async () => {
+  const { list, ids } = await seedOrderable();
+  await call('PATCH', `/${list}/items/reorder`, { category: 'Obst & Gemüse', order: [ids[0], ids[1], ids[2]] });
+  await call('PATCH', `/items/${ids[0]}`, { is_checked: true });
+  // Rang 1, aber abgehakt: is_checked sortiert vor sort_order.
+  assert.deepEqual(await namesOf(list), ['B', 'C', 'A']);
+});
+
 test('DELETE /:listId/items/checked: entfernt nur abgehakte, zählt', async () => {
   const list = await newList('Checked');
   const a = (await call('POST', `/${list}/items`, { name: 'A' })).body.data;

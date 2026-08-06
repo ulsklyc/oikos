@@ -444,7 +444,10 @@
         "toPantryDoneAt_few": "{{count}} articles ajoutés dans {{location}}.",
         "toPantryDone": "{{count}} articles ajoutés au garde-manger.",
         "toPantryDone_one": "{{count}} article ajouté au garde-manger.",
-        "toPantryNothing": "Rien n'a été ajouté au garde-manger. Ouvrez à nouveau « Vers le garde-manger » et vérifiez les quantités."
+        "toPantryNothing": "Rien n'a été ajouté au garde-manger. Ouvrez à nouveau « Vers le garde-manger » et vérifiez les quantités.",
+        "reorderHandle": "Réorganiser : {{name}}",
+        "reorderHandleHint": "Faites glisser ou utilisez les flèches pour réorganiser",
+        "reorderPosition": "Position {{index}} sur {{total}}"
     },
     "meals": {
         "randomizeSuccess_few": "{{count}} repas planifiés.",

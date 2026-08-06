@@ -444,7 +444,10 @@
         "toPantryDoneAt_few": "{{count}} elem hozzáadva a következőhöz: {{location}}.",
         "toPantryDone": "{{count}} tétel hozzáadva a kamrához.",
         "toPantryDone_one": "{{count}} tétel hozzáadva a kamrához.",
-        "toPantryNothing": "Semmi sem került a kamrába. Nyisd meg újra a „A kamrába\" pontot, és ellenőrizd a mennyiségeket."
+        "toPantryNothing": "Semmi sem került a kamrába. Nyisd meg újra a „A kamrába\" pontot, és ellenőrizd a mennyiségeket.",
+        "reorderHandle": "Sorrend módosítása: {{name}}",
+        "reorderHandleHint": "Húzza vagy használja a nyílbillentyűket a rendezéshez",
+        "reorderPosition": "{{index}}. pozíció, összesen {{total}}"
     },
     "meals": {
         "randomizeSuccess_few": "{{count}} étel megtervezve.",

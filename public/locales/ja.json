@@ -444,7 +444,10 @@
         "toPantryDoneAt_few": "{{location}} に {{count}} 件の商品を追加しました。",
         "toPantryDone": "{{count}} 件をパントリーに追加しました。",
         "toPantryDone_one": "{{count}} 件をパントリーに追加しました。",
-        "toPantryNothing": "パントリーには何も追加されませんでした。「パントリーへ」をもう一度開いて数量を確認してください。"
+        "toPantryNothing": "パントリーには何も追加されませんでした。「パントリーへ」をもう一度開いて数量を確認してください。",
+        "reorderHandle": "並べ替え: {{name}}",
+        "reorderHandleHint": "ドラッグまたは矢印キーで並べ替え",
+        "reorderPosition": "{{total}} 件中 {{index}} 番目"
     },
     "meals": {
         "randomizeSuccess_few": "{{count}} 件の食事を計画しました。",

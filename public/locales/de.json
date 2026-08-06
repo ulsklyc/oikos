@@ -456,7 +456,10 @@
         "toPantryDoneAt_few": "{{count}} Artikel in {{location}} übernommen.",
         "toPantryDone": "{{count}} Artikel in den Vorrat übernommen.",
         "toPantryDone_one": "{{count}} Artikel in den Vorrat übernommen.",
-        "toPantryNothing": "Es wurde nichts in den Vorrat übernommen. Öffne „In den Vorrat\" erneut und prüfe die Mengen."
+        "toPantryNothing": "Es wurde nichts in den Vorrat übernommen. Öffne „In den Vorrat\" erneut und prüfe die Mengen.",
+        "reorderHandle": "Reihenfolge ändern: {{name}}",
+        "reorderHandleHint": "Ziehen oder mit den Pfeiltasten sortieren",
+        "reorderPosition": "Position {{index}} von {{total}}"
     },
     "meals": {
         "randomizeSuccess_few": "{{count}} Mahlzeiten geplant.",

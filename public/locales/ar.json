@@ -444,7 +444,10 @@
         "toPantryDoneAt_few": "تمت إضافة {{count}} عناصر إلى {{location}}.",
         "toPantryDone": "تمت إضافة {{count}} عناصر إلى المخزن.",
         "toPantryDone_one": "تمت إضافة عنصر واحد إلى المخزن.",
-        "toPantryNothing": "لم تُضف أي عناصر إلى المخزن. افتح «إلى المخزن» مرة أخرى وتحقق من الكميات."
+        "toPantryNothing": "لم تُضف أي عناصر إلى المخزن. افتح «إلى المخزن» مرة أخرى وتحقق من الكميات.",
+        "reorderHandle": "تغيير الترتيب: {{name}}",
+        "reorderHandleHint": "اسحب أو استخدم مفاتيح الأسهم لإعادة الترتيب",
+        "reorderPosition": "الموضع {{index}} من {{total}}"
     },
     "meals": {
         "randomizeSuccess_few": "تم تخطيط {{count}} وجبات.",

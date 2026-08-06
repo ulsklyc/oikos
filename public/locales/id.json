@@ -456,7 +456,10 @@
         "toPantryDoneAt_few": "{{count}} item ditambahkan ke {{location}}.",
         "toPantryDone": "{{count}} item ditambahkan ke penyimpanan.",
         "toPantryDone_one": "{{count}} item ditambahkan ke penyimpanan.",
-        "toPantryNothing": "Tidak ada yang ditambahkan ke penyimpanan. Buka \"Ke penyimpanan\" lagi dan periksa jumlahnya."
+        "toPantryNothing": "Tidak ada yang ditambahkan ke penyimpanan. Buka \"Ke penyimpanan\" lagi dan periksa jumlahnya.",
+        "reorderHandle": "Ubah urutan: {{name}}",
+        "reorderHandleHint": "Seret atau gunakan tombol panah untuk mengurutkan",
+        "reorderPosition": "Posisi {{index}} dari {{total}}"
     },
     "meals": {
         "randomizeSuccess_few": "{{count}} makanan direncanakan.",

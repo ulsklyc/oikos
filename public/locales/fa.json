@@ -456,7 +456,10 @@
         "toPantryDoneAt_few": "{{count}} مورد به {{location}} اضافه شد.",
         "toPantryDone": "{{count}} کالا به انبار افزوده شد.",
         "toPantryDone_one": "{{count}} کالا به انبار افزوده شد.",
-        "toPantryNothing": "چیزی به انبار افزوده نشد. «به انبار» را دوباره باز کنید و مقدارها را بررسی کنید."
+        "toPantryNothing": "چیزی به انبار افزوده نشد. «به انبار» را دوباره باز کنید و مقدارها را بررسی کنید.",
+        "reorderHandle": "تغییر ترتیب: {{name}}",
+        "reorderHandleHint": "برای مرتب‌سازی بکشید یا از کلیدهای جهت‌نما استفاده کنید",
+        "reorderPosition": "جایگاه {{index}} از {{total}}"
     },
     "meals": {
         "randomizeSuccess_few": "{{count}} وعده برنامه‌ریزی شد.",

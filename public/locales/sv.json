@@ -444,7 +444,10 @@
         "toPantryDoneAt_few": "{{count}} varor tillagda i {{location}}.",
         "toPantryDone": "{{count}} varor tillagda i skafferiet.",
         "toPantryDone_one": "{{count}} vara tillagd i skafferiet.",
-        "toPantryNothing": "Inget lades till i skafferiet. Öppna \"Till skafferiet\" igen och kontrollera mängderna."
+        "toPantryNothing": "Inget lades till i skafferiet. Öppna \"Till skafferiet\" igen och kontrollera mängderna.",
+        "reorderHandle": "Ändra ordning: {{name}}",
+        "reorderHandleHint": "Dra eller använd piltangenterna för att sortera",
+        "reorderPosition": "Position {{index}} av {{total}}"
     },
     "meals": {
         "randomizeSuccess_few": "{{count}} måltider planerade.",

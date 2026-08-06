@@ -444,7 +444,10 @@
         "toPantryDoneAt_few": "Đã thêm {{count}} mục vào {{location}}.",
         "toPantryDone": "Đã thêm {{count}} món vào kho.",
         "toPantryDone_one": "Đã thêm {{count}} món vào kho.",
-        "toPantryNothing": "Không có gì được thêm vào kho. Mở lại \"Vào kho\" và kiểm tra số lượng."
+        "toPantryNothing": "Không có gì được thêm vào kho. Mở lại \"Vào kho\" và kiểm tra số lượng.",
+        "reorderHandle": "Sắp xếp lại: {{name}}",
+        "reorderHandleHint": "Kéo hoặc dùng phím mũi tên để sắp xếp",
+        "reorderPosition": "Vị trí {{index}} trên {{total}}"
     },
     "meals": {
         "randomizeSuccess_few": "Đã lên kế hoạch {{count}} bữa ăn.",

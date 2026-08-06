@@ -444,7 +444,10 @@
         "toPantryDoneAt_few": "{{count}} items added to {{location}}.",
         "toPantryDone": "{{count}} items added to the pantry.",
         "toPantryDone_one": "{{count}} item added to the pantry.",
-        "toPantryNothing": "Nothing was added to the pantry. Open \"To the pantry\" again and check the amounts."
+        "toPantryNothing": "Nothing was added to the pantry. Open \"To the pantry\" again and check the amounts.",
+        "reorderHandle": "Reorder: {{name}}",
+        "reorderHandleHint": "Drag or use the arrow keys to reorder",
+        "reorderPosition": "Position {{index}} of {{total}}"
     },
     "meals": {
         "randomizeSuccess_few": "{{count}} meals planned.",

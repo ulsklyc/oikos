@@ -444,7 +444,10 @@
         "toPantryDoneAt_few": "{{location}} bölümüne {{count}} ürün eklendi.",
         "toPantryDone": "{{count}} ürün kilere eklendi.",
         "toPantryDone_one": "{{count}} ürün kilere eklendi.",
-        "toPantryNothing": "Kilere hiçbir şey eklenmedi. \"Kilere\" seçeneğini yeniden aç ve miktarları kontrol et."
+        "toPantryNothing": "Kilere hiçbir şey eklenmedi. \"Kilere\" seçeneğini yeniden aç ve miktarları kontrol et.",
+        "reorderHandle": "Sırayı değiştir: {{name}}",
+        "reorderHandleHint": "Sıralamak için sürükleyin veya ok tuşlarını kullanın",
+        "reorderPosition": "{{total}} öğeden {{index}}. sırada"
     },
     "meals": {
         "randomizeSuccess_few": "{{count}} öğün planlandı.",

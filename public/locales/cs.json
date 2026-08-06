@@ -444,7 +444,10 @@
         "toPantryDoneAt_few": "{{count}} položky přidány do {{location}}.",
         "toPantryDone": "Přidáno {{count}} položek do zásob.",
         "toPantryDone_one": "Přidána {{count}} položka do zásob.",
-        "toPantryNothing": "Do zásob se nic nepřidalo. Otevři „Do zásob\" znovu a zkontroluj množství."
+        "toPantryNothing": "Do zásob se nic nepřidalo. Otevři „Do zásob\" znovu a zkontroluj množství.",
+        "reorderHandle": "Změnit pořadí: {{name}}",
+        "reorderHandleHint": "Přetáhněte nebo použijte šipky k seřazení",
+        "reorderPosition": "Pozice {{index}} z {{total}}"
     },
     "meals": {
         "randomizeSuccess_few": "Naplánována {{count}} jídla.",

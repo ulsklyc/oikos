@@ -444,7 +444,10 @@
         "toPantryDoneAt_few": "{{count}} articoli aggiunti in {{location}}.",
         "toPantryDone": "{{count}} articoli aggiunti alla dispensa.",
         "toPantryDone_one": "{{count}} articolo aggiunto alla dispensa.",
-        "toPantryNothing": "Non è stato aggiunto nulla alla dispensa. Riapri «In dispensa» e controlla le quantità."
+        "toPantryNothing": "Non è stato aggiunto nulla alla dispensa. Riapri «In dispensa» e controlla le quantità.",
+        "reorderHandle": "Riordina: {{name}}",
+        "reorderHandleHint": "Trascina o usa i tasti freccia per riordinare",
+        "reorderPosition": "Posizione {{index}} di {{total}}"
     },
     "meals": {
         "randomizeSuccess_few": "{{count}} pasti pianificati.",

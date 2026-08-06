@@ -35,7 +35,8 @@ npm run test:health-nav         # Gesundheit: Tab-Navigation
 npm run test:health-structure   # Gesundheit: Routen-Split-Guard (45-Routen-Tabelle + Cluster-Disjunktheit)
 npm run test:medication-scheduler   # Medikations-Erinnerungs-Scheduler
 npm run test:shopping
-npm run test:shopping-routes   # Shopping-Routen: Listen/Artikel-CRUD, Kategorie-Rename-Kaskade + Delete-Fallback + Letzte-Sperre, Essensplan-Import-Aggregation
+npm run test:shopping-routes   # Shopping-Routen: Listen/Artikel-CRUD, Kategorie-Rename-Kaskade + Delete-Fallback + Letzte-Sperre, Essensplan-Import-Aggregation, Handsortierung je Kategorie (#678: vollstaendige Gruppe Pflicht, fremde IDs beruehren keine fremden Raenge, Kategoriewechsel und Delete-Umzug stellen hinten an, abgehaktes bleibt trotz Rang am Ende)
+npm run test:shopping-order-migration   # Migration v133 (#678): der Backfill erhaelt die bisher sichtbare Reihenfolge (created_at) und nummeriert je (Liste, Kategorie); der Trigger stellt neue Zeilen ans Ende - auch die aus den sechs Modulen, die an der Route vorbei einfuegen
 npm run test:meals
 npm run test:meals-routes   # Meals-Routen: Validierung/404, Wiederholungs-Serien (Template/Exceptions/Instanzen, scope=series), Zutaten-CRUD, Zutaten→Einkaufsliste-Transfer inkl. Rücknahme (added_ids; das Undo setzt auch on_shopping_list zurück, sonst bliebe die Mahlzeit für immer „schon übertragen")
 npm run test:recipes-routes   # Recipes-Routen: owner-403-Gate (kein Admin-Bypass), Validierung/404, Zutaten-Regeln (leerer Name, category-Default, Slicing), meal_types-Normalisierung, Replace-Set + CASCADE, Zutaten→Einkaufsliste-Transfer inkl. exakter Rücknahme über added_ids, gespiegelte Mealie-Rezepte sind serverseitig schreibgeschützt (403 auf PUT/DELETE, nicht nur in der UI ausgeblendet), Thumbnail-Proxy mit MIME-Allowlist

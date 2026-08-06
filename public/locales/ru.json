@@ -444,7 +444,10 @@
         "toPantryDoneAt_few": "В {{location}} добавлено {{count}} товара.",
         "toPantryDone": "Добавлено товаров в запасы: {{count}}.",
         "toPantryDone_one": "В запасы добавлен {{count}} товар.",
-        "toPantryNothing": "В запасы ничего не добавлено. Откройте «В запасы» снова и проверьте количество."
+        "toPantryNothing": "В запасы ничего не добавлено. Откройте «В запасы» снова и проверьте количество.",
+        "reorderHandle": "Изменить порядок: {{name}}",
+        "reorderHandleHint": "Перетащите или используйте стрелки для сортировки",
+        "reorderPosition": "Позиция {{index}} из {{total}}"
     },
     "meals": {
         "randomizeSuccess_few": "Запланировано {{count}} приёма пищи.",

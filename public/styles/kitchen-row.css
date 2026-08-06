@@ -424,6 +424,74 @@
  *    Zeile anders breit und die Stepper stünden pro Zeile woanders.
  */
 
+/* --------------------------------------------------------
+   Sortiergriff (#678)
+
+   Erbt .row-action und bleibt damit im Maß der Bedienzone. Anders als der Griff
+   im Kategorie-Manager ist er ein echter Button: die Pfeiltasten am fokussierten
+   Griff SIND hier der Tastaturpfad, es gibt kein Auf/Ab-Paar daneben.
+   -------------------------------------------------------- */
+
+.kitchen-row__drag {
+  cursor: grab;
+  /* Ohne das übernimmt der Browser die vertikale Geste als Seiten-Scroll und der
+     Zug am Griff endet, bevor er beginnt. */
+  touch-action: none;
+
+  /* SCHMAL, ABER HOCH - wie im Kategorie-Manager (category-manager.css).
+     Als 48er-Quadrat der .row-action-Grammatik kostete der Griff auf einem
+     375px-Gerät 52px Namensbreite: „Vollkorn-Dinkelbrot mit
+     Sonnenblumenkernen" wuchs damit von zwei auf vier Zeilen (64px → 112px
+     Zeilenhöhe, gemessen 2026-08-06). Die Zieh-Achse ist vertikal, also braucht
+     der Griff seine Fläche in der Höhe, nicht in der Breite: align-self:stretch
+     nimmt die volle Zeilenhöhe als Greifzone, min-height sichert das Touch-Ziel
+     auch in der kürzesten Zeile. */
+  width: auto;
+  min-width: 0;
+  align-self: stretch;
+  min-height: var(--target-md);
+  padding-inline: var(--space-2);
+}
+
+.swipe-row.sortable-chosen .kitchen-row__drag {
+  cursor: grabbing;
+}
+
+/* Eine einzelne Zeile in einer Kategorie hat keine Reihenfolge. Der Griff
+   verschwindet dann, statt eine folgenlose Handlung anzubieten - über
+   :only-child, damit die Regel ohne Zutun des Renderers gilt (auch nach dem
+   Löschen der vorletzten Zeile, das die Liste nicht neu aufbaut). */
+.kitchen-rows > .swipe-row:only-child .kitchen-row__drag {
+  display: none;
+}
+
+/* Abgehaktes sortiert sich nicht: es steht am Ende seiner Kategorie, ein Zug
+   daran wäre folgenlos. Sichtbar bleibt der Griff trotzdem, sonst wechselte die
+   Bedienzone beim Abhaken ihre Breite. */
+.kitchen-row__drag[disabled] {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.kitchen-row__drag[disabled]:hover {
+  background: transparent;
+  color: var(--color-text-tertiary);
+}
+
+.swipe-row.sortable-ghost {
+  opacity: 0.4;
+}
+
+.swipe-row.sortable-chosen .kitchen-row {
+  background: color-mix(in srgb, var(--active-module-accent, var(--color-accent)) 10%, var(--color-surface));
+}
+
+.swipe-row.sortable-drag .kitchen-row {
+  background: var(--color-surface-elevated);
+  box-shadow: var(--shadow-md);
+  border-radius: var(--radius-glass-inner);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .kitchen-row {
     transition: none;

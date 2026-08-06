@@ -55,6 +55,35 @@ function validCategoryNames() {
   return loadCategories().map((c) => c.name);
 }
 
+/**
+ * Artikel einer Liste in Anzeigereihenfolge: Kategorie in Gang-Reihenfolge,
+ * abgehaktes ans Ende, davor die Handsortierung (#678), zuletzt die
+ * Eingabereihenfolge als Gleichstand-Entscheider.
+ *
+ * Eine Funktion für Lesen UND Umsortieren: die Sortierung ist die Aussage
+ * dieses Moduls über "Reihenfolge" und darf nicht in zwei Schreibweisen
+ * auseinanderlaufen - die Antwort auf ein Umsortieren muss genau das zeigen,
+ * was das nächste Laden liefert.
+ */
+function loadListItems(listId, categories) {
+  const categoryOrder = categories.map((c, i) => `WHEN '${c.name.replace(/'/g, "''")}' THEN ${i}`).join(' ');
+  const items = db.get().prepare(`
+    SELECT * FROM shopping_items
+    WHERE list_id = ?
+    ORDER BY
+      CASE category ${categoryOrder} ELSE ${categories.length} END,
+      is_checked ASC,
+      sort_order ASC,
+      created_at ASC
+  `).all(listId);
+
+  // Gespiegelte CATEGORIES der Quellliste (#586). Eine Abfrage für die ganze
+  // Liste, nicht eine pro Zeile.
+  const tagMap = loadItemTagsFor(db.get(), items.map((i) => i.id));
+  for (const item of items) item.tags = tagMap.get(item.id) ?? [];
+  return items;
+}
+
 // --------------------------------------------------------
 // GET /api/v1/shopping/categories
 // Alle Kategorien zurückgeben.
@@ -168,9 +197,28 @@ router.delete('/categories/:catId', (req, res) => {
       .get(cat.id);
 
     db.get().transaction(() => {
-      db.get()
-        .prepare('UPDATE shopping_items SET category = ? WHERE category = ?')
-        .run(fallback.name, cat.name);
+      // Umziehende Artikel hinten anstellen, je Liste (#678). Ohne den Versatz
+      // behielten sie ihre Ränge aus der gelöschten Kategorie und mischten sich
+      // zwischen die handsortierten der Zielkategorie - eine Reihenfolge, die
+      // niemand hergestellt hat.
+      //
+      // Der Versatz wird je Liste VOR dem Umzug bestimmt und nicht als Subquery
+      // im UPDATE gelesen: dort zählte die gerade umgezogene Zeile schon zum
+      // Maximum der Zielkategorie, und jede weitere sprang um ihren eigenen Rang
+      // höher - die Umzügler kamen in der Reihenfolge ihrer id an statt in ihrer
+      // eigenen (Test „Umzügler landen hinter der Handsortierung des Ziels").
+      const listen = db.get()
+        .prepare('SELECT DISTINCT list_id FROM shopping_items WHERE category = ?')
+        .all(cat.name);
+      const maxIn = db.get().prepare(
+        'SELECT COALESCE(MAX(sort_order), 0) AS m FROM shopping_items WHERE list_id = ? AND category = ?'
+      );
+      const move = db.get().prepare(
+        'UPDATE shopping_items SET category = ?, sort_order = sort_order + ? WHERE category = ? AND list_id = ?'
+      );
+      for (const { list_id: listId } of listen) {
+        move.run(fallback.name, maxIn.get(listId, fallback.name).m, cat.name, listId);
+      }
       db.get()
         .prepare('DELETE FROM shopping_categories WHERE id = ?')
         .run(cat.id);
@@ -270,6 +318,18 @@ router.patch('/items/:itemId', (req, res) => {
       SET is_checked = ?, name = ?, quantity = ?, category = ?, notes = ?, url = ?
       WHERE id = ?
     `).run(is_checked ? 1 : 0, name.trim(), quantity ?? null, category, vNotes.value, vUrl.value, req.params.itemId);
+
+    // Kategoriewechsel heißt Positionswechsel: die Handsortierung zählt je
+    // Kategorie (#678), der alte Rang gilt in der neuen Nachbarschaft nicht.
+    // Ans Ende - dort landet in dieser Liste auch alles neu Hinzugefügte.
+    if (category !== item.category) {
+      db.get().prepare(`
+        UPDATE shopping_items SET sort_order = COALESCE((
+          SELECT MAX(sort_order) FROM shopping_items
+           WHERE list_id = ? AND category = ? AND id != ?
+        ), 0) + 1 WHERE id = ?
+      `).run(item.list_id, category, item.id, item.id);
+    }
 
     const updated = db.get()
       .prepare('SELECT * FROM shopping_items WHERE id = ?')
@@ -475,7 +535,8 @@ router.delete('/:listId', (req, res) => {
 // --------------------------------------------------------
 // GET /api/v1/shopping/:listId/items
 // Alle Artikel einer Liste, sortiert nach Supermarkt-Gang-Logik.
-// Abgehakte Artikel ans Ende innerhalb ihrer Kategorie.
+// Abgehakte Artikel ans Ende innerhalb ihrer Kategorie, davor die von Hand
+// gesetzte Reihenfolge (#678).
 // Response: { data: ShoppingItem[], list: ShoppingList, categories: ShoppingCategory[] }
 // --------------------------------------------------------
 router.get('/:listId/items', (req, res) => {
@@ -486,25 +547,73 @@ router.get('/:listId/items', (req, res) => {
     if (!list) return res.status(404).json({ error: 'List not found.', code: 404 });
 
     const categories = loadCategories();
-    const categoryOrder = categories.map((c, i) => `WHEN '${c.name.replace(/'/g, "''")}' THEN ${i}`).join(' ');
-
-    const items = db.get().prepare(`
-      SELECT * FROM shopping_items
-      WHERE list_id = ?
-      ORDER BY
-        CASE category ${categoryOrder} ELSE ${categories.length} END,
-        is_checked ASC,
-        created_at ASC
-    `).all(req.params.listId);
-
-    // Gespiegelte CATEGORIES der Quellliste (#586). Eine Abfrage für die ganze
-    // Liste, nicht eine pro Zeile.
-    const tagMap = loadItemTagsFor(db.get(), items.map((i) => i.id));
-    for (const item of items) item.tags = tagMap.get(item.id) ?? [];
-
-    res.json({ data: items, list, categories });
+    res.json({ data: loadListItems(req.params.listId, categories), list, categories });
   } catch (err) {
     log.error('GET /:listId/items error:', err);
+    res.status(500).json({ error: 'Internal server error.', code: 500 });
+  }
+});
+
+// --------------------------------------------------------
+// PATCH /api/v1/shopping/:listId/items/reorder
+// Reihenfolge der Artikel INNERHALB einer Kategorie ändern (#678).
+// Body: { category: string, order: number[] }  (Artikel-IDs in gewünschter Reihenfolge)
+// Response: { data: ShoppingItem[], categories: ShoppingCategory[] }
+//
+// Je Kategorie und nicht über die ganze Liste: die Kategorie-Reihenfolge ist
+// bereits ein eigener Griff (shopping_categories.sort_order, umsortierbar im
+// Kategorie-Manager) und bildet den Ladenweg ab. Ein zweiter, listenweiter Rang
+// daneben hätte zwei Aussagen über dieselbe Reihenfolge gemacht.
+//
+// Die Anfrage muss ALLE Artikel der Kategorie nennen. Eine Teilmenge würde die
+// Ränge der Ausgelassenen mit den neu vergebenen kollidieren lassen - danach
+// entschiede wieder created_at, und der Zug wäre teilweise verpufft.
+// --------------------------------------------------------
+router.patch('/:listId/items/reorder', (req, res) => {
+  try {
+    const list = db.get()
+      .prepare('SELECT id FROM shopping_lists WHERE id = ?')
+      .get(req.params.listId);
+    if (!list) return res.status(404).json({ error: 'List not found.', code: 404 });
+
+    const { category, order } = req.body;
+    if (!Array.isArray(order) || order.length === 0)
+      return res.status(400).json({ error: 'order muss ein nicht-leeres Array von IDs sein.', code: 400 });
+
+    const ids = order.map(Number);
+    if (ids.some((id) => !Number.isInteger(id)))
+      return res.status(400).json({ error: 'order darf nur Artikel-IDs enthalten.', code: 400 });
+    if (new Set(ids).size !== ids.length)
+      return res.status(400).json({ error: 'order darf keine ID doppelt enthalten.', code: 400 });
+
+    // oneOf lässt Leerwerte durch (es validiert optionale Felder); hier ist die
+    // Kategorie der Geltungsbereich der Ränge und damit Pflicht.
+    if (!category) return res.status(400).json({ error: 'category ist erforderlich.', code: 400 });
+    const vCat = oneOf(category, validCategoryNames(), 'Kategorie');
+    if (vCat.error) return res.status(400).json({ error: vCat.error, code: 400 });
+
+    // Die Kategorie ist der Geltungsbereich der Ränge - eine fremde ID darin
+    // würde einen Artikel einer anderen Liste oder Kategorie umnummerieren.
+    const own = db.get()
+      .prepare('SELECT id FROM shopping_items WHERE list_id = ? AND category = ?')
+      .all(req.params.listId, vCat.value)
+      .map((r) => r.id);
+    const ownSet = new Set(own);
+    if (ids.some((id) => !ownSet.has(id)))
+      return res.status(400).json({ error: 'order enthält Artikel außerhalb dieser Liste oder Kategorie.', code: 400 });
+    if (ids.length !== own.length)
+      return res.status(400).json({ error: 'order muss alle Artikel der Kategorie enthalten.', code: 400 });
+
+    const update = db.get().prepare('UPDATE shopping_items SET sort_order = ? WHERE id = ?');
+    db.get().transaction(() => {
+      // Ab 1: die 0 bleibt dem Trigger als Marke "noch nicht eingeordnet".
+      ids.forEach((id, idx) => update.run(idx + 1, id));
+    })();
+
+    const categories = loadCategories();
+    res.json({ data: loadListItems(req.params.listId, categories), categories });
+  } catch (err) {
+    log.error('PATCH /:listId/items/reorder error:', err);
     res.status(500).json({ error: 'Internal server error.', code: 500 });
   }
 });

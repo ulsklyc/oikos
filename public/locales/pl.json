@@ -456,7 +456,10 @@
         "toPantryDoneAt_few": "Dodano {{count}} artykuły do {{location}}.",
         "toPantryDone": "Dodano {{count}} produktów do spiżarni.",
         "toPantryDone_one": "Dodano {{count}} produkt do spiżarni.",
-        "toPantryNothing": "Nic nie zostało dodane do spiżarni. Otwórz ponownie „Do spiżarni\" i sprawdź ilości."
+        "toPantryNothing": "Nic nie zostało dodane do spiżarni. Otwórz ponownie „Do spiżarni\" i sprawdź ilości.",
+        "reorderHandle": "Zmień kolejność: {{name}}",
+        "reorderHandleHint": "Przeciągnij lub użyj strzałek, aby zmienić kolejność",
+        "reorderPosition": "Pozycja {{index}} z {{total}}"
     },
     "meals": {
         "randomizeSuccess_few": "Zaplanowano {{count}} posiłki.",

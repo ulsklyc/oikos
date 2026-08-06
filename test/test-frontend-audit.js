@@ -6718,3 +6718,73 @@ test('Render-Funktionen mit mehreren Aufrufern materialisieren ihre Icons selbst
     'Diese Funktionen fügen <i data-lucide> ein, überlassen das Materialisieren aber '
     + `ihren Aufrufern. Ein lucide.createIcons({ el: ... }) gehört ans Ende:\n${violations.join('\n')}`);
 });
+
+test('Jeder Sortable-Nutzer hat einen tastaturbedienbaren Reorder-Pfad', () => {
+  // Die Regel steht im Kopf von public/utils/sortable.js: "Drag ist NIE der
+  // einzige Weg". Sie gilt für JEDEN Aufrufer, nicht für eine Liste bekannter
+  // Dateien - deshalb sucht der Guard die Aufrufer selbst. Ohne ihn wäre die
+  // Zusage eine wandernde Annahme: der nächste makeSortable()-Aufruf erbt sie
+  // aus einem Kommentar, den niemand liest.
+  //
+  // Als Pfad zählt eine Tastenbehandlung, die die Reihenfolge ändert: entweder
+  // Auf/Ab-Bedienelemente (Kategorie-Manager) oder Pfeiltasten an einem
+  // fokussierbaren Griff (Einkaufsliste, #678).
+  const violations = [];
+
+  for (const file of [...walkJsFiles('../public/pages/'), ...walkJsFiles('../public/components/')]) {
+    const source = read(file);
+    if (!/\bmakeSortable\s*\(/.test(source)) continue;
+
+    const hasArrowKeys   = /['"]ArrowUp['"]/.test(source) && /['"]ArrowDown['"]/.test(source);
+    const hasMoveButtons = /data-action="(up|down)"/.test(source)
+      || /'(up|down)'/.test(source) && /addEventListener\(\s*['"]click['"]/.test(source);
+    if (hasArrowKeys || hasMoveButtons) continue;
+
+    violations.push(file);
+  }
+
+  assert.deepEqual(violations, [],
+    'Diese Dateien machen Listen per Drag sortierbar, ohne einen Tastaturpfad daneben. '
+    + 'Drag allein ist für Tastatur- und Screenreader-Bedienung kein Weg (siehe den Kopf '
+    + `von public/utils/sortable.js):\n${violations.join('\n')}`);
+});
+
+test('Die Handsortierung der Einkaufsliste sichert über einen gemeinsamen Pfad', () => {
+  // Zwei Bedienwege (Ziehen, Pfeiltasten) auf EINEN Persistenz-Handler: liefe
+  // die Tastatur über eine eigene Schreibweise, driftete sie beim nächsten Fix
+  // still am Drag-Pfad vorbei - der Fehlerfall (Rollback-Render) ist der Teil,
+  // der dabei zuerst verloren geht.
+  const source = read('../public/pages/shopping.js');
+  const persistCalls = source.match(/persistItemOrder\s*\(/g) ?? [];
+
+  assert.ok(persistCalls.length >= 3,
+    `Erwartet: Definition + Drag-Ende + Tastaturpfad rufen persistItemOrder. Gefunden: ${persistCalls.length}`);
+  assert.match(source, /onEnd:\s*\([^)]*\)\s*=>\s*persistItemOrder\(/,
+    'Das Drag-Ende muss über persistItemOrder sichern.');
+  assert.match(source, /moveItemRow\([^)]*\)/,
+    'Der Tastaturpfad braucht moveItemRow, das seinerseits persistItemOrder aufruft.');
+  assert.match(source, /catch[\s\S]{0,400}updateItemsList\(container\)/,
+    'Der Fehlerfall muss die Liste aus dem unveränderten State neu aufbauen (Rollback).');
+});
+
+test('Der Sortiergriff nimmt sich die Geste aus der Wischbedienung', () => {
+  // Griff und Wischgeste teilen sich dieselbe Zeile. Ohne die Ausnahme im
+  // touchstart liefe das seitliche Wackeln beim Hochziehen als Wischweg mit und
+  // die Karte rutschte unter dem Finger auf "erledigt".
+  const source = read('../public/pages/shopping.js');
+  assert.match(source, /touchstart[\s\S]{0,600}kitchen-row__drag/,
+    'wireSwipeGestures muss den Sortiergriff im touchstart ausnehmen.');
+});
+
+test('Die Einkaufsliste sagt Umsortierungen über eine Live-Region an', () => {
+  // Wie im Kategorie-Manager: das aria-label des Griffs allein ist keine
+  // verlässliche Rückmeldung - ob ein Screenreader die Label-Änderung am
+  // fokussierten Element vorliest, unterscheidet sich von Programm zu Programm.
+  const source = read('../public/pages/shopping.js');
+  assert.match(source, /role="status" aria-live="polite" id="items-reorder-announce"/,
+    'Die Live-Region muss im Listen-Markup stehen.');
+  assert.match(source, /announceItemMove\(container, movedRow\)/,
+    'Der geteilte Persistenz-Pfad muss ansagen - dann gilt es für Drag UND Tastatur.');
+  assert.match(source, /t\('category\.reorderAnnounce'/,
+    'Wiederverwendeter Ansage-Text statt einer zweiten Fassung in 24 Sprachen.');
+});

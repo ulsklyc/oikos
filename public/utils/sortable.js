@@ -52,17 +52,20 @@ function prefersReducedMotion() {
  * @param {string} opts.handle - CSS-Selektor des Drag-Handles innerhalb jeder Zeile
  * @param {string} [opts.draggable] - CSS-Selektor der tatsächlich sortierbaren Zeilen
  *        (z. B. wenn eine Add-Zeile im selben Container mitgerendert wird)
+ * @param {string} [opts.filter] - CSS-Selektor der Zeilen, die NICHT gezogen werden
+ *        dürfen, obwohl sie zu `draggable` passen (z. B. bereits abgehakte)
  * @param {(evt: object) => void|Promise<void>} opts.onEnd - Callback nach Drop;
  *        bekommt das rohe SortableJS-Event (item, oldIndex, newIndex, ...)
  * @returns {Promise<object|null>} die Sortable-Instanz (zum späteren `.destroy()`) oder null
  */
-export async function makeSortable(listEl, { handle, draggable, onEnd } = {}) {
+export async function makeSortable(listEl, { handle, draggable, filter, onEnd } = {}) {
   if (!listEl || typeof onEnd !== 'function') return null;
   const Sortable = await loadSortable();
   const reduced = prefersReducedMotion();
   return Sortable.create(listEl, {
     handle,
     draggable,
+    filter,
     animation: reduced ? 0 : 150,
     easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
     delay: 120,

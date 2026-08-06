@@ -444,7 +444,10 @@
         "toPantryDoneAt_few": "{{count}} artículos añadidos a {{location}}.",
         "toPantryDone": "{{count}} artículos añadidos a la despensa.",
         "toPantryDone_one": "{{count}} artículo añadido a la despensa.",
-        "toPantryNothing": "No se añadió nada a la despensa. Abre «A la despensa» otra vez y revisa las cantidades."
+        "toPantryNothing": "No se añadió nada a la despensa. Abre «A la despensa» otra vez y revisa las cantidades.",
+        "reorderHandle": "Reordenar: {{name}}",
+        "reorderHandleHint": "Arrastra o usa las teclas de flecha para reordenar",
+        "reorderPosition": "Posición {{index}} de {{total}}"
     },
     "meals": {
         "randomizeSuccess_few": "{{count}} comidas planificadas.",

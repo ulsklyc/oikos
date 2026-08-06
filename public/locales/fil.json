@@ -456,7 +456,10 @@
         "toPantryDoneAt_few": "{{count}} item ang naidagdag sa {{location}}.",
         "toPantryDone": "{{count}} item ang naidagdag sa despensa.",
         "toPantryDone_one": "{{count}} item ang naidagdag sa despensa.",
-        "toPantryNothing": "Walang naidagdag sa despensa. Buksan ulit ang \"Sa despensa\" at suriin ang mga dami."
+        "toPantryNothing": "Walang naidagdag sa despensa. Buksan ulit ang \"Sa despensa\" at suriin ang mga dami.",
+        "reorderHandle": "Ayusin ang pagkakasunod: {{name}}",
+        "reorderHandleHint": "I-drag o gamitin ang arrow keys para mag-ayos",
+        "reorderPosition": "Posisyon {{index}} ng {{total}}"
     },
     "meals": {
         "randomizeSuccess_few": "{{count}} pagkain ang naplano.",

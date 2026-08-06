@@ -456,7 +456,10 @@
         "toPantryDoneAt_few": "{{location}}에 항목 {{count}}개를 추가했습니다.",
         "toPantryDone": "{{count}}개 항목을 식료품 저장고에 추가했습니다.",
         "toPantryDone_one": "{{count}}개 항목을 식료품 저장고에 추가했습니다.",
-        "toPantryNothing": "식료품 저장고에 아무것도 추가되지 않았습니다. \"저장고로\"를 다시 열어 수량을 확인하세요."
+        "toPantryNothing": "식료품 저장고에 아무것도 추가되지 않았습니다. \"저장고로\"를 다시 열어 수량을 확인하세요.",
+        "reorderHandle": "순서 변경: {{name}}",
+        "reorderHandleHint": "끌거나 화살표 키로 순서를 변경하세요",
+        "reorderPosition": "{{total}}개 중 {{index}}번째"
     },
     "meals": {
         "randomizeSuccess_few": "{{count}}개의 식사가 계획되었습니다.",

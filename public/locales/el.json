@@ -444,7 +444,10 @@
         "toPantryDoneAt_few": "{{count}} είδη προστέθηκαν στο {{location}}.",
         "toPantryDone": "Προστέθηκαν {{count}} προϊόντα στο κελάρι.",
         "toPantryDone_one": "Προστέθηκε {{count}} προϊόν στο κελάρι.",
-        "toPantryNothing": "Δεν προστέθηκε τίποτα στο κελάρι. Άνοιξε ξανά το «Στο κελάρι» και έλεγξε τις ποσότητες."
+        "toPantryNothing": "Δεν προστέθηκε τίποτα στο κελάρι. Άνοιξε ξανά το «Στο κελάρι» και έλεγξε τις ποσότητες.",
+        "reorderHandle": "Αλλαγή σειράς: {{name}}",
+        "reorderHandleHint": "Σύρετε ή χρησιμοποιήστε τα βέλη για ταξινόμηση",
+        "reorderPosition": "Θέση {{index}} από {{total}}"
     },
     "meals": {
         "randomizeSuccess_few": "Προγραμματίστηκαν {{count}} γεύματα.",
