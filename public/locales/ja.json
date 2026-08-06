@@ -1722,6 +1722,7 @@
         "caldavRemindersToggle": "リマインダーリストの表示/非表示",
         "caldavRemindersHint": "任意の CalDAV サーバー（iCloud、Nextcloud、Radicale など）のリマインダーリストは、タスクまたは買い物と双方向で同期されます。",
         "caldavRemindersEmpty": "このサーバーにはリマインダーリストがありません。サーバー上で作成してから検索を更新してください。",
+        "caldavRemindersAppleNote": "Apple のリマインダー: iOS 13 と macOS 10.15 以降、リマインダー App はリストを CalDAV で公開しなくなりました。ここに表示されるのは、その変更より前に作成されたタスクリストだけで、現在のリマインダー App のリストは表示されません。これは Apple 側の制限です。",
         "caldavReminderMapTasks": "タスク",
         "caldavReminderMapShopping": "買い物",
         "caldavRefreshReminders": "リマインダーリストを更新",

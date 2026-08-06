@@ -1722,6 +1722,7 @@
         "caldavRemindersToggle": "显示/隐藏提醒列表",
         "caldavRemindersHint": "任何 CalDAV 服务器（iCloud、Nextcloud、Radicale）上的提醒列表都与任务或购物双向同步。",
         "caldavRemindersEmpty": "此服务器未提供提醒列表。请在服务器上创建一个，然后刷新搜索。",
+        "caldavRemindersAppleNote": "Apple 提醒事项：自 iOS 13 和 macOS 10.15 起，提醒事项 App 不再通过 CalDAV 发布其列表。此处 iCloud 仅显示该变更之前创建的任务列表，当前提醒事项 App 中的列表始终不可见。这是 Apple 的限制。",
         "caldavReminderMapTasks": "任务",
         "caldavReminderMapShopping": "购物",
         "caldavRefreshReminders": "刷新提醒列表",

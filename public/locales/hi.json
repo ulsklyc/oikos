@@ -1722,6 +1722,7 @@
         "caldavRemindersToggle": "रिमाइंडर सूचियाँ दिखाएँ/छिपाएँ",
         "caldavRemindersHint": "किसी भी CalDAV सर्वर (iCloud, Nextcloud, Radicale) की रिमाइंडर सूचियाँ कार्य या खरीदारी के साथ दोनों दिशाओं में सिंक होती हैं।",
         "caldavRemindersEmpty": "यह सर्वर कोई रिमाइंडर सूची नहीं देता। सर्वर पर एक बनाएँ और फिर खोज ताज़ा करें।",
+        "caldavRemindersAppleNote": "Apple रिमाइंडर: iOS 13 और macOS 10.15 के बाद से रिमाइंडर ऐप अपनी सूचियाँ CalDAV के ज़रिए प्रकाशित नहीं करता। यहाँ iCloud केवल उस बदलाव से पहले बनाई गई कार्य-सूचियाँ दिखाता है - आज के रिमाइंडर ऐप की सूचियाँ अदृश्य रहती हैं। यह Apple की सीमा है।",
         "caldavReminderMapTasks": "कार्य",
         "caldavReminderMapShopping": "खरीदारी",
         "caldavRefreshReminders": "रिमाइंडर सूचियाँ ताज़ा करें",

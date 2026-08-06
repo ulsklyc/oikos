@@ -1707,6 +1707,7 @@
         "caldavRemindersToggle": "Tampilkan/sembunyikan daftar pengingat",
         "caldavRemindersHint": "Daftar pengingat dari server CalDAV mana pun (iCloud, Nextcloud, Radicale) disinkronkan dua arah dengan Tugas atau Belanja.",
         "caldavRemindersEmpty": "Server ini tidak menyediakan daftar pengingat. Buat satu di server, lalu perbarui pencarian.",
+        "caldavRemindersAppleNote": "Pengingat Apple: sejak iOS 13 dan macOS 10.15, aplikasi Pengingat tidak lagi memublikasikan daftarnya melalui CalDAV. Di sini iCloud hanya menampilkan daftar tugas yang dibuat sebelum perubahan itu - daftar dari aplikasi Pengingat saat ini tetap tidak terlihat. Ini adalah batasan dari Apple.",
         "caldavReminderMapTasks": "Tugas",
         "caldavReminderMapShopping": "Belanja",
         "caldavRefreshReminders": "Perbarui daftar pengingat",

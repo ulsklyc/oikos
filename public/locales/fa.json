@@ -1707,6 +1707,7 @@
         "caldavRemindersToggle": "نمایش/پنهان‌سازی فهرست‌های یادآور",
         "caldavRemindersHint": "فهرست‌های یادآور از هر سرور CalDAV (iCloud، Nextcloud، Radicale) در هر دو جهت با کارها یا خرید همگام‌سازی می‌شوند.",
         "caldavRemindersEmpty": "این سرور هیچ فهرست یادآوری ارائه نمی‌دهد. یکی روی سرور بسازید و سپس جست‌وجو را به‌روز کنید.",
+        "caldavRemindersAppleNote": "یادآورهای اپل: از iOS 13 و macOS 10.15 برنامه یادآورها دیگر فهرست‌های خود را از طریق CalDAV منتشر نمی‌کند. اینجا iCloud فقط فهرست‌های کاری ساخته‌شده پیش از آن تغییر را نشان می‌دهد و فهرست‌های برنامه یادآورهای امروزی نامرئی می‌مانند. این یک محدودیت از سوی اپل است.",
         "caldavReminderMapTasks": "کارها",
         "caldavReminderMapShopping": "خرید",
         "caldavRefreshReminders": "به‌روزرسانی فهرست‌های یادآور",

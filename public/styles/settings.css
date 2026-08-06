@@ -1920,6 +1920,13 @@
   gap: var(--space-2);
 }
 
+/* Serverseitige Einschränkung, keine Fehlermeldung: der Hinweis steht als Text
+   unter der Kontozeile, nicht als Warnton auf der Karte - die Verbindung ist ja
+   in Ordnung (#677). */
+.caldav-reminder-note {
+  margin-top: var(--space-3);
+}
+
 .caldav-calendar-item,
 .caldav-reminder-item {
   display: flex;

@@ -1722,6 +1722,7 @@
         "caldavRemindersToggle": "Afficher/masquer les listes de rappels",
         "caldavRemindersHint": "Les listes de rappels de n'importe quel serveur CalDAV (iCloud, Nextcloud, Radicale) sont synchronisées avec Tâches ou Courses dans les deux sens.",
         "caldavRemindersEmpty": "Ce serveur ne propose aucune liste de rappels. Créez-en une sur le serveur, puis actualisez la recherche.",
+        "caldavRemindersAppleNote": "Rappels Apple : depuis iOS 13 et macOS 10.15, l'app Rappels ne publie plus ses listes via CalDAV. iCloud n'affiche ici que les listes de tâches créées avant ce changement - les listes de l'app Rappels actuelle restent invisibles. Il s'agit d'une limitation d'Apple.",
         "caldavReminderMapTasks": "Tâches",
         "caldavReminderMapShopping": "Courses",
         "caldavRefreshReminders": "Actualiser les listes de rappels",

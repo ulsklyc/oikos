@@ -1722,6 +1722,7 @@
         "caldavRemindersToggle": "Hatırlatıcı listelerini göster/gizle",
         "caldavRemindersHint": "Herhangi bir CalDAV sunucusundaki hatırlatıcı listeleri (iCloud, Nextcloud, Radicale) Görevler veya Alışveriş ile çift yönlü eşitlenir.",
         "caldavRemindersEmpty": "Bu sunucu hatırlatıcı listesi sunmuyor. Sunucuda bir tane oluşturun, ardından aramayı yenileyin.",
+        "caldavRemindersAppleNote": "Apple Anımsatıcılar: iOS 13 ve macOS 10.15'ten beri Anımsatıcılar uygulaması listelerini artık CalDAV üzerinden yayımlamıyor. iCloud burada yalnızca bu değişiklikten önce oluşturulmuş görev listelerini gösterir - bugünkü Anımsatıcılar uygulamasının listeleri görünmez kalır. Bu, Apple kaynaklı bir kısıtlamadır.",
         "caldavReminderMapTasks": "Görevler",
         "caldavReminderMapShopping": "Alışveriş",
         "caldavRefreshReminders": "Hatırlatıcı listelerini yenile",

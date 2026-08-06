@@ -592,6 +592,15 @@ account discovers calendars alone, so the page used to show an empty state while
 serving lists all along. A discovered list starts **disabled** on purpose, because switching them on
 by default would pull a server's existing VTODOs into the Tasks module unannounced.
 
+**iCloud is not a source for Apple Reminders (#677).** With iOS 13 / macOS 10.15 the upgraded
+Reminders app moved its lists into a private store; over CalDAV iCloud still serves only the VTODO
+collections that predate that switch - usually none, sometimes a single orphaned one that the
+Reminders app itself no longer shows. The effect reads exactly like broken discovery, because the
+calendars of the same account arrive in full, and no amount of client-side searching can widen it.
+The reminders leaf therefore states the limitation on every account whose URL is an iCloud host,
+and only there: Nextcloud, Radicale and Baikal publish their task lists normally, and a blanket
+note would teach their users to distrust a working sync.
+
 A VTODO's `CATEGORIES` arrive as tags (#586): two-way for tasks (see [Task Tags](#task-tags-migration-v115-586)), inbound only for shopping items (see [Shopping Item Tags](#shopping-item-tags-migration-v116-586)). They are never mapped onto the module's own category — a task or item sits in exactly one category, but a VTODO may carry any number of categories, and folding them together would drop every value after the first and pull foreign values into a managed list.
 
 **Subtask hierarchy via `RELATED-TO` (v1.78.1, #671).** Apple Reminders, Nextcloud Tasks and Tasks.org express a subtask by putting `RELATED-TO` on the **child**, carrying the parent's UID. Until v1.78.1 the parser never read the property, so every subtask arrived as a top-level task standing next to its parent — a reporter's five-item checklist showed up as five separate entries. `RELTYPE` is optional and defaults to `PARENT` (RFC 5545 §3.2.15), so a bare `RELATED-TO` is already the parent link; the rarer opposite direction (`RELTYPE=CHILD` on the parent) is read too, `SIBLING` is discarded. Resolution runs as a second pass once every list of the account has been read, because a child may appear before its parent in the object stream and across list boundaries at that. Three deliberate edges: CalDAV allows arbitrarily deep chains while Yuvomi allows one level, so a grandchild is attached to its topmost ancestor rather than dropped; a relation that disappears server-side is written back as `NULL`, otherwise an item pulled out of a sublist would stay a child forever; and a cycle or self-reference leaves the rows flat instead of looping. The outbound direction needs no counterpart — it patches the original calendar object and therefore preserves relations Yuvomi does not manage.

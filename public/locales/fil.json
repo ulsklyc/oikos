@@ -1728,6 +1728,7 @@
         "caldavRemindersToggle": "Ipakita/itago ang mga listahan ng paalala",
         "caldavRemindersHint": "Nagsi-sync sa dalawang direksyon ang mga listahan ng paalala mula sa alinmang CalDAV server (iCloud, Nextcloud, Radicale) sa Mga Gawain o Pamimili.",
         "caldavRemindersEmpty": "Walang inaalok na listahan ng paalala ang server na ito. Gumawa ng isa sa server, tapos i-refresh ang paghahanap.",
+        "caldavRemindersAppleNote": "Apple Reminders: mula sa iOS 13 at macOS 10.15, hindi na inilalathala ng Reminders app ang mga listahan nito sa pamamagitan ng CalDAV. Dito ay ipinapakita lang ng iCloud ang mga listahan ng gawain na ginawa bago ang pagbabagong iyon - nananatiling hindi nakikita ang mga listahan mula sa kasalukuyang Reminders app. Limitasyon ito ng Apple.",
         "caldavReminderMapTasks": "Mga Gawain",
         "caldavReminderMapShopping": "Pamimili",
         "caldavRefreshReminders": "I-refresh ang mga listahan ng paalala",

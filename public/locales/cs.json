@@ -1695,6 +1695,7 @@
         "caldavRemindersToggle": "Zobrazit/skrýt seznamy připomínek",
         "caldavRemindersHint": "Seznamy připomínek z libovolného serveru CalDAV (iCloud, Nextcloud, Radicale) se synchronizují s Úkoly nebo Nákupem v obou směrech.",
         "caldavRemindersEmpty": "Tento server nenabízí žádné seznamy připomínek. Vytvořte jeden na serveru a poté vyhledávání aktualizujte.",
+        "caldavRemindersAppleNote": "Připomínky Apple: od iOS 13 a macOS 10.15 už aplikace Připomínky nezveřejňuje své seznamy přes CalDAV. iCloud zde ukazuje jen seznamy úkolů vytvořené před touto změnou - seznamy z dnešní aplikace Připomínky zůstávají neviditelné. Jde o omezení ze strany Apple.",
         "caldavReminderMapTasks": "Úkoly",
         "caldavReminderMapShopping": "Nákup",
         "caldavRefreshReminders": "Aktualizovat seznamy připomínek",

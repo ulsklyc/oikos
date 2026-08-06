@@ -1707,6 +1707,7 @@
         "caldavRemindersToggle": "미리 알림 목록 표시/숨기기",
         "caldavRemindersHint": "모든 CalDAV 서버(iCloud, Nextcloud, Radicale)의 미리 알림 목록은 할 일 또는 장보기와 양방향으로 동기화됩니다.",
         "caldavRemindersEmpty": "이 서버에는 미리 알림 목록이 없습니다. 서버에서 하나를 만든 다음 검색을 새로고침하세요.",
+        "caldavRemindersAppleNote": "Apple 미리 알림: iOS 13 및 macOS 10.15부터 미리 알림 앱은 목록을 CalDAV로 더 이상 공개하지 않습니다. 여기에는 그 전환 이전에 만든 작업 목록만 표시되며, 현재 미리 알림 앱의 목록은 보이지 않습니다. 이는 Apple의 제한 사항입니다.",
         "caldavReminderMapTasks": "할 일",
         "caldavReminderMapShopping": "장보기",
         "caldavRefreshReminders": "미리 알림 목록 새로고침",

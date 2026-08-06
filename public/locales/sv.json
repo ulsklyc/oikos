@@ -1722,6 +1722,7 @@
         "caldavRemindersToggle": "Visa/dölj påminnelselistor",
         "caldavRemindersHint": "Påminnelselistor från valfri CalDAV-server (iCloud, Nextcloud, Radicale) synkroniseras i båda riktningarna med Uppgifter eller Inköp.",
         "caldavRemindersEmpty": "Den här servern erbjuder inga påminnelselistor. Skapa en på servern och uppdatera sedan sökningen.",
+        "caldavRemindersAppleNote": "Apple Påminnelser: sedan iOS 13 och macOS 10.15 publicerar appen Påminnelser inte längre sina listor via CalDAV. iCloud visar här bara uppgiftslistor som skapats före den övergången - listor från dagens Påminnelser-app förblir osynliga. Det är en begränsning från Apple.",
         "caldavReminderMapTasks": "Uppgifter",
         "caldavReminderMapShopping": "Inköp",
         "caldavRefreshReminders": "Uppdatera påminnelselistor",

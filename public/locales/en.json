@@ -1699,6 +1699,7 @@
         "caldavRemindersToggle": "Show/hide reminder lists",
         "caldavRemindersHint": "Reminder lists from any CalDAV server (iCloud, Nextcloud, Radicale) sync with Tasks or Shopping in both directions.",
         "caldavRemindersEmpty": "This server offers no reminder lists. Create one on the server, then refresh the search.",
+        "caldavRemindersAppleNote": "Apple Reminders: since iOS 13 and macOS 10.15 the Reminders app no longer publishes its lists over CalDAV. iCloud only shows task lists created before that switch here - lists from today's Reminders app stay invisible. This is an Apple limitation.",
         "caldavReminderMapTasks": "Tasks",
         "caldavReminderMapShopping": "Shopping",
         "caldavRefreshReminders": "Refresh reminder lists",

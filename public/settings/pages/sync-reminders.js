@@ -26,6 +26,28 @@ function enabledReminderListCount(lists) {
   return lists.filter((list) => list.enabled).length;
 }
 
+/**
+ * Zeigt das Konto auf iCloud?
+ *
+ * Apple hat die Erinnerungen-App mit iOS 13 / macOS 10.15 aus CalDAV genommen:
+ * ihre Listen liegen seither in einem eigenen Speicher, den kein CalDAV-Client
+ * sieht. iCloud liefert über CalDAV nur noch VTODO-Sammlungen aus der Zeit davor
+ * - meist genau eine verwaiste Liste, die in der Erinnerungen-App gar nicht mehr
+ * auftaucht (#677). Ohne Hinweis liest sich das wie ein kaputter Abgleich, denn
+ * die Kalender desselben Kontos kommen vollständig an.
+ */
+function isICloudAccount(url) {
+  const raw = String(url || '').trim();
+  if (!raw) return false;
+  let host;
+  try {
+    host = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`).hostname.toLowerCase();
+  } catch {
+    return false;
+  }
+  return host === 'icloud.com' || host.endsWith('.icloud.com');
+}
+
 function showToast(message, tone = 'default') {
   window.yuvomi?.showToast(message, tone);
 }
@@ -143,6 +165,13 @@ function renderAccount(container, account, reminderLists, refresh) {
     details,
     tone: account.lastSync ? 'success' : 'neutral',
   }));
+
+  if (isICloudAccount(account.caldavUrl)) {
+    const note = document.createElement('p');
+    note.className = 'settings-card-description caldav-reminder-note';
+    note.textContent = t('settings.caldavRemindersAppleNote');
+    card.appendChild(note);
+  }
 
   const list = document.createElement('div');
   list.className = 'caldav-calendars-list';

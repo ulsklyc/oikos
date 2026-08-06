@@ -1196,6 +1196,15 @@ added account showed an empty state even when the server was serving task lists.
 this without any action on your part. A second bug, fixed in v1.68.1, made the fetch ask for
 appointments on task lists, which left the mirror empty against Radicale and Nextcloud.
 
+**iCloud is the exception: Apple Reminders is no longer a CalDAV source.** With iOS 13 and
+macOS 10.15 the upgraded Reminders app moved its lists into a private store that no CalDAV client
+can read. Over CalDAV, iCloud still serves the task collections that existed *before* that switch -
+usually none, sometimes a single orphaned list that the Reminders app itself no longer shows. So an
+iCloud account whose calendars sync perfectly can still offer no usable reminder list, and no
+setting on either side changes that. The reminders page states this on every iCloud
+account. If you want your Apple tasks in Yuvomi, keep them in a CalDAV-backed list (Nextcloud,
+Radicale, Baikal) and subscribe to it from the Reminders app's "Other" account rather than iCloud.
+
 </details>
 
 ---

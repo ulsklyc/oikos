@@ -1678,6 +1678,7 @@
         "caldavRemindersToggle": "Herinneringslijsten tonen/verbergen",
         "caldavRemindersHint": "Herinneringslijsten van elke CalDAV-server (iCloud, Nextcloud, Radicale) worden in beide richtingen gesynchroniseerd met Taken of Boodschappen.",
         "caldavRemindersEmpty": "Deze server biedt geen herinneringslijsten. Maak er een aan op de server en vernieuw daarna de zoekopdracht.",
+        "caldavRemindersAppleNote": "Apple Herinneringen: sinds iOS 13 en macOS 10.15 publiceert de app Herinneringen haar lijsten niet meer via CalDAV. iCloud toont hier alleen takenlijsten van vóór die omschakeling - lijsten uit de huidige app Herinneringen blijven onzichtbaar. Dit is een beperking van Apple.",
         "caldavReminderMapTasks": "Taken",
         "caldavReminderMapShopping": "Boodschappen",
         "caldavRefreshReminders": "Herinneringslijsten vernieuwen",

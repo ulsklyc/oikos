@@ -1722,6 +1722,7 @@
         "caldavRemindersToggle": "إظهار/إخفاء قوائم التذكيرات",
         "caldavRemindersHint": "تتم مزامنة قوائم التذكيرات من أي خادم CalDAV (iCloud أو Nextcloud أو Radicale) مع المهام أو التسوق في كلا الاتجاهين.",
         "caldavRemindersEmpty": "هذا الخادم لا يوفّر أي قوائم تذكيرات. أنشئ واحدة على الخادم ثم حدّث البحث.",
+        "caldavRemindersAppleNote": "تذكيرات Apple: منذ iOS 13 وmacOS 10.15 لم يعد تطبيق التذكيرات ينشر قوائمه عبر CalDAV. يعرض iCloud هنا قوائم المهام التي أُنشئت قبل هذا التغيير فقط، وتبقى قوائم تطبيق التذكيرات الحالي غير مرئية. هذا قيد من Apple.",
         "caldavReminderMapTasks": "المهام",
         "caldavReminderMapShopping": "التسوق",
         "caldavRefreshReminders": "تحديث قوائم التذكيرات",

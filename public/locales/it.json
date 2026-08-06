@@ -1722,6 +1722,7 @@
         "caldavRemindersToggle": "Mostra/nascondi elenchi promemoria",
         "caldavRemindersHint": "Gli elenchi promemoria di qualsiasi server CalDAV (iCloud, Nextcloud, Radicale) si sincronizzano con Attività o Spesa in entrambe le direzioni.",
         "caldavRemindersEmpty": "Questo server non offre elenchi promemoria. Creane uno sul server, poi aggiorna la ricerca.",
+        "caldavRemindersAppleNote": "Promemoria di Apple: da iOS 13 e macOS 10.15 l'app Promemoria non pubblica più i suoi elenchi via CalDAV. Qui iCloud mostra solo gli elenchi di attività creati prima di quel passaggio - gli elenchi dell'app Promemoria attuale restano invisibili. È una limitazione di Apple.",
         "caldavReminderMapTasks": "Attività",
         "caldavReminderMapShopping": "Spesa",
         "caldavRefreshReminders": "Aggiorna elenchi promemoria",

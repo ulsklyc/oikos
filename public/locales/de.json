@@ -1728,6 +1728,7 @@
         "caldavRemindersToggle": "Erinnerungslisten anzeigen/ausblenden",
         "caldavRemindersHint": "Erinnerungslisten jedes CalDAV-Servers (iCloud, Nextcloud, Radicale) werden mit Aufgaben oder Einkauf abgeglichen - Änderungen gehen in beide Richtungen.",
         "caldavRemindersEmpty": "Dieser Server bietet keine Erinnerungslisten an. Lege eine auf dem Server an und aktualisiere die Suche.",
+        "caldavRemindersAppleNote": "Apple Erinnerungen: Seit iOS 13 und macOS 10.15 veröffentlicht die Erinnerungen-App ihre Listen nicht mehr über CalDAV. iCloud zeigt hier nur noch Aufgabenlisten von davor - Listen aus der heutigen Erinnerungen-App bleiben unsichtbar. Das ist eine Einschränkung von Apple.",
         "caldavReminderMapTasks": "Aufgaben",
         "caldavReminderMapShopping": "Einkauf",
         "caldavRefreshReminders": "Erinnerungslisten aktualisieren",

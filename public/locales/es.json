@@ -1722,6 +1722,7 @@
         "caldavRemindersToggle": "Mostrar/ocultar listas de recordatorios",
         "caldavRemindersHint": "Las listas de recordatorios de cualquier servidor CalDAV (iCloud, Nextcloud, Radicale) se sincronizan con Tareas o Compras en ambas direcciones.",
         "caldavRemindersEmpty": "Este servidor no ofrece listas de recordatorios. Crea una en el servidor y actualiza la búsqueda.",
+        "caldavRemindersAppleNote": "Recordatorios de Apple: desde iOS 13 y macOS 10.15 la app Recordatorios ya no publica sus listas por CalDAV. Aquí iCloud solo muestra listas de tareas creadas antes de ese cambio - las listas de la app Recordatorios actual permanecen invisibles. Es una limitación de Apple.",
         "caldavReminderMapTasks": "Tareas",
         "caldavReminderMapShopping": "Compras",
         "caldavRefreshReminders": "Actualizar listas de recordatorios",

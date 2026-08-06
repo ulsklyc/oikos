@@ -1655,6 +1655,7 @@
         "caldavRemindersToggle": "Hiển thị/ẩn danh sách nhắc nhở",
         "caldavRemindersHint": "Danh sách nhắc nhở từ bất kỳ máy chủ CalDAV nào (iCloud, Nextcloud, Radicale) được đồng bộ hai chiều với Nhiệm vụ hoặc Mua sắm.",
         "caldavRemindersEmpty": "Máy chủ này không cung cấp danh sách nhắc nhở. Hãy tạo một danh sách trên máy chủ, rồi làm mới tìm kiếm.",
+        "caldavRemindersAppleNote": "Lời nhắc của Apple: từ iOS 13 và macOS 10.15, ứng dụng Lời nhắc không còn công bố danh sách của mình qua CalDAV. Tại đây iCloud chỉ hiển thị các danh sách tác vụ được tạo trước thay đổi đó - danh sách trong ứng dụng Lời nhắc hiện nay vẫn không hiển thị. Đây là giới hạn của Apple.",
         "caldavReminderMapTasks": "Nhiệm vụ",
         "caldavReminderMapShopping": "Mua sắm",
         "caldavRefreshReminders": "Làm mới danh sách nhắc nhở",

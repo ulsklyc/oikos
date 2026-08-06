@@ -1722,6 +1722,7 @@
         "caldavRemindersToggle": "Mostrar/ocultar listas de lembretes",
         "caldavRemindersHint": "As listas de lembretes de qualquer servidor CalDAV (iCloud, Nextcloud, Radicale) são sincronizadas com Tarefas ou Compras nos dois sentidos.",
         "caldavRemindersEmpty": "Este servidor não oferece listas de lembretes. Crie uma no servidor e depois atualize a busca.",
+        "caldavRemindersAppleNote": "Lembretes da Apple: desde o iOS 13 e o macOS 10.15, a app Lembretes deixou de publicar as suas listas por CalDAV. Aqui o iCloud só mostra listas de tarefas criadas antes dessa mudança - as listas da app Lembretes atual permanecem invisíveis. É uma limitação da Apple.",
         "caldavReminderMapTasks": "Tarefas",
         "caldavReminderMapShopping": "Compras",
         "caldavRefreshReminders": "Atualizar listas de lembretes",

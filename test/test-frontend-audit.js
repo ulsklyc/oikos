@@ -781,6 +781,13 @@ test('sync-reminders leaf maps CalDAV reminder lists and syncs without calendars
   assert.match(source, /settings\.caldavReminderMapShopping/);
   assert.match(source, /settings\.caldavRemindersHint/);
 
+  // Apple hat die Erinnerungen-App aus CalDAV genommen (#677): ein iCloud-Konto
+  // liefert hier höchstens Altlisten, deshalb steht der Hinweis am Konto - aber
+  // nur dort, sonst läse ihn auch, wer Nextcloud oder Radicale nutzt.
+  assert.match(source, /isICloudAccount\(account\.caldavUrl\)/);
+  assert.match(source, /settings\.caldavRemindersAppleNote/);
+  assert.match(source, /icloud\.com/);
+
   // Konto-Felder als camelCase, Toggle mit Fokus-Rückgabe (#534-Nachlauf).
   assert.match(source, /account\.lastSync/);
   assert.match(source, /account\.caldavUrl/);

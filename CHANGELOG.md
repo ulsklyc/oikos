@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The reminder-sync page now says why an iCloud account offers no usable task list. Apple's upgraded Reminders app, since iOS 13 and macOS 10.15, keeps its lists in a private store that no CalDAV client can read, so iCloud only serves the collections that existed before that switch - typically none, occasionally a single orphaned list that the Reminders app itself no longer shows. Since the calendars of the same account keep syncing perfectly, this looked like a broken search rather than an Apple limitation. The note appears only on iCloud accounts; Nextcloud, Radicale and Baikal publish their task lists as before (#677)
 - Credit-card accounts can now carry the issuing bank and the agreed credit limit. Both fields appear in the account dialog as soon as the type is set to credit card, and the account list shows the bank next to what is still available on the card - the limit minus what you currently owe on it. A balance in your favour does not raise that figure above the limit. The fields are specific to credit cards: switching an account to another type clears them again. Groundwork from #541; statements and installment purchases follow separately.
 
 ## [1.85.0] - 2026-08-05

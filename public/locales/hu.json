@@ -1678,6 +1678,7 @@
         "caldavRemindersToggle": "Emlékeztető listák mutatása/elrejtése",
         "caldavRemindersHint": "Bármely CalDAV-kiszolgáló emlékeztető listái (iCloud, Nextcloud, Radicale) mindkét irányban szinkronizálódnak a Feladatok vagy Bevásárló listákkal.",
         "caldavRemindersEmpty": "Ez a kiszolgáló nem kínál emlékeztető listákat. Hozzon létre egyet a kiszolgálón, majd frissítse a keresést.",
+        "caldavRemindersAppleNote": "Apple Emlékeztetők: az iOS 13 és a macOS 10.15 óta az Emlékeztetők alkalmazás már nem teszi közzé a listáit CalDAV-on keresztül. Itt az iCloud csak a váltás előtt létrehozott feladatlistákat mutatja - a mai Emlékeztetők alkalmazás listái láthatatlanok maradnak. Ez az Apple korlátozása.",
         "caldavReminderMapTasks": "Feladatok",
         "caldavReminderMapShopping": "Bevásárlás",
         "caldavRefreshReminders": "Emlékeztető listák frissítése",
