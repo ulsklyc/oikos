@@ -91,9 +91,7 @@
  * (`100dvh - safe-top - nav - safe-bottom - tabs`), und zwar in zwei leicht
  * verschiedenen Fassungen - der Einkauf ließ --safe-area-inset-top aus. Eine
  * nachgerechnete Höhe kennt nur, was zum Zeitpunkt des Schreibens unter der
- * Seite lag: die FAB-Zone (--fab-safe-zone) kam später dazu und fehlte in
- * beiden, weshalb die Seiten aus der verkürzten .app-content herausliefen und
- * sie selbst scrollbar machten.
+ * Seite lag, weshalb Shell-Änderungen die Seiten selbst scrollbar machten.
  *
  * `100%` liest den Platz, statt ihn zu erraten - die Kette .app-content →
  * .page-transition → Seite reicht ihn durch. Jede künftige Änderung an der

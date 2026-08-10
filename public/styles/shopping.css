@@ -583,10 +583,8 @@
  * Zeichen („Broc…", „Cherr…"). 24% der Viewportbreite für einen Knopf in der
  * Ecke (Critique 2026-07-30, P0).
  *
- * Den Freiraum trägt jetzt `--fab-safe-zone`: eine Marge an .app-content
- * verkürzt den Scrollport, sodass bei jedem Scrollstand nichts Bedienbares mehr
- * unter dem FAB liegt - eine Antwort für alle vier Tabs, statt einer Gasse hier
- * und 14 Überdeckungen dort. */
+ * Der FAB schwebt stattdessen über dem vollständigen Scrollport; er verkürzt
+ * weder diese Gruppen noch `.app-content`. */
 
 /* Der Abstand zwischen den Gruppen kommt aus dem gap von .list-scroller. */
 

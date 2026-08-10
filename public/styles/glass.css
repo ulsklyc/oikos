@@ -78,9 +78,8 @@
     box-shadow: var(--shadow-lg), var(--glass-inset-strong), var(--glass-inset-bottom-base);
   }
 
-  /* Sheen: die obere Kapselhälfte fängt Licht - unter dem FAB läuft per
-   * --fab-safe-zone nie Inhalt durch (v1.60.0/#634), der Sheen ist damit
-   * neben dem Tint der einzige Materialbeweis. --glass-sheen ist gethemt
+  /* Sheen: die obere Kapselhälfte fängt Licht und hält den schwebenden FAB über
+   * wechselndem Seiteninhalt erkennbar. --glass-sheen ist gethemt
    * (Light 0.35, Dark 0.16) und wird unter prefers-reduced-transparency/
    * -contrast transparent, der Sheen verschwindet dort von selbst. */
   /* Kein pointer-events:none nötig: Pseudos hit-testen auf ihr Host-Element,

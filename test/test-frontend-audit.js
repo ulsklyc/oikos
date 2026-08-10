@@ -2774,11 +2774,11 @@ test('die Küchen-Listen teilen eine Zeilen-Grammatik', () => {
  * Zeichen gekürzt. Mahlzeiten und Rezepte reservierten nichts und sammelten
  * 14 Überdeckungen bis 53.2%.
  *
- * Die Antwort ist ein kürzerer Scrollport (`--fab-safe-zone`), nicht Platz in
- * der Zeile - und ausdrücklich auch kein Wegfahren des FAB mehr (siehe unten,
- * #634).
+ * Die Antwort ist ein schwebender FAB über dem vollen Scrollport, nicht Platz
+ * in der Zeile. `scroll-padding` hält programmatische Scrollziele aus der
+ * FAB-Zone, ohne den sichtbaren Inhaltsbereich zu verkürzen.
  */
-test('der FAB weicht der Zeile, statt eine Gasse zu reservieren', () => {
+test('der FAB schwebt über dem vollständigen Scrollport', () => {
   const layout = read('../public/styles/layout.css');
   const tokens = read('../public/styles/tokens.css');
   const router = read('../public/router.js');
@@ -2795,16 +2795,18 @@ test('der FAB weicht der Zeile, statt eine Gasse zu reservieren', () => {
   assert.doesNotMatch(tokens.replace(/\/\*[\s\S]*?\*\//g, ''), /--fab-lane\s*:/,
     '--fab-lane ist stillgelegt und darf nicht wieder definiert werden');
 
-  // Die FAB-Zone ist eine Höhe, kein Padding. `padding-bottom` am scrollenden
-  // Element sitzt am Inhaltsende und wandert beim Scrollen mit - es wirkte
-  // deshalb nur, wenn der Nutzer schon unten war, und ließ bei scrollTop=0 bis
-  // 80,6% einer Zeilenaktion verdeckt (Critique P1, 2026-07-30).
+  // Die FAB-Zone darf den Scrollport nicht als Margin verkürzen. Scroll-Padding
+  // beeinflusst nur Scrollziele und lässt #main-content bis an die Bottom-Nav
+  // reichen, während der FAB darüber schwebt.
   assert.match(tokens, /--fab-safe-zone:\s*calc\([^;]*--fab-gap[^;]*--fab-size[^;]*;/,
     '--fab-safe-zone muss aus --fab-gap und --fab-size abgeleitet werden');
   assert.match(tokens, /--fab-offset-bottom:\s*calc\([^;]*--fab-gap[^;]*\)/,
     '--fab-offset-bottom und --fab-safe-zone müssen dieselbe Quelle (--fab-gap) haben');
-  assert.match(layout, /:has\([^)]*\.page-fab[^)]*\)[^{]*\.app-content\s*\{[^}]*margin-block-end:\s*var\(--fab-safe-zone\)/,
-    'der Scrollport muss über der FAB-Zone enden (Marge an .app-content)');
+  const fabScrollportRule = /:has\([^)]*\.page-fab[^)]*\)[^{]*\.app-content\s*\{([^}]*)\}/.exec(layout)?.[1] ?? '';
+  assert.match(fabScrollportRule, /scroll-padding-block-end:\s*var\(--fab-safe-zone\)/,
+    'der vollständige Scrollport muss FAB-bewusstes scroll-padding tragen');
+  assert.doesNotMatch(fabScrollportRule, /margin-block-end/,
+    'der FAB darf den Scrollport nicht mit einer Margin verkürzen');
 
   // Die drei auseinandergedrifteten Kopien bleiben abgeschafft. Sie rechneten
   // `--target-lg + --space-6 + --space-4` = 88px und zählten --nav-bottom-height
@@ -2815,12 +2817,9 @@ test('der FAB weicht der Zeile, statt eine Gasse zu reservieren', () => {
       `${file} führt wieder ein eigenes FAB-Freiraum-Token statt --fab-safe-zone`);
   }
 
-  // #634: Der FAB darf sich beim Scrollen nicht mehr zurückziehen.
-  //
-  // Er tat es einmal, um die Zeilenaktion unter sich freizugeben - eine
-  // Begründung, die `--fab-safe-zone` (oben geprüft) vollständig übernommen hat.
-  // Übrig blieb ein Zustand an einer Klasse, den nur ein weiteres Scroll-
-  // Ereignis wieder abnahm: ein einziges Abwärts-Delta ohne Nutzergeste (die
+  // #634: Der FAB darf sich beim Scrollen nicht mehr zurückziehen. Der frühere
+  // Zustand an einer Klasse wurde nur durch ein weiteres Scroll-Ereignis
+  // entfernt: ein einziges Abwärts-Delta ohne Nutzergeste (die
   // iOS-Adressleiste, Scroll-Anchoring beim Nachladen einer Liste) machte die
   // Primäraktion des Moduls unerreichbar. Gemeldet für /tasks auf iPhone-Safari,
   // möglich in jedem Modul mit FAB.
@@ -4766,9 +4765,8 @@ test('dashboard „Heute wichtig" is one inset-grouped list, not a tile grid', (
  * 52px (48px am Desktop) von Hand und kannte die Touch-Stufe von `--fab-size`
  * dadurch nicht, und `.dashboard` trug seinen eigenen `padding-bottom` als
  * FAB-Freiraum. Beides ist mit dem Folgevorgang zu #634 entfallen: der Knopf
- * ist ein `.page-fab`, `adoptPageFab()` hebt ihn samt Liste aus dem Scrollport,
- * und `--fab-safe-zone` traegt den Freiraum an `.app-content` fuer alle Module
- * aus einer Quelle.
+ * ist ein `.page-fab`, und `adoptPageFab()` hebt ihn samt Liste aus dem
+ * Scrollport. Eine eigene Reserve am Dashboard ist damit nicht mehr noetig.
  *
  * Geprueft wird die REGEL, nicht der Klassenname: dashboard.css darf ueberhaupt
  * keine FAB-Geometrie mehr schreiben. Eine Allowlist der drei bekannten
@@ -4786,8 +4784,8 @@ test('the dashboard speed dial owns no FAB geometry of its own', () => {
       `dashboard.css schreibt wieder eine FAB-Groesse von Hand statt --fab-size:\n${rule}`);
   }
   assert.doesNotMatch(cssRuleBody(dashboard, '.dashboard'), /padding-bottom/,
-    'die FAB-Reserve kommt aus --fab-safe-zone an .app-content; eine zweite '
-    + 'Reserve am Modul stapelt sich zu totem Raum (Audit A1-16)');
+    'der FAB schwebt ueber dem vollstaendigen Scrollport; eine Reserve am Modul '
+    + 'erzeugt nur toten Raum (Audit A1-16)');
   assert.doesNotMatch(
     dashboard,
     /@media \(max-width:\s*640px\)[\s\S]*\.dashboard-shell\s*\{[^}]*padding-bottom/,

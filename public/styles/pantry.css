@@ -9,8 +9,8 @@
   display: flex;
   flex-direction: column;
   /* Platz lesen, nicht nachrechnen: die Kette .app-content → .page-transition
-   * reicht ihn durch, inklusive der FAB-Zone. Die Tab-Leiste zieht ihre Höhe
-   * zusätzlich ab (siehe .has-kitchen-tabs in kitchen-tabs.css). */
+   * reicht ihn durch. Die Tab-Leiste zieht ihre Höhe zusätzlich ab (siehe
+   * .has-kitchen-tabs in kitchen-tabs.css). */
   height: 100%;
   overflow: hidden;
 }
@@ -87,9 +87,8 @@
 
 /* KEINE reservierte FAB-Gasse mehr. Sie stand hier und in shopping.css als
  * `padding-inline-end: var(--fab-lane)` und war kollisionsfrei um den Preis von
- * 76px in JEDER Zeile - bei 320px 24% der Viewportbreite. Den Freiraum trägt
- * stattdessen `--fab-safe-zone` (Marge an .app-content, layout.css): kein Platz
- * in der Zeile, sondern ein kürzerer Scrollport. */
+ * 76px in JEDER Zeile - bei 320px 24% der Viewportbreite. Der FAB schwebt
+ * stattdessen über dem vollständigen Scrollport. */
 
 .pantry-empty-hint {
   padding: var(--space-6) var(--space-4);

@@ -1006,15 +1006,15 @@
   --sub-tabs-height: 52px;
   --kitchen-tabs-height: 56px;
 
-  /* Floating Action Button - Geometrie und Freiraum.
+  /* Floating Action Button - Geometrie und Scroll-Abstand.
    *
    * --fab-gap ist die gemeinsame Quelle: er bestimmt, wie weit der FAB über der
    * Scrollport-Unterkante schwebt, und daraus folgen BEIDE anderen Werte.
-   * --fab-safe-zone verkürzt den SCROLLPORT (Marge an .app-content, layout.css)
-   * statt Padding am Inhaltsende: der Streifen unter dem FAB gehört ihm allein,
-   * bei jedem Scrollstand. Mobil zählt --fab-offset-bottom die Bottom-Nav mit,
-   * --fab-safe-zone nicht (Zone misst ab Scrollport-, Offset ab Viewport-
-   * Unterkante). ENTFALLEN bleibt --fab-lane (Guard in test-frontend-audit.js). */
+   * --fab-safe-zone steuert nur das Scroll-Padding von .app-content: Ziele
+   * bleiben erreichbar, der Scrollport selbst reicht vollständig bis an die
+   * Bottom-Nav. Mobil zählt --fab-offset-bottom die Bottom-Nav mit,
+   * --fab-safe-zone nicht. ENTFALLEN bleibt --fab-lane (Guard in
+   * test-frontend-audit.js). */
   --fab-size: 52px;
   --fab-gap: var(--space-6);
   --fab-offset-bottom: calc(var(--nav-bottom-height) + var(--fab-gap));
@@ -1117,9 +1117,8 @@
   /* Flächen-Sheen (Lichtfang der oberen Kapselhälfte, z.B. FAB-Glas). Eigener
    * Token statt color-mix aus --glass-highlight: der Dark-Wert darf NICHT im
    * gleichen Maß kollabieren wie die 1px-Kanten-Highlights (0.09), sonst ist
-   * getöntes Glas im Dark-Theme von einer opaken Fläche nicht unterscheidbar -
-   * unter dem FAB läuft per --fab-safe-zone nie Inhalt durch, der Sheen ist
-   * dort der einzige Materialbeweis. */
+    * getöntes Glas im Dark-Theme von einer opaken Fläche nicht unterscheidbar.
+    * Der Sheen hält die Kapsel auch über wechselndem Seiteninhalt erkennbar. */
   --_glass-sheen: rgba(255, 255, 255, 0.35);
   --glass-sheen:  var(--_glass-sheen);
 

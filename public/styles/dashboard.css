@@ -16,10 +16,9 @@
  * -------------------------------------------------------- */
 /* HIER STAND DIE EIGENE FAB-CLEARANCE des Dashboards (52px mobil, 48px am
  * Desktop, beides von Hand). Seit sein Speed-Dial ein `.page-fab` ist, trägt
- * `--fab-safe-zone` den Freiraum an `.app-content` - für alle 17 Module aus
- * einer Quelle. Eine zweite Reserve daneben stapelte sich zu totem Raum am
- * Seitenende (Audit A1-16), und die Handschrift kannte die Touch-Stufe von
- * --fab-size ohnehin nicht. */
+ * `.app-content` nur noch gemeinsames FAB-Scroll-Padding. Eine eigene Reserve
+ * daneben würde wieder toten Raum am Seitenende erzeugen (Audit A1-16), und
+ * die Handschrift kannte die Touch-Stufe von --fab-size ohnehin nicht. */
 .dashboard {
   padding: var(--space-4);
   max-width: var(--content-max-width);
@@ -1271,9 +1270,8 @@ svg.weather-forecast__icon {
  *
  * Der Knopf IST der geteilte `.page-fab` (layout.css): dadurch zieht ihn
  * `adoptPageFab()` aus dem Scrollport in die Shell-Layer (#634), er erbt Grösse,
- * Position, Glas, Fokusring, Tastatur- und Nur-Lesen-Zustand, und `--fab-safe-zone`
- * hält den Freiraum unter der letzten Widget-Reihe frei. Hier steht nur noch,
- * was ihn zum Speed-Dial macht: die Aktionsliste und das Backdrop.
+ * Position, Glas, Fokusring, Tastatur- und Nur-Lesen-Zustand. Hier steht nur
+ * noch, was ihn zum Speed-Dial macht: die Aktionsliste und das Backdrop.
  * -------------------------------------------------------- */
 
 /* Die Liste hängt absolut über dem Knopf statt ihn in einen Flex-Kasten zu

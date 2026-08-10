@@ -67,10 +67,9 @@
    *
    * Genau daran hingen die acht `height: calc(100dvh - ...)`-Formeln in den
    * Modul-CSS: sie rechneten die Viewport-Höhe nach, weil die Kette sie nicht
-   * lieferte. Nachgerechnete Höhen kennen aber nur, was zum Zeitpunkt des
-   * Schreibens unter der Seite lag - die FAB-Zone (--fab-safe-zone) kam später
-   * dazu und fehlte in allen acht. Mit durchgereichter Höhe stimmt jede
-   * Änderung an .app-content automatisch überall.
+    * lieferte. Nachgerechnete Höhen kennen aber nur, was zum Zeitpunkt des
+    * Schreibens unter der Seite lag. Mit durchgereichter Höhe stimmt jede
+    * Änderung an .app-content automatisch überall.
    *
    * Seiten, die länger sind als der Platz (kein overflow am Root), laufen wie
    * bisher heraus und werden von .app-content gescrollt. */
@@ -166,37 +165,11 @@
   background-color: var(--color-bg);
 }
 
-/* Der Scrollport endet über dem FAB.
- *
- * Der FAB ist `position: fixed` über einem Scrollport und überdeckt damit
- * zwangsläufig, was gerade unter ihm steht - bei `scrollTop = 0` gemessen bis
- * 80,6% einer Zeilenaktion (phoneSm /pantry, Critique P1 2026-07-30). Die
- * beiden bisherigen Antworten griffen beide zu kurz: eine reservierte Spur pro
- * Zeile kostete bei 320px 24% der Viewportbreite (zurückgebaut), und
- * `padding-bottom` am Listenende scrollt mit, wirkt also nur, wenn der Nutzer
- * schon unten ist.
- *
- * MARGE, NICHT PADDING - darin liegt der ganze Unterschied. Padding sitzt am
- * Ende des Inhalts und wandert beim Scrollen mit; eine Marge verkürzt den
- * Container selbst. Der Streifen darunter gehört dem FAB bei jedem
- * Scrollstand.
- *
- * AN .app-content, NICHT AN DEN LISTEN. Die App hat zwei Scrollport-
- * Architekturen: in Küche und Budget ist der Modul-Root `overflow: hidden` und
- * eine innere Liste scrollt, in Belohnungen und anderswo scrollt .app-content
- * die ganze Seite. Eine Marge hier verkürzt in beiden Fällen das richtige
- * Element - im ersten Fall über den kürzeren Modul-Root, im zweiten direkt.
- * Sieben `padding-bottom: *-fab-clearance` in vier Dateien sind dadurch
- * entfallen, samt der drei auseinandergedrifteten Kopien des Tokens.
- *
- * NUR MIT FAB: `:has()` fragt die Seite, statt eine Klasse zu verlangen, die
- * beim nächsten neuen Modul vergessen wird. `:not([hidden])`, weil eine Seite
- * ihren FAB zeitweise verbergen kann - dann gehört ihr der Platz.
- *
- * Gefragt wird an der SHELL, nicht am Scrollport: der FAB hängt seit #634 in
- * `.fab-layer` neben `.app-content`, nicht mehr darin. */
+/* Der FAB schwebt in `.fab-layer` über dem vollständigen Scrollport. Nur
+ * programmatische Scrollziele halten Abstand; eine Margin würde sichtbar Platz
+ * reservieren und #main-content vor der Bottom-Nav enden lassen. */
 .app-shell:has(.fab-layer .page-fab:not([hidden])) .app-content {
-  margin-block-end: var(--fab-safe-zone);
+  scroll-padding-block-end: var(--fab-safe-zone);
 }
 
 /* #main-content wird nach jeder Navigation programmatisch fokussiert, damit
@@ -1115,9 +1088,8 @@ html:has(.search-overlay--visible) yuvomi-install-prompt {
 .page-fab,
 .page-fab-group {
   position: fixed;
-  /* Geometrie aus tokens.css (--fab-size / --fab-offset-bottom): der Freiraum
-   * unter Listen (--fab-safe-zone, oben an `.app-content`) leitet sich daraus
-   * ab und kann so nicht mehr vom FAB wegdriften. */
+  /* Geometrie aus tokens.css: --fab-safe-zone leitet daraus das Scroll-Padding
+   * für programmatische Ziele ab und kann so nicht vom FAB wegdriften. */
   bottom: var(--fab-offset-bottom);
   right: var(--space-4);
   z-index: calc(var(--z-nav) - 1);
@@ -1188,18 +1160,14 @@ html.fab-anim-done .page-fab {
 
 /* HIER STAND `.page-fab--retracted` (#634).
  *
- * Der FAB fuhr beim Abwärtsscrollen weg, um die Zeilenaktion freizugeben, über
- * der er sonst lag (bis 53.2% Überdeckung, Critique 2026-07-30). Diese
- * Begründung war schon entfallen, bevor der Mechanismus fiel: `--fab-safe-zone`
- * verkürzt den Scrollport, sodass bei JEDEM Scrollstand nichts Bedienbares mehr
- * unter dem FAB liegt (0 Überdeckungen nachgemessen). Übrig blieb Sicht-Komfort
- * beim Scrollen - zu wenig für den Preis, den er hatte: der Zustand hing an
- * einer Klasse, die nur ein weiteres Scroll-Ereignis wieder abnahm, und ein
- * einziges Abwärts-Delta ohne Nutzergeste (iOS-Adressleiste, Scroll-Anchoring
- * beim Nachladen einer Liste) machte die Primäraktion des Moduls unerreichbar.
+ * Der FAB fuhr beim Abwärtsscrollen weg, um darunterliegende Zeilenaktionen
+ * freizugeben. Der Zustand hing aber an einer Klasse, die nur ein weiteres
+ * Scroll-Ereignis wieder abnahm: ein einziges Abwärts-Delta ohne Nutzergeste
+ * (iOS-Adressleiste, Scroll-Anchoring beim Nachladen einer Liste) machte die
+ * Primäraktion des Moduls unerreichbar.
  *
- * Kein Ersatz nötig, und keiner erwünscht: --fab-safe-zone trägt den Freiraum
- * bereits, und der FAB darf nichts mehr haben, was ihn verschwinden lässt.
+ * Der FAB bleibt deshalb als echte schwebende Aktion sichtbar; --fab-safe-zone
+ * beeinflusst nur Scrollziele und verkürzt den Inhaltsbereich nicht.
  * test-frontend-audit.js hält das fest. */
 
 /* Desktop: FAB Position anpassen (keine Bottom-Nav) und etwas kleiner */
