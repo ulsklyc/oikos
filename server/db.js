@@ -5031,6 +5031,20 @@ const CRITICAL_COLUMNS = [
   // #549: v97 trägt calendar_events.tzid nach; ohne die Spalte scheitert der
   // Sync-Upsert (schreibt tzid) still und die Kalender-Expansion driftet über DST.
   { table: 'calendar_events', column: 'tzid', type: 'TEXT' },
+  // API-token subjects were introduced as v134 on the v2.2 release line. A
+  // database produced by a different development line can already contain a
+  // different v134, causing the normal migration gate to skip this column.
+  // Backfill and index creation are deliberately idempotent so that both fresh
+  // installations and collided histories converge on the same contract.
+  {
+    table: 'api_tokens',
+    column: 'subject_user_id',
+    type: 'INTEGER REFERENCES users(id) ON DELETE CASCADE',
+    after: `
+      UPDATE api_tokens SET subject_user_id = created_by WHERE subject_user_id IS NULL;
+      CREATE INDEX IF NOT EXISTS idx_api_tokens_subject_user_id ON api_tokens(subject_user_id);
+    `,
+  },
 ];
 
 /**
@@ -5050,7 +5064,7 @@ const CRITICAL_COLUMNS = [
  */
 function reconcileCriticalSchema(database = db) {
   if (!database) return;
-  for (const { table, column, type } of CRITICAL_COLUMNS) {
+  for (const { table, column, type, after } of CRITICAL_COLUMNS) {
     let columns;
     try {
       columns = database.prepare(`PRAGMA table_info(${table})`).all();
@@ -5058,10 +5072,12 @@ function reconcileCriticalSchema(database = db) {
       continue; // Tabelle nicht lesbar - keine additive Reparatur möglich.
     }
     if (!columns.length) continue;                          // Tabelle existiert nicht
-    if (columns.some((c) => c.name === column)) continue;   // Spalte bereits vorhanden
     try {
-      database.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
-      log.warn(`Schema-Drift behoben: ${table}.${column} fehlte trotz vermerkter Migration und wurde nachgetragen (#538).`);
+      if (!columns.some((c) => c.name === column)) {
+        database.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+        log.warn(`Schema-Drift behoben: ${table}.${column} fehlte trotz vermerkter Migration und wurde nachgetragen (#538).`);
+      }
+      if (after) database.exec(after);
     } catch (err) {
       log.error(`Schema-Reconciliation ${table}.${column} fehlgeschlagen:`, err?.message || err);
     }

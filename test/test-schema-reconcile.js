@@ -56,6 +56,46 @@ test('ist idempotent: vorhandene Spalte samt Wert bleibt unangetastet', () => {
   assert.equal(row.pushed_at, '2026-05-05T10:00:00Z');
 });
 
+test('repairs an api-token subject migration-version collision and backfills existing tokens', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(`
+    PRAGMA foreign_keys = ON;
+    CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT NOT NULL);
+    CREATE TABLE api_tokens (
+      id INTEGER PRIMARY KEY,
+      name TEXT NOT NULL,
+      token_hash TEXT NOT NULL,
+      token_prefix TEXT NOT NULL,
+      created_by INTEGER NOT NULL
+    );
+    CREATE TABLE schema_migrations (
+      version INTEGER PRIMARY KEY,
+      description TEXT NOT NULL
+    );
+    INSERT INTO schema_migrations (version, description)
+      VALUES (134, 'Routines: scheduled occurrence persistence');
+    INSERT INTO users (id, username) VALUES (7, 'existing-member');
+    INSERT INTO api_tokens (id, name, token_hash, token_prefix, created_by)
+      VALUES (11, 'Existing integration', 'hash', 'prefix', 7);
+  `);
+
+  assert.equal(hasColumn(db, 'api_tokens', 'subject_user_id'), false);
+  reconcileCriticalSchema(db);
+  reconcileCriticalSchema(db);
+
+  assert.equal(hasColumn(db, 'api_tokens', 'subject_user_id'), true);
+  assert.equal(
+    db.prepare('SELECT subject_user_id FROM api_tokens WHERE id = 11').get().subject_user_id,
+    7,
+  );
+  assert.ok(db.prepare(`
+    SELECT name FROM sqlite_master
+    WHERE type = 'index' AND name = 'idx_api_tokens_subject_user_id'
+  `).get());
+  db.prepare('DELETE FROM users WHERE id = 7').run();
+  assert.equal(db.prepare('SELECT count(*) AS count FROM api_tokens').get().count, 0);
+});
+
 test('ist ein No-op, wenn die reminders-Tabelle ganz fehlt (kein Wurf, keine Neuanlage)', () => {
   const db = new DatabaseSync(':memory:');
   assert.doesNotThrow(() => reconcileCriticalSchema(db));
