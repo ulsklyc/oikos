@@ -96,14 +96,14 @@ Admins can enable, disable, and order modules in Settings -> Personal -> Navigat
 
 `module.json` records the module's own version, not the Yuvomi version it was written against, and Yuvomi does not gate loading on a compatibility range. A module that calls an endpoint a later release renamed or moved therefore keeps loading and fails at the point of use, in front of the user.
 
-Two endpoints let a module check for itself before it acts:
+Two endpoints help, though they answer at different times:
 
-- `GET /api/v1/version` returns the running Yuvomi version.
-- The authenticated OpenAPI document describes the operations that version actually serves.
+- `GET /api/v1/version` returns the running Yuvomi version to any caller holding a session or an API token. Without a credential the response still describes the instance, but omits the version.
+- `GET /api/v1/openapi.json` describes the operations that version actually serves. It is admin-only, so treat it as a check you run while developing and against a new release before shipping, not as something every module instance can call at startup.
 
-A module can compare the operations it requires - method, path, and the response fields it reads - against that document when it starts and again after the Yuvomi version changes, then degrade instead of failing. Three outcomes cover the realistic cases: run normally; keep stored data, review and export readable while blocking writes; or show a dependency error with a retry control. Refusing a write is better than issuing it against an endpoint whose meaning has changed.
+Compare the operations the module requires - method, path, and the response fields it reads - against that document while building, and again when a Yuvomi release moves. At runtime, where the document is usually out of reach, watch the version instead and read the failure: a `404` or `405` on an endpoint that worked before means the operation moved, and that is the point to degrade rather than retry. Three outcomes cover the realistic cases: run normally; keep stored data, review and export readable while blocking writes; or show a dependency error with a retry control. Refusing a write is better than issuing it against an endpoint whose meaning has changed.
 
-The supported surface for third-party modules is `/api/v1` together with the public browser libraries described above. Direct database access, private helpers under `server/`, and undocumented response fields are not part of it and may change in any release.
+Third-party modules should build on `/api/v1` and the public browser libraries described above; breaking changes to those are called out in the CHANGELOG. Direct database access, private helpers under `server/`, and undocumented response fields sit outside that line and may change in any release without notice.
 
 ## Docker / Podman
 
