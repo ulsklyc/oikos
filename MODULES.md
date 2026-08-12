@@ -86,6 +86,25 @@ Modules must follow the same frontend security rules as core Yuvomi:
 - Do not use `innerHTML`.
 - Do not bypass authentication, authorization, CSRF, or CSP.
 
+## Modules With A Backend Service
+
+A module page is browser code with no server of its own. When a module needs stored state, scheduled work, or a third-party credential, run that as a separate service beside Yuvomi rather than as a patch to core, and leave Yuvomi on its official image. What follows is what such a module needs in order to survive a Yuvomi upgrade.
+
+Serve the service from the same origin under an `/api/` path; `/api/extensions/<module-id>/` is a reasonable convention. Browser requests then carry the Yuvomi session cookie, and the service worker leaves them alone. The stale-cache trap described above applies to any dynamic path outside `/api/`.
+
+Do not open `yuvomi.db`. It is core's private storage: the schema changes between releases without notice, and a second writer breaks Yuvomi's own migrations. Read and write through `/api/v1` instead. If the data a module needs is not reachable through the API, that is a missing endpoint worth an issue, not a reason to reach for the file.
+
+Re-check identity on the server for every request. Forward the incoming Yuvomi session cookie to `GET /api/v1/auth/me` over the internal Yuvomi URL, and trust only that response for the user id, role, and permissions. The browser half of a module is not a trusted caller: never accept a user id or role from a request body.
+
+Yuvomi's CSRF token protects Yuvomi's endpoints, not a module's. State-changing routes on the service should independently require:
+
+- a valid Yuvomi session, verified as above;
+- an `Origin` matching the public host;
+- the service's own double-submit CSRF cookie and header pair;
+- an endpoint-specific role or ownership check.
+
+Scheduled jobs have no session. Issue an API token in Settings with only the scopes the module needs - `budget:read` and `budget:write`, for example - and keep it in the service's secrets, never in the module folder, a Compose file, or browser storage. Keep the service's own state in the service's own database, and treat stored secrets as write-only: expose `has_api_token: true`, never a fragment of the token itself.
+
 ## Loading And Failure Behavior
 
 Yuvomi scans `modules/` and validates each `module.json`. Invalid modules are shown as errored in Settings and are not loaded. Disabled modules are not served to the browser and do not appear in navigation. If a module page fails while rendering, Yuvomi shows an error for that page without changing core application code.
