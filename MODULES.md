@@ -92,6 +92,19 @@ Yuvomi scans `modules/` and validates each `module.json`. Invalid modules are sh
 
 Admins can enable, disable, and order modules in Settings -> Personal -> Navigation. Ordering is per user and open to every member; the enable/disable switches are admin-only. Copying a new folder into `modules/` makes it appear there automatically.
 
+## Compatibility Across Yuvomi Releases
+
+`module.json` records the module's own version, not the Yuvomi version it was written against, and Yuvomi does not gate loading on a compatibility range. A module that calls an endpoint a later release renamed or moved therefore keeps loading and fails at the point of use, in front of the user.
+
+Two endpoints let a module check for itself before it acts:
+
+- `GET /api/v1/version` returns the running Yuvomi version.
+- The authenticated OpenAPI document describes the operations that version actually serves.
+
+A module can compare the operations it requires - method, path, and the response fields it reads - against that document when it starts and again after the Yuvomi version changes, then degrade instead of failing. Three outcomes cover the realistic cases: run normally; keep stored data, review and export readable while blocking writes; or show a dependency error with a retry control. Refusing a write is better than issuing it against an endpoint whose meaning has changed.
+
+The supported surface for third-party modules is `/api/v1` together with the public browser libraries described above. Direct database access, private helpers under `server/`, and undocumented response fields are not part of it and may change in any release.
+
 ## Docker / Podman
 
 The default `docker-compose.yml` mounts `${MODULES_DIR:-./modules}` to `/app/modules`. To keep modules outside the Yuvomi checkout, set `MODULES_DIR=/absolute/path/to/yuvomi-modules` in `.env` and restart the compose service. New or changed module folders are scanned at runtime; rebuilding the image is not required.
