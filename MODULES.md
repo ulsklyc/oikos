@@ -96,6 +96,8 @@ Do not open `yuvomi.db`. It is core's private storage: the schema changes betwee
 
 Re-check identity on the server for every request. Forward the incoming Yuvomi session cookie to `GET /api/v1/auth/me` over the internal Yuvomi URL, and trust only that response for the user id, role, and permissions. The browser half of a module is not a trusted caller: never accept a user id or role from a request body.
 
+Cache that answer briefly rather than resolving it on every call. Yuvomi rate-limits `/api/` to 300 requests per minute per IP, and a service that does not forward the caller's address spends that budget from its own container IP for all of its users at once - the first symptom is a `429` for everyone. A few seconds of cache keyed on the session cookie is enough, and short enough that a logout still takes effect.
+
 Yuvomi's CSRF token protects Yuvomi's endpoints, not a module's. State-changing routes on the service should independently require:
 
 - a valid Yuvomi session, verified as above;
@@ -103,7 +105,7 @@ Yuvomi's CSRF token protects Yuvomi's endpoints, not a module's. State-changing 
 - the service's own double-submit CSRF cookie and header pair;
 - an endpoint-specific role or ownership check.
 
-Scheduled jobs have no session. Issue an API token in Settings with only the scopes the module needs - `budget:read` and `budget:write`, for example - and keep it in the service's secrets, never in the module folder, a Compose file, or browser storage. Keep the service's own state in the service's own database, and treat stored secrets as write-only: expose `has_api_token: true`, never a fragment of the token itself.
+Scheduled jobs have no session. Issue an API token under Settings -> Admin -> API Access (admin-only, so a module that needs one has to ask the household's admin for it) with only the scopes the module needs - `budget:read` and `budget:write`, for example - and keep it in the service's secrets, never in the module folder, a Compose file, or browser storage. Keep the service's own state in the service's own database, and treat stored secrets as write-only: expose `has_api_token: true`, never a fragment of the token itself.
 
 ## Loading And Failure Behavior
 
