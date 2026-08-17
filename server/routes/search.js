@@ -8,7 +8,8 @@
 
 import express from 'express';
 import * as db from '../db.js';
-import { runSearch } from '../services/search.js';
+import { runSearch, emptySearchResults } from '../services/search.js';
+import { deniedModules } from '../permissions.js';
 
 const router = express.Router();
 
@@ -17,14 +18,22 @@ const router = express.Router();
  * Durchsucht Aufgaben, Kalender-Events, Notizen, Kontakte, Einkaufsartikel,
  * Gesundheits-Medikamente und -Aktivitäten (Health: nur eigene oder family-sichtbare Zeilen).
  * Response: { tasks, events, notes, contacts, items, meds, activities }
+ *
+ * Module, die dem Betrachter entzogen sind (#467), werden gar nicht erst
+ * durchsucht - die Zuordnung Trefferart→Modul steht in services/search.js.
+ * Hier steht sie nicht, weil die Route nur weitergibt, was die Auth-Schicht
+ * ohnehin schon aufgelöst hat (`req.sessionModuleAccess`); eine zweite
+ * Auflösung wäre eine zweite Wahrheit über dieselben Rechte.
  */
 router.get('/', (req, res) => {
   try {
     const q = String(req.query.q ?? '').trim();
-    if (q.length < 2) return res.json({ tasks: [], events: [], notes: [], contacts: [], items: [], meds: [], activities: [] });
+    if (q.length < 2) return res.json(emptySearchResults());
 
     const userId = req.authUserId || req.session.userId;
-    res.json(runSearch(db.get(), q, userId));
+    res.json(runSearch(db.get(), q, userId, {
+      hiddenModules: deniedModules(req.sessionModuleAccess),
+    }));
   } catch (err) {
     res.status(500).json({ error: 'Internal server error.', code: 500 });
   }

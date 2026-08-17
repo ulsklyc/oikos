@@ -37,11 +37,15 @@
 import express from 'express';
 import * as db from '../db.js';
 import { createLogger } from '../logger.js';
+import { deniedModules } from '../permissions.js';
 
 const log = createLogger('Kitchen');
 const router = express.Router();
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+// Nichts zu melden - dieselbe Form, nur ohne Zahlen.
+const EMPTY_PANTRY = Object.freeze({ attention: 0, expired: 0, low: 0, out: 0 });
 
 /**
  * GET /api/v1/kitchen/summary?today=YYYY-MM-DD
@@ -62,7 +66,20 @@ router.get('/summary', (req, res) => {
       ? req.query.today
       : new Date().toISOString().slice(0, 10);
 
-    const open = db.get().prepare(
+    /* EIN GESPERRTES MODUL ZÄHLT HIER NICHT MIT (#467).
+     *
+     * Diese Route trägt zwei Module in einer Antwort, und der Pfad-Guard in
+     * server/index.js erreicht sie erst recht nicht: `kitchen` ist nicht
+     * einmal ein Scope-Modul, `moduleForPath('/kitchen')` ergibt null.
+     *
+     * Es sind „nur" Zahlen und keine Titel - aber die Leiste rendert auf JEDER
+     * Küchen-Seite, und ein Mitglied ohne Einkaufszugriff bekam auf der
+     * Essensplan-Seite ein Abzeichen „7 offen" für eine Liste, die es nicht
+     * öffnen darf. Eine Zahl über einen Bestand, den jemand nicht sehen darf,
+     * ist eine kleine Auskunft über genau diesen Bestand. */
+    const denied = deniedModules(req.sessionModuleAccess);
+
+    const open = denied.has('shopping') ? 0 : db.get().prepare(
       'SELECT COUNT(*) AS c FROM shopping_items WHERE is_checked = 0'
     ).get().c;
 
@@ -70,7 +87,7 @@ router.get('/summary', (req, res) => {
     // public/utils/pantry-status.js. Bleiben sie hier und dort nicht gleich, zeigt
     // die Leiste eine andere Zahl als die Filter-Chips daneben - ein Guard in
     // test/test-frontend-audit.js hält die Definitionen zusammen.
-    const pantry = db.get().prepare(`
+    const pantry = denied.has('pantry') ? null : db.get().prepare(`
       SELECT
         SUM(CASE WHEN expires_on IS NOT NULL AND expires_on < ? THEN 1 ELSE 0 END) AS expired,
         SUM(CASE WHEN quantity <= 0 THEN 1 ELSE 0 END) AS out_of_stock,
@@ -85,12 +102,12 @@ router.get('/summary', (req, res) => {
     res.json({
       data: {
         shopping: { open },
-        pantry: {
+        pantry: pantry ? {
           attention: pantry.attention ?? 0,
           expired: pantry.expired ?? 0,
           low: pantry.low ?? 0,
           out: pantry.out_of_stock ?? 0,
-        },
+        } : { ...EMPTY_PANTRY },
       },
     });
   } catch (err) {

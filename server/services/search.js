@@ -44,21 +44,70 @@ export function buildMatchQuery(q) {
 }
 
 /**
+ * Welches Modul jede Trefferart durchsucht (#467).
+ *
+ * DIE SUCHE IST DER ZWEITE ENDPUNKT, DER EIN DUTZEND MODULE AUF EINMAL
+ * AUSLIEFERT, und wie /dashboard kann der Pfad-Guard in server/index.js sie
+ * nicht abdecken: `moduleForPath('/search')` ergibt das Scope-Modul `search`,
+ * und das ist kein Permissions-Modul - der Guard lässt die Anfrage immer durch.
+ *
+ * Die Besitzerfilter weiter unten sind eine ANDERE Achse und decken das nicht
+ * ab; bei Terminen, Kontakten und Einkaufsartikeln gibt es sie mit Absicht gar
+ * nicht (Familienbesitz, #471). Ein Mitglied ohne Kalenderzugriff fand seinen
+ * Termin also über die Suche, ein Kind ohne Kontakte die Telefonnummern.
+ *
+ * Als Tabelle und nicht als Bedingung an jeder Abfrage: die Zuordnung ist die
+ * eigentliche Aussage, und wer eine achte Trefferart ergänzt, sieht hier, dass
+ * sie eine braucht.
+ */
+const BUCKET_MODULE = Object.freeze({
+  tasks: 'tasks',
+  events: 'calendar',
+  notes: 'notes',
+  contacts: 'contacts',
+  items: 'shopping',
+  meds: 'health',
+  activities: 'health',
+});
+
+/**
+ * Die leere Antwort - eine Trefferart je Schlüssel, Form bleibt stabil.
+ * Exportiert, damit die Route für „Suchbegriff zu kurz" dieselbe Form schreibt
+ * und nicht eine zweite, von Hand gepflegte Liste derselben sieben Schlüssel.
+ */
+export function emptySearchResults() {
+  return Object.fromEntries(Object.keys(BUCKET_MODULE).map((k) => [k, []]));
+}
+
+/**
  * Führt die Suche aus und liefert dieselbe Ergebnis-Form wie zuvor, erweitert
  * um Gesundheitsdaten: { tasks, events, notes, contacts, items, meds, activities }.
  * Pro Entität wird der FTS-Treffer auf die Quelltabelle zurückgejoined,
  * um exakt die alten Felder, Besitzer-Filter und Sortierung zu erhalten.
  * Gesundheitsdaten sind sensibel: nur eigene Zeilen ODER visibility='family'
  * sind sichtbar (spiegelt das Lese-Scoping der Health-List-Routen).
+ *
+ * @param {object} database
+ * @param {string} q
+ * @param {number} userId
+ * @param {object} [opts]
+ * @param {Set<string>|null} [opts.hiddenModules] Module, die dem Betrachter
+ *        entzogen sind (`access_permissions`, #467). Nur `'none'` gehört
+ *        hinein - `'read'` ist eine Leseberechtigung, keine Sperre. Ihre
+ *        Trefferart wird gar nicht erst abgefragt und bleibt leer.
  */
-export function runSearch(database, q, userId) {
+export function runSearch(database, q, userId, { hiddenModules = null } = {}) {
   const match = buildMatchQuery(q);
-  if (!match) {
-    return { tasks: [], events: [], notes: [], contacts: [], items: [], meds: [], activities: [] };
-  }
+  if (!match) return emptySearchResults();
   const limit = SEARCH_LIMIT;
 
-  const tasks = database.prepare(`
+  // Leere Fassung als Ausgangspunkt: eine gesperrte Trefferart bleibt damit
+  // eine leere Liste und wird nicht zu einem fehlenden Feld, über das ein
+  // Client stolpert (`/api/v1` ist zugesagte Oberfläche für Drittmodule).
+  const results = emptySearchResults();
+  const allows = (bucket) => !hiddenModules?.has(BUCKET_MODULE[bucket]);
+
+  if (allows('tasks')) results.tasks = database.prepare(`
     SELECT t.id, t.title, t.status, t.priority, t.due_date
     FROM search_index s
     JOIN tasks t ON t.id = s.entity_id
@@ -74,7 +123,7 @@ export function runSearch(database, q, userId) {
   // eigene) — daher KEIN created_by-Filter, konsistent mit GET /calendar und der
   // Kalender-Suche (#471). Sonst lieferten globale vs. Kalender-Suche unterschiedliche
   // Treffer fürs gleiche Stichwort.
-  const events = database.prepare(`
+  if (allows('events')) results.events = database.prepare(`
     SELECT e.id, e.title, e.start_datetime, e.all_day
     FROM search_index s
     JOIN calendar_events e ON e.id = s.entity_id
@@ -83,7 +132,7 @@ export function runSearch(database, q, userId) {
     LIMIT @limit
   `).all({ match, limit });
 
-  const notes = database.prepare(`
+  if (allows('notes')) results.notes = database.prepare(`
     SELECT n.id, n.title, n.content
     FROM search_index s
     JOIN notes n ON n.id = s.entity_id
@@ -93,7 +142,7 @@ export function runSearch(database, q, userId) {
     LIMIT @limit
   `).all({ match, userId, limit });
 
-  const contacts = database.prepare(`
+  if (allows('contacts')) results.contacts = database.prepare(`
     SELECT c.id, c.name AS title
     FROM search_index s
     JOIN contacts c ON c.id = s.entity_id
@@ -102,7 +151,7 @@ export function runSearch(database, q, userId) {
     LIMIT @limit
   `).all({ match, limit });
 
-  const items = database.prepare(`
+  if (allows('items')) results.items = database.prepare(`
     SELECT i.id, i.name AS title, i.list_id
     FROM search_index s
     JOIN shopping_items i ON i.id = s.entity_id
@@ -112,7 +161,7 @@ export function runSearch(database, q, userId) {
   `).all({ match, limit });
 
   // Health: Medikamente — Treffer auf Name/Dosistext, Sichtbarkeits-Scoping.
-  const meds = database.prepare(`
+  if (allows('meds')) results.meds = database.prepare(`
     SELECT m.id, m.name AS title, m.dosage_text, m.active
     FROM search_index s
     JOIN medications m ON m.id = s.entity_id
@@ -123,7 +172,7 @@ export function runSearch(database, q, userId) {
   `).all({ match, userId, limit });
 
   // Health: Aktivitäten — Treffer auf Typ/Notiz, Sichtbarkeits-Scoping.
-  const activities = database.prepare(`
+  if (allows('activities')) results.activities = database.prepare(`
     SELECT a.id, a.type AS title, a.note, a.performed_at
     FROM search_index s
     JOIN health_activities a ON a.id = s.entity_id
@@ -133,5 +182,5 @@ export function runSearch(database, q, userId) {
     LIMIT @limit
   `).all({ match, userId, limit });
 
-  return { tasks, events, notes, contacts, items, meds, activities };
+  return results;
 }
