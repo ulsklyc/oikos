@@ -888,6 +888,14 @@ function upsertGoogleEvents(items, calRefId = null, calColor = GOOGLE_COLOR, col
     // sonst Kalenderfarbe als Default.
     const evColor = (item.colorId && colorMap[item.colorId]) || calColor;
 
+    // created_by: ersten existierenden User verwenden (nicht hardcoded ID 1)
+    const owner = db.get().prepare('SELECT id FROM users ORDER BY id ASC LIMIT 1').get();
+    if (!owner) {
+      log.warn('No user in database - sync skipped.');
+      return;
+    }
+    const createdBy = owner.id;
+
     const existing = db.get().prepare(
       'SELECT id, outbound_dirty FROM calendar_events WHERE external_calendar_id = ? AND external_source = ?'
     ).get(item.id, 'google');
@@ -935,10 +943,9 @@ function upsertGoogleEvents(items, calRefId = null, calColor = GOOGLE_COLOR, col
     } else {
       const inserted = db.get().prepare(`
         INSERT INTO calendar_events
-          (title, description, start_datetime, end_datetime, all_day,
-           location, color, external_calendar_id, external_source, recurrence_rule, tzid, calendar_ref_id, created_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'google', ?, ?, ?, 1)
-      `).run(title, description, startDt, endDt, allDay ? 1 : 0, location, evColor, item.id, rrule, tzid, calRefId);
+          (title, description, start_datetime, end_datetime, all_day, location, color, external_calendar_id, external_source, recurrence_rule, tzid, calendar_ref_id, created_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'google', ?, ?, ?, ?)
+      `).run(title, description, startDt, endDt, allDay ? 1 : 0, location, evColor, item.id, rrule, tzid, calRefId, createdBy);
       assignDefaultToEvent(db.get(), inserted.lastInsertRowid, defaultAssignee);
     }
 
