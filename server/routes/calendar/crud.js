@@ -336,7 +336,14 @@ router.put('/:id', async (req, res) => {
     // wenn die Farbe später wieder geleert wird - genau dieser Zustand
     // (`color IS NULL AND color_modified = 1`) ist das ausdrückliche Leeren, das
     // der Ausgang spiegeln darf.
-    const colorModified = (colorTouched && (colorVal ?? null) !== (event.color ?? null))
+    //
+    // Verglichen wird ohne Rücksicht auf die Schreibweise: `#ff6347` und
+    // `#FF6347` sind dieselbe Farbe, und die beiden treffen wirklich
+    // aufeinander - der Sync legt seinen Hex in Großbuchstaben ab
+    // (`utils/ical-color.js`). Der Farbwähler im Client vergleicht aus
+    // demselben Grund über `sameColor()`.
+    const asColorKey = (c) => (c == null ? null : String(c).toLowerCase());
+    const colorModified = (colorTouched && asColorKey(colorVal) !== asColorKey(event.color))
       ? 1
       : event.color_modified;
 

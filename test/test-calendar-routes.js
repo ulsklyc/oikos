@@ -785,6 +785,15 @@ test('PUT /:id — dieselbe Farbe noch einmal ist keine Umfärbung (#899)', asyn
   assert.equal(res.body.data.color_modified, 0);
 });
 
+test('PUT /:id — dieselbe Farbe in anderer Schreibweise ist keine Umfärbung (#899)', async () => {
+  // Die beiden Schreibweisen treffen wirklich aufeinander: der Sync legt seinen
+  // Hex in Grossbuchstaben ab (`COLOR:tomato` wird zu `#FF6347`).
+  const id = insertEvent({ title: 'COLMOD-CASE', start_datetime: '2041-05-06T09:00', external_source: 'caldav', color: '#FF6347' });
+  const res = await call('PUT', `/${id}`, { body: { color: '#ff6347' } });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.data.color_modified, 0);
+});
+
 test('PUT /:id — eine geleerte Farbe ist eine Aussage und wird vermerkt (#899)', async () => {
   // Der Zustand, den der Ausgang braucht: `color IS NULL AND color_modified = 1`
   // heisst "geleert" und darf beim Anbieter die COLOR-Zeile entfernen. Ohne das
