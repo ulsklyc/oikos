@@ -341,10 +341,10 @@ function openCropDialog(imageDataUrl) {
  * Obergrenze des Ergebnisses und die Texte. Typen, Dateigröße und der Ablauf
  * selbst sind für alle gleich.
  *
- * GIF fällt dabei aus dem Geburtstagsmodul heraus, und zwar bewusst.
- * `buildDialog()` gibt IMMER ein JPEG von 256 Pixeln zurück - ein GIF durch
- * den Zuschnitt zu schicken hieße, eine Animation stumm gegen ein Standbild
- * zu tauschen. Lieber eine Ablehnung, die man liest, als ein Ergebnis, das
+ * GIF fällt dabei aus dem Geburtstags- und dem Inventarmodul heraus, und
+ * zwar bewusst. `buildDialog()` gibt IMMER ein JPEG von 256 Pixeln zurück -
+ * ein GIF durch den Zuschnitt zu schicken hieße, eine Animation stumm gegen
+ * ein Standbild zu tauschen. Lieber eine Ablehnung, die man liest, als ein Ergebnis, das
  * anders ist als das Hochgeladene. Der Server nimmt GIF unverändert an; das
  * hier ist der Weg durch die Oberfläche, nicht die Zusage der API.
  *
@@ -369,7 +369,16 @@ export async function pickCroppedImage(file, options = {}) {
     reader.readAsDataURL(file);
   });
 
-  const cropped = await openCropDialog(dataUrl);
+  /* `openCropDialog` rejected mit einem internen `Error('image decode
+   * failed')` - der darf den Aufrufer nie erreichen: jeder toastet
+   * `err.message`, und die Meldung wäre englisch. Für den Nutzer ist ein
+   * nicht dekodierbares Bild dasselbe wie eines, das sich nicht lesen ließ. */
+  let cropped;
+  try {
+    cropped = await openCropDialog(dataUrl);
+  } catch {
+    throw new Error(t(keys.read));
+  }
   if (cropped === null) return undefined;
   if (cropped.length > maxDataLength) throw new Error(t(keys.dataTooLarge));
   return cropped;
