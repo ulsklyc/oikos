@@ -926,12 +926,18 @@ test('die Transaktionsliste bleibt auf kurzen Desktop-Viewports erreichbar (#904
     if (at.length) continue; // der Mobil-Reflow (≤640px) scrollt das Panel als Ganzes
     if (selector.trim() === '.budget-tab-panel--budget') {
       panelSeen = true;
-      assert.doesNotMatch(
-        body, /overflow(?:-y)?\s*:\s*hidden/,
-        '.budget-tab-panel--budget clippt wieder: wächst der feste Teil über den '
-        + 'Viewport, ist die Transaktionsliste unerreichbar (#904) - das Panel '
-        + 'braucht overflow-y: auto als Ausweichweg',
-      );
+      // `clip` kappt wie `hidden`, nur ohne Scrollport - und die Block-Achse
+      // lässt sich auch als Langform oder als zweiter Shorthand-Wert setzen.
+      // Der Grund für die Zusicherung ist das Abschneiden, nicht die eine
+      // Schreibweise dafür (dieselbe Regel wie in test-frontend-audit.js).
+      for (const [, prop, value] of body.matchAll(/(?:^|;)\s*(overflow(?:-y|-block)?)\s*:\s*([^;]+)/g)) {
+        assert.ok(
+          !/\b(?:hidden|clip)\b/.test(value),
+          `.budget-tab-panel--budget clippt wieder (${prop}: ${value.trim()}): wächst `
+          + 'der feste Teil über den Viewport, ist die Transaktionsliste '
+          + 'unerreichbar (#904) - das Panel braucht overflow-y: auto als Ausweichweg',
+        );
+      }
     }
     if (selector.trim() === '.budget-list-section') {
       sectionSeen = true;
