@@ -2594,7 +2594,8 @@
         "summaryCount_one": "{{count}} occurrence",
         "fromCompletionLabel": "Répéter à partir de l'achèvement",
         "fromCompletionHint": "L'intervalle commence le jour où vous cochez la tâche, et non à sa date d'échéance.",
-        "summaryFromCompletion": "à partir de l'achèvement"
+        "summaryFromCompletion": "à partir de l'achèvement",
+        "intervalHint": "Une fois votre choix fait, l’intervalle se règle librement - toutes les 2 semaines ou tous les 3 mois."
     },
     "recipes": {
         "mealTypeNone": "Aucun repas",

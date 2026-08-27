@@ -2594,7 +2594,8 @@
         "summaryCount_one": "{{count}} lần",
         "fromCompletionLabel": "Lặp lại từ ngày hoàn thành",
         "fromCompletionHint": "Khoảng thời gian bắt đầu từ ngày bạn đánh dấu hoàn thành, không phải từ ngày đến hạn.",
-        "summaryFromCompletion": "từ ngày hoàn thành"
+        "summaryFromCompletion": "từ ngày hoàn thành",
+        "intervalHint": "Sau khi chọn, bạn có thể đặt khoảng lặp tùy ý - ví dụ mỗi 2 tuần hoặc mỗi 3 tháng."
     },
     "reminders": {
         "sectionTitle": "Nhắc nhở",

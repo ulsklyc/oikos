@@ -24,7 +24,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-const { parseRRule, buildRRule, describeRRule, renderRRuleFields, getRRuleValues } =
+const { parseRRule, buildRRule, describeRRule, renderRRuleFields, getRRuleValues, bindRRuleEvents } =
   await import('../public/rrule-ui.js');
 
 // --------------------------------------------------------
@@ -104,6 +104,109 @@ test('das Formular zeigt eine eingelesene Serie als Wiederholung an', () => {
   const html = renderRRuleFields('event', 'RRULE:FREQ=WEEKLY;BYDAY=WE', { allowCount: true });
   assert.match(html, /<option value="WEEKLY" selected>/, 'die Frequenz muss vorausgewählt sein');
   assert.doesNotMatch(html, /id="event-rrule-details"[^>]*hidden/, 'die Detailfelder dürfen nicht verborgen sein');
+});
+
+// --------------------------------------------------------
+// 1b. Der Takt ist einstellbar, und das Formular sagt es (#862)
+//
+// Die vier Frequenzen lasen sich wie feste Werte: das Intervallfeld liegt im
+// Detailbereich, und der traegt "hidden", solange nichts gewaehlt ist. Ein
+// Melder hat deshalb einen Thread fuer eine Funktion aufgemacht, die es gibt -
+// gefunden hat er sie erst, nachdem er auf gut Glueck "woechentlich" waehlte.
+// --------------------------------------------------------
+
+/** Mini-DOM fuer bindRRuleEvents: nur hidden, value und addEventListener. */
+function eventRoot(html) {
+  const nodes = new Map();
+  for (const [, tag, id] of html.matchAll(/<(\w[\w-]*)[^>]*\bid="([^"]+)"/g)) {
+    const chunk = new RegExp(`<${tag}[^>]*id="${id}"[^>]*>`).exec(html)?.[0] ?? '';
+    const attrs = new Map();
+    for (const [, name, val] of chunk.matchAll(/([a-z-]+)="([^"]*)"/g)) attrs.set(name, val);
+    nodes.set(`#${id}`, {
+      tagName: tag, id, hidden: /\shidden(?=[\s>])/.test(chunk), value: '',
+      listeners: {},
+      addEventListener(type, fn) { (this.listeners[type] ??= []).push(fn); },
+      fire(type) { for (const fn of this.listeners[type] ?? []) fn(); },
+      getAttribute(name) { return attrs.has(name) ? attrs.get(name) : null; },
+      setAttribute(name, val) { attrs.set(name, String(val)); },
+      removeAttribute(name) { attrs.delete(name); },
+    });
+  }
+  return {
+    querySelector: (sel) => nodes.get(sel) ?? null,
+    querySelectorAll: () => [],
+    get: (sel) => nodes.get(sel),
+  };
+}
+
+test('ohne gewaehlte Wiederholung sagt das Formular, dass der Takt einstellbar ist', () => {
+  const html = renderRRuleFields('event', null, { allowCount: true });
+  assert.match(html, /id="event-rrule-hint"/, 'der Hinweis fehlt ganz');
+  assert.doesNotMatch(html, /id="event-rrule-hint"[^>]*hidden/,
+    'genau hier ist der Irrtum moeglich - der Hinweis muss sichtbar sein');
+  assert.match(html, /rrule\.intervalHint/, 'der Text kommt aus der Uebersetzung, nicht aus dem Markup');
+});
+
+test('Hinweis und Detailbereich sind komplementaer, nie beide da und nie beide weg', () => {
+  // Das ist die Regel, nicht die Beobachtung: der Hinweis beantwortet die Frage
+  // "sind das die einzigen vier Takte?", und sobald der Takt sichtbar
+  // danebensteht, hat sie sich erledigt. Zwei Zustaende, nie ein dritter.
+  for (const [label, rule] of [['ohne Regel', null], ['mit Regel', 'RRULE:FREQ=WEEKLY;INTERVAL=2']]) {
+    const html = renderRRuleFields('event', rule, { allowCount: true });
+    const hintHidden    = /id="event-rrule-hint"[^>]*hidden/.test(html);
+    const detailsHidden = /id="event-rrule-details"[^>]*hidden/.test(html);
+    assert.notEqual(hintHidden, detailsHidden, `${label}: beide ${hintHidden ? 'verborgen' : 'sichtbar'}`);
+  }
+});
+
+test('die Beschreibung des Auswahlfelds folgt dem Hinweis, nicht nur sein hidden', () => {
+  // Ein per aria-describedby DIREKT referenzierter Knoten zaehlt zur Beschreibung,
+  // auch wenn er verborgen ist (accname 1.2 §4.3.1 nimmt genau die direkt
+  // Referenzierten von der Verborgen-Regel aus). Bliebe die Referenz stehen,
+  // hoerte ein Screenreader-Nutzer den Hinweis weiter, den Sehende nicht mehr
+  // sehen - beide Modalitaeten muessen denselben Zustand zeigen.
+  assert.match(renderRRuleFields('task', null, {}), /aria-describedby="task-rrule-hint"/,
+    'ohne Wiederholung: ohne die Zuordnung liest ein Screenreader die Auswahl ohne ihre Erklaerung vor');
+  assert.doesNotMatch(renderRRuleFields('task', 'FREQ=WEEKLY', {}), /aria-describedby/,
+    'mit Wiederholung: der Hinweis ist beantwortet und darf auch nicht mehr vorgelesen werden');
+});
+
+test('die Referenz wird beim Umschalten mitgefuehrt, nicht nur beim Rendern', () => {
+  const root = eventRoot(renderRRuleFields('event', null, { allowCount: true }));
+  const freq = root.get('#event-rrule-freq');
+
+  bindRRuleEvents(root, 'event');
+  assert.equal(freq.getAttribute('aria-describedby'), 'event-rrule-hint', 'Ausgangslage');
+
+  freq.value = 'MONTHLY'; freq.fire('change');
+  assert.equal(freq.getAttribute('aria-describedby'), null, 'gewaehlt: Beschreibung weg');
+
+  freq.value = ''; freq.fire('change');
+  assert.equal(freq.getAttribute('aria-describedby'), 'event-rrule-hint', 'abgewaehlt: wieder da');
+});
+
+test('die Auswahl einer Frequenz nimmt den Hinweis weg und holt den Takt hervor', () => {
+  const html = renderRRuleFields('event', null, { allowCount: true });
+  const root = eventRoot(html);
+  const freq = root.get('#event-rrule-freq');
+  const hint = root.get('#event-rrule-hint');
+  const details = root.get('#event-rrule-details');
+
+  assert.equal(hint.hidden, false, 'Ausgangslage');
+  assert.equal(details.hidden, true, 'Ausgangslage');
+
+  bindRRuleEvents(root, 'event');
+  freq.value = 'MONTHLY';
+  freq.fire('change');
+
+  assert.equal(hint.hidden, true, 'beantwortet, also weg');
+  assert.equal(details.hidden, false, 'und der Takt steht jetzt da');
+
+  // Und zurueck: wer die Wiederholung wieder abwaehlt, bekommt den Hinweis wieder.
+  freq.value = '';
+  freq.fire('change');
+  assert.equal(hint.hidden, false);
+  assert.equal(details.hidden, true);
 });
 
 // --------------------------------------------------------

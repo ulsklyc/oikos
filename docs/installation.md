@@ -239,9 +239,9 @@ docker compose up -d
 Docker pulls `ghcr.io/ulsklyc/yuvomi:latest` automatically. No build step, no Node.js installation needed.
 
 > **Pinning a version.** Every release is also published under immutable tags:
-> `2.49.0` (exact version), `2.49` (latest patch of that minor), plus a moving `main`
+> `2.49.1` (exact version), `2.49` (latest patch of that minor), plus a moving `main`
 > tag for the current development state. To pin production to a known-good release,
-> set `image: ghcr.io/ulsklyc/yuvomi:2.49.0` in your compose file and bump it
+> set `image: ghcr.io/ulsklyc/yuvomi:2.49.1` in your compose file and bump it
 > deliberately; `latest` always points at the newest release.
 
 Continue with [Step 4 — Verify](#4-verify-the-container-is-running).
@@ -287,7 +287,7 @@ docker compose logs -f
 You should see output like:
 
 ```
-yuvomi  | [Yuvomi] Server running on port 3000 | Version 2.49.0
+yuvomi  | [Yuvomi] Server running on port 3000 | Version 2.49.1
 yuvomi  | [Yuvomi] Environment: production
 yuvomi  | [Sync] Auto-sync active every 15 minutes.
 ```

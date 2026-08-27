@@ -2594,7 +2594,8 @@
         "summaryCount_one": "{{count}} herhaling",
         "fromCompletionLabel": "Herhalen vanaf voltooiing",
         "fromCompletionHint": "Het interval begint op de dag dat je de taak afvinkt, niet op de vervaldatum.",
-        "summaryFromCompletion": "vanaf voltooiing"
+        "summaryFromCompletion": "vanaf voltooiing",
+        "intervalHint": "Na je keuze is het interval vrij in te stellen - bijvoorbeeld elke 2 weken of elke 3 maanden."
     },
     "reminders": {
         "sectionTitle": "Herinnering",

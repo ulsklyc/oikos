@@ -2594,7 +2594,8 @@
         "summaryCount_one": "{{count}} 次",
         "fromCompletionLabel": "从完成日重复",
         "fromCompletionHint": "间隔从你完成任务的那天开始计算，而不是从截止日期开始。",
-        "summaryFromCompletion": "从完成日起"
+        "summaryFromCompletion": "从完成日起",
+        "intervalHint": "选择之后可以自由设置间隔，例如每 2 周或每 3 个月。"
     },
     "recipes": {
         "mealTypeNone": "无餐次",

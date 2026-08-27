@@ -2606,7 +2606,8 @@
         "summaryCount_one": "{{count}} رویداد",
         "fromCompletionLabel": "تکرار از روز انجام",
         "fromCompletionHint": "بازه از روزی آغاز می‌شود که کار را انجام‌شده علامت می‌زنید، نه از تاریخ سررسید.",
-        "summaryFromCompletion": "از روز انجام"
+        "summaryFromCompletion": "از روز انجام",
+        "intervalHint": "پس از انتخاب، بازه زمانی آزادانه قابل تنظیم است، مثلاً هر 2 هفته یا هر 3 ماه."
     },
     "reminders": {
         "sectionTitle": "یادآور",

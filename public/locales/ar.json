@@ -2594,7 +2594,8 @@
         "summaryCount_one": "{{count}} موعد",
         "fromCompletionLabel": "التكرار من تاريخ الإنجاز",
         "fromCompletionHint": "تبدأ الفترة في اليوم الذي تُنجز فيه المهمة، وليس في تاريخ استحقاقها.",
-        "summaryFromCompletion": "من تاريخ الإنجاز"
+        "summaryFromCompletion": "من تاريخ الإنجاز",
+        "intervalHint": "بعد الاختيار يمكنك ضبط الفاصل الزمني بحرية، مثل كل أسبوعين أو كل 3 أشهر."
     },
     "recipes": {
         "mealTypeNone": "بدون وجبة",

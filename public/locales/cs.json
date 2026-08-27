@@ -3233,7 +3233,8 @@
         "summaryCount_one": "{{count}} termín",
         "fromCompletionLabel": "Opakovat od splnění",
         "fromCompletionHint": "Interval začíná dnem, kdy úkol odškrtnete, ne datem splatnosti.",
-        "summaryFromCompletion": "od splnění"
+        "summaryFromCompletion": "od splnění",
+        "intervalHint": "Po výběru lze interval libovolně nastavit - třeba každé 2 týdny nebo každé 3 měsíce."
     },
     "recipes": {
         "mealTypeNone": "Žádné jídlo",

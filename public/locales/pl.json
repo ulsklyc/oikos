@@ -2606,7 +2606,8 @@
         "summaryCount_one": "{{count}} termin",
         "fromCompletionLabel": "Powtarzaj od dnia wykonania",
         "fromCompletionHint": "Odstęp liczy się od dnia, w którym odhaczysz zadanie, a nie od terminu.",
-        "summaryFromCompletion": "od wykonania"
+        "summaryFromCompletion": "od wykonania",
+        "intervalHint": "Po wyborze interwał można dowolnie ustawić - na przykład co 2 tygodnie lub co 3 miesiące."
     },
     "reminders": {
         "sectionTitle": "Przypomnienie",

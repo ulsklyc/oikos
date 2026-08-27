@@ -2606,7 +2606,8 @@
         "summaryCount_one": "{{count}} Termin",
         "fromCompletionLabel": "Ab Erledigung wiederholen",
         "fromCompletionHint": "Das Intervall beginnt an dem Tag, an dem du die Aufgabe abhakst - nicht am Fälligkeitsdatum.",
-        "summaryFromCompletion": "ab Erledigung"
+        "summaryFromCompletion": "ab Erledigung",
+        "intervalHint": "Nach der Auswahl lässt sich der Takt frei einstellen - etwa alle 2 Wochen oder alle 3 Monate."
     },
     "reminders": {
         "sectionTitle": "Erinnerung",
