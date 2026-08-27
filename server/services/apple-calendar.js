@@ -404,12 +404,16 @@ async function runSync() {
           let eventId;
           if (existing) {
             // color nur überschreiben, solange der Nutzer nicht lokal umgefärbt
-            // hat (user_modified = 0); Titel/Zeit bleiben remote-geführt.
+            // hat (color_modified = 0); Titel/Zeit bleiben remote-geführt.
+            //
+            // Nicht `user_modified` (#899): das wird bei jeder Bearbeitung
+            // gesetzt, eine Titeländerung hätte die Farbspalte also dauerhaft
+            // eingefroren und eine Umfärbung auf dem Server nie mehr erreicht.
             db.get().prepare(`
               UPDATE calendar_events
               SET title = ?, description = ?, start_datetime = ?, end_datetime = ?,
                   all_day = ?, location = ?, recurrence_rule = ?, tzid = ?,
-                  color = CASE WHEN user_modified = 0 THEN ? ELSE color END,
+                  color = CASE WHEN color_modified = 0 THEN ? ELSE color END,
                   calendar_ref_id = ?,
                   external_object_url = COALESCE(?, external_object_url)
               WHERE id = ?
@@ -514,10 +518,15 @@ async function runSync() {
         'apple', defaultCal.url, defaultCal.displayName || 'Apple Calendar',
         normalizeCalColor(defaultCal.calendarColor) || APPLE_COLOR
       );
+      // `color_modified` mit hoch: die gerade hinausgegangene Farbe ist unsere.
+      // Der CSS3-Name ist eine verlustbehaftete Abbildung des Hex-Werts - ohne
+      // das Flag holte der nächste Inbound-Lauf ihn zurück und ersetzte den
+      // exakten Wert durch den gerundeten (#899).
       db.get().prepare(`
         UPDATE calendar_events
         SET external_calendar_id = ?, external_source = 'apple',
-            external_object_url = ?, calendar_ref_id = ?
+            external_object_url = ?, calendar_ref_id = ?,
+            color_modified = CASE WHEN color IS NOT NULL THEN 1 ELSE color_modified END
         WHERE id = ?
       `).run(uid, objectUrl, calRefId, event.id);
     } catch (err) {

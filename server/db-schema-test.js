@@ -376,6 +376,12 @@ const MIGRATIONS_SQL = {
       recurrence_rule      TEXT,
       subscription_id      INTEGER REFERENCES ics_subscriptions(id) ON DELETE CASCADE,
       user_modified        INTEGER NOT NULL DEFAULT 0,
+      -- Wie in Produktion seit Migration 167 (#899): der eigene Zustand der
+      -- Farbe. user_modified sagt "irgendetwas wurde bearbeitet",
+      -- color_modified allein sagt "die Farbe wird lokal gefuehrt" - der Inbound
+      -- aller drei Anbieter gattert darauf. Fehlt die Spalte im Auszug,
+      -- scheitert jede Suite, die einen Sync-Upsert faehrt, an no such column.
+      color_modified       INTEGER NOT NULL DEFAULT 0,
       created_at           TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
       updated_at           TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
     );

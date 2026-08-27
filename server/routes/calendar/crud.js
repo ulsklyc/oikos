@@ -324,6 +324,22 @@ router.put('/:id', async (req, res) => {
 
     const userModified = event.external_source !== 'local' ? 1 : event.user_modified;
 
+    // Die Farbe führt ihren eigenen Zustand (#899). `user_modified` bedeutet
+    // "an diesem Termin wurde etwas bearbeitet" und wird oben bei JEDEM Feld
+    // gesetzt; der Inbound der Anbieter las es trotzdem als "die Farbe wird ab
+    // jetzt lokal geführt". Eine Titeländerung fror damit die Farbspalte
+    // dauerhaft ein - eine Umfärbung auf dem Server kam nie mehr an.
+    //
+    // Gesetzt wird deshalb nur bei einer ECHTEN Umfärbung: `color` mitgeschickt
+    // UND ein anderer Wert als bisher. Ein Formular, das die unveränderte Farbe
+    // brav mitschickt, ist keine. Einmal gesetzt bleibt das Flag stehen, auch
+    // wenn die Farbe später wieder geleert wird - genau dieser Zustand
+    // (`color IS NULL AND color_modified = 1`) ist das ausdrückliche Leeren, das
+    // der Ausgang spiegeln darf.
+    const colorModified = (colorTouched && (colorVal ?? null) !== (event.color ?? null))
+      ? 1
+      : event.color_modified;
+
     const caldavAccountId = vCaldav ? vCaldav.value.accountId : event.target_caldav_account_id;
     const caldavCalendarUrl = vCaldav ? vCaldav.value.calendarUrl : event.target_caldav_calendar_url;
     const googleTargetId = vGoogle ? vGoogle.value : event.target_google_calendar_id;
@@ -397,7 +413,8 @@ router.put('/:id', async (req, res) => {
             -- das PUT eines Clients, der das Feld nicht kennt (Modul, ältere
             -- App), darf eine gesetzte Markierung nicht stillschweigend löschen.
             countdown       = ?,
-            user_modified   = ?
+            user_modified   = ?,
+            color_modified  = ?
         WHERE id = ?
       `).run(
         title?.trim()  ?? null,
@@ -425,6 +442,7 @@ router.put('/:id', async (req, res) => {
           : event.visibility,
         req.body.countdown !== undefined ? (req.body.countdown ? 1 : 0) : event.countdown,
         userModified,
+        colorModified,
         id
       );
       setEventAssignments(db.get(), id, userIds);
@@ -506,7 +524,9 @@ router.post('/:id/reset', (req, res) => {
     if (!isAdmin && event.created_by !== userId && event.sub_created_by !== userId)
       return res.status(403).json({ error: 'Nicht autorisiert.', code: 403 });
 
-    db.get().prepare('UPDATE calendar_events SET user_modified = 0 WHERE id = ?').run(id);
+    // `color_modified` geht mit: Zurücksetzen heisst "der Feed führt diesen
+    // Termin wieder", und das schliesst seine Farbe ein (#899).
+    db.get().prepare('UPDATE calendar_events SET user_modified = 0, color_modified = 0 WHERE id = ?').run(id);
     res.json({ data: { reset: true } });
   } catch (err) {
     log.error('', err);

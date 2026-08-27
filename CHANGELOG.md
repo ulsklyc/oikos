@@ -21,8 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   value - so a stored `#RRGGBB` is mapped to the nearest of the 147 CSS3 names by the same
   perceptual redmean distance that already maps colours onto Google's eleven `colorId`s. The loss is
   small (the largest deviation across Yuvomi's own palette is 28 of 255 in a single channel) and it
-  stays on the wire: recolouring sets `user_modified = 1`, and an inbound run writes `color` only
-  while that is `0`, so the neighbouring value read back on the next sync never overwrites the
+  stays on the wire: recolouring sets `color_modified = 1` (#899), and an inbound run writes `color`
+  only while that is `0`, so the neighbouring value read back on the next sync never overwrites the
   choice.
 
   `COLOR` is now a *managed* property of the ICS patcher - without that it may be written but not
@@ -30,13 +30,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   carry their colour from the start too, so one created in Yuvomi no longer arrives at the server
   colourless.
 
-  **An appointment without a colour of its own sends no `COLOR` field at all** - "leave it alone",
-  not "remove it". The distinction is not a detail: locally, *no colour* cannot be told apart from
-  *we never learned one*. `user_modified` is set on **any** edit, and inbound writes `color` only
-  while it is `0`, so a single title change freezes the colour column; if another client colours that
-  appointment on the server afterwards, Yuvomi never finds out. A `null` here would let that title
-  change strip a colour somebody else chose, permanently. Clearing a colour comes back once there is
-  a state of its own for it (#899).
+  **An appointment whose colour was never learned sends no `COLOR` field at all** - "leave it alone",
+  not "remove it". A `null` there would let a mere title change strip a colour somebody else chose on
+  the server. Telling that state apart from a *deliberately cleared* colour is what #899 below is
+  for; with it, clearing a colour reaches the provider as well.
+
+- **A title edit no longer freezes an appointment's colour, and a cleared colour now reaches the
+  provider** (#899, migration 167). `user_modified` means "something about this appointment was
+  edited locally" - it is set on **any** edit to a mirrored appointment. All three inbound syncs read
+  it as "the colour is managed locally" and wrote `color` only while it was `0`. Renaming an
+  appointment was therefore enough to freeze its colour column forever: if somebody coloured that
+  same appointment in Nextcloud, Apple Calendar or Google afterwards, Yuvomi never found out.
+
+  The colour now carries a state of its own, `calendar_events.color_modified`, set only when the
+  colour actually changes - re-sending the unchanged value with the rest of a form is not a
+  recolouring. Three things follow. Inbound gates on it, so an edit to any other field leaves the
+  colour open to the provider again. `color IS NULL AND color_modified = 1` is unambiguously
+  *cleared*, so the CalDAV/Apple outbound may remove the `COLOR` property and Google's `colorId: null`
+  now goes out only for a colour somebody really cleared, rather than for every appointment without
+  one. And the upload paths record the flag when the appointment carries a colour, so the next
+  inbound run no longer replaces the chosen hex with the mapped one - both mappings are lossy (a
+  CSS3 name, or one of Google's eleven `colorId`s), and every colour in Yuvomi's palette maps to a
+  different hex.
+
+  **The backfill is deliberately conservative:** `color_modified = user_modified` for existing rows.
+  Every colour protected today stays protected. A blanket `0` would undo exactly the bug described
+  here, but it would also let the next sync overwrite a colour somebody set on purpose - and in
+  existing data the two are indistinguishable. Resetting an ICS appointment to its original clears
+  both flags: the feed manages it again, colour included.
 
 ## [2.49.0] - 2026-08-27
 

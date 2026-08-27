@@ -348,24 +348,36 @@ test('localEventToGoogle: ohne Palette bleibt colorId ungesetzt', () => {
   assertEqual(g.colorId, undefined);
 });
 
-test('localEventToGoogle: ohne event.color wird colorId ausdruecklich geleert (#891)', () => {
+test('localEventToGoogle: eine GELEERTE Farbe wird ausdruecklich geleert (#891/#899)', () => {
   // NICHT weggelassen, sondern null - und der Unterschied ist der ganze Punkt.
   // Der Update-Push ist ein `events.patch`, und ein PATCH fasst nur die Felder
   // an, die im Body STEHEN. Ein fehlendes colorId hiesse "nicht anfassen":
   // Google behielte seine alte Farbe, waehrend Yuvomi die der zugewiesenen
-  // Person zeigt, und weil dieselbe Bearbeitung `user_modified = 1` setzt,
-  // holt auch kein Inbound-Lauf die beiden je wieder zusammen.
+  // Person zeigt, und die beiden blieben dauerhaft verschieden.
   //
   // Bis v2.48.0 war das folgenlos, weil `color` NOT NULL war und dieser Zweig
   // fuer Updates nie erreicht wurde. Der Test stand hier trotzdem - er hat die
   // damals wahre Beobachtung festgehalten statt der Regel dahinter, und waere
   // deshalb gruen geblieben, wenn der Fall real wird.
   const g = localEventToGoogle(
-    { title: 'Farblos', all_day: 1, start_datetime: '2026-06-03' },
+    { title: 'Farblos', all_day: 1, start_datetime: '2026-06-03', color_modified: 1 },
     GOOGLE_EVENT_PALETTE
   );
   assertEqual(g.colorId, null);
   assertEqual('colorId' in g, true, 'das Feld MUSS im Body stehen, sonst loescht der PATCH nichts');
+});
+
+test('localEventToGoogle: eine NIE gelernte Farbe loescht Googles Farbe NICHT (#899)', () => {
+  // Die Gegenprobe zum Test darueber und der Grund fuer #899: bis dahin ging das
+  // null bei JEDEM farblosen Termin hinaus, auch bei einem, der nie eine Farbe
+  // hatte. Ein Termin kommt ohne colorId herein (lokal NULL), jemand faerbt ihn
+  // spaeter in Google, und die naechste beliebige Bearbeitung in Yuvomi raeumte
+  // dessen Farbe ab - ohne dass sie hier je jemand angefasst haette.
+  const g = localEventToGoogle(
+    { title: 'Nie gefaerbt', all_day: 1, start_datetime: '2026-06-03', color_modified: 0 },
+    GOOGLE_EVENT_PALETTE
+  );
+  assertEqual('colorId' in g, false, 'nie gelernt heisst "nicht anfassen", nicht "loeschen"');
 });
 
 test('localEventToGoogle: eine unabbildbare Farbe loescht Googles Farbe NICHT', () => {
@@ -383,7 +395,7 @@ test('localEventToGoogle: eine unabbildbare Farbe loescht Googles Farbe NICHT', 
 });
 
 // --------------------------------------------------------
-// upsertGoogleEvents – Event-Farbsync + user_modified-Gate (Issue #219, #427)
+// upsertGoogleEvents – Event-Farbsync + color_modified-Gate (Issue #219, #427, #899)
 // --------------------------------------------------------
 console.log('\n[Google Calendar Test] upsertGoogleEvents – Farbsync\n');
 
@@ -447,7 +459,7 @@ test('Unbekannte colorId schreibt ebenfalls keine Eigenfarbe (#891)', () => {
   assertEqual(row.color, null);
 });
 
-test('Re-Sync übernimmt geänderte Google-Farbe, solange user_modified = 0', () => {
+test('Re-Sync übernimmt geänderte Google-Farbe, solange color_modified = 0', () => {
   const recolored = { ...gEvent, colorId: '10' };
   const calRefId = upsertExternalCalendar('google', 'primary', 'Mein Kalender', '#FF0000');
   upsertGoogleEvents([recolored], calRefId, '#FF0000', COLOR_MAP);
@@ -457,9 +469,9 @@ test('Re-Sync übernimmt geänderte Google-Farbe, solange user_modified = 0', ()
   assertEqual(row.color, '#00FF00', 'Remote-Farbänderung muss ohne lokalen Override durchkommen');
 });
 
-test('Re-Sync überschreibt Farbe NICHT nach lokalem Umfärben (user_modified = 1)', () => {
-  // Nutzer ändert die Event-Farbe – die App setzt dabei user_modified = 1.
-  db.prepare('UPDATE calendar_events SET color = ?, user_modified = 1 WHERE external_calendar_id = ?')
+test('Re-Sync überschreibt Farbe NICHT nach lokalem Umfärben (color_modified = 1)', () => {
+  // Nutzer ändert die Event-Farbe – die App setzt dabei color_modified = 1.
+  db.prepare('UPDATE calendar_events SET color = ?, color_modified = 1 WHERE external_calendar_id = ?')
     .run('#0000FF', gEvent.id);
   const calRefId = upsertExternalCalendar('google', 'primary', 'Mein Kalender', '#FF0000');
   upsertGoogleEvents([gEvent], calRefId, '#FF0000', COLOR_MAP);
@@ -469,7 +481,26 @@ test('Re-Sync überschreibt Farbe NICHT nach lokalem Umfärben (user_modified = 
   assertEqual(row.color, '#0000FF', 'Benutzerfarbe muss über den Sync hinweg erhalten bleiben');
 });
 
-test('Re-Sync aktualisiert übrige Felder, Farbschutz bei user_modified = 1 bleibt', () => {
+test('Eine Titeländerung friert die Farbe NICHT ein (#899)', () => {
+  // Der Repro aus #899 auf Googles Seite: ein Termin kommt ohne colorId herein,
+  // der Nutzer aendert in Yuvomi nur den TITEL - das setzt user_modified = 1 -,
+  // und danach faerbt ihn jemand in Google. Solange das Farb-Gatter an
+  // user_modified hing, kam diese Farbe nie an.
+  const fresh = { ...gEvent, id: 'evt-title-edit' };
+  const calRefId = upsertExternalCalendar('google', 'primary', 'Mein Kalender', '#FF0000');
+  upsertGoogleEvents([fresh], calRefId, '#FF0000', COLOR_MAP);
+  db.prepare('UPDATE calendar_events SET title = ?, user_modified = 1 WHERE external_calendar_id = ?')
+    .run('Team-Meeting (verschoben)', fresh.id);
+
+  upsertGoogleEvents([{ ...fresh, colorId: '6' }], calRefId, '#FF0000', COLOR_MAP);
+  const row = db.prepare(
+    'SELECT color, user_modified FROM calendar_events WHERE external_calendar_id = ?'
+  ).get(fresh.id);
+  assertEqual(row.color, '#FFA500', 'die Farbe aus Google muss trotz Titelbearbeitung ankommen');
+  assertEqual(row.user_modified, 1, 'die Bearbeitung selbst bleibt vermerkt');
+});
+
+test('Re-Sync aktualisiert übrige Felder, Farbschutz bei color_modified = 1 bleibt', () => {
   const updated = { ...gEvent, summary: 'Team-Meeting (verschoben)' };
   const calRefId = upsertExternalCalendar('google', 'primary', 'Mein Kalender', '#FF0000');
   upsertGoogleEvents([updated], calRefId, '#FF0000', COLOR_MAP);

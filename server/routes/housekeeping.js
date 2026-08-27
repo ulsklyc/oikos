@@ -322,6 +322,12 @@ function updateVisitLinks(database, session, worker, checkIn, dailyRate, extras,
           end_datetime = NULL,
           all_day = 1,
           color = ?,
+          -- Die Farbe kommt von der Betreuungskraft, nicht vom Provider: mit dem
+          -- Flag daneben führt Yuvomi sie auch weiter (#899). Ohne es schriebe
+          -- der Outbound sie als CSS3-Namen hinaus und der nächste Inbound-Lauf
+          -- holte den gerundeten Wert zurück - der Besuch wechselte still seine
+          -- Farbe, obwohl niemand sie angefasst hat.
+          color_modified = 1,
           icon = ?
       WHERE id = ?
     `).run(

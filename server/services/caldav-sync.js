@@ -517,13 +517,18 @@ async function sync({ createClient } = {}) {
   // Normalfall (nichts hat sich geändert) erzeugt keine WAL-Writes mehr.
   // `IS NOT` statt `<>`, weil der Vergleich NULL-sicher sein muss, und die
   // beiden abgeleiteten Spalten wiederholen ihren SET-Ausdruck, damit eine
-  // lokale Umfärbung (user_modified) bzw. ein fehlendes obj.url nicht als
+  // lokale Umfärbung (color_modified) bzw. ein fehlendes obj.url nicht als
   // Unterschied zählt. Die Bindings der SET-Liste kommen dafür ein zweites Mal.
+  //
+  // Die Farbe gattert auf `color_modified`, NICHT auf `user_modified` (#899):
+  // letzteres wird bei jeder Bearbeitung gesetzt, eine Titeländerung hätte die
+  // Farbspalte also für immer eingefroren und eine Umfärbung auf dem Server
+  // wäre nie mehr angekommen.
   const updEvent = conn.prepare(`
     UPDATE calendar_events
     SET title = ?, description = ?, start_datetime = ?, end_datetime = ?,
         all_day = ?, location = ?, recurrence_rule = ?, tzid = ?,
-        color = CASE WHEN user_modified = 0 THEN ? ELSE color END,
+        color = CASE WHEN color_modified = 0 THEN ? ELSE color END,
         calendar_ref_id = ?,
         external_object_url = COALESCE(?, external_object_url)
     WHERE id = ?
@@ -535,7 +540,7 @@ async function sync({ createClient } = {}) {
            OR location            IS NOT ?
            OR recurrence_rule     IS NOT ?
            OR tzid                IS NOT ?
-           OR color               IS NOT CASE WHEN user_modified = 0 THEN ? ELSE color END
+           OR color               IS NOT CASE WHEN color_modified = 0 THEN ? ELSE color END
            OR calendar_ref_id     IS NOT ?
            OR external_object_url IS NOT COALESCE(?, external_object_url)
           )
@@ -696,7 +701,7 @@ async function sync({ createClient } = {}) {
               let changed = false;
               if (existing) {
                 // Update: color nur überschreiben, solange der Nutzer nicht lokal
-                // umgefärbt hat (user_modified = 0); Titel/Zeit bleiben remote-geführt.
+                // umgefärbt hat (color_modified = 0); Titel/Zeit bleiben remote-geführt.
                 // Dieselben Werte binden die SET-Liste und den Vergleich in der
                 // WHERE-Klausel, weshalb sie zweimal übergeben werden.
                 const values = [
@@ -807,10 +812,18 @@ async function sync({ createClient } = {}) {
             'caldav', event.target_caldav_calendar_url,
             targetCal.displayName || event.target_caldav_calendar_url, null
           );
+          // `color_modified` mit hoch: die Farbe, die gerade als CSS3-Name
+          // hinausging, ist unsere. Der Name ist eine verlustbehaftete Abbildung
+          // des Hex-Werts, und ohne das Flag holte der nächste Inbound-Lauf
+          // genau ihn zurück und überschriebe den exakten Wert mit dem
+          // gerundeten (#899). Ein Termin, der gar keine eigene Farbe trägt,
+          // behält seinen Zustand - dann ist nichts hinausgegangen, was wir
+          // verteidigen müssten.
           db.get().prepare(`
             UPDATE calendar_events
             SET external_source = 'caldav', external_calendar_id = ?,
-                external_object_url = ?, calendar_ref_id = ?
+                external_object_url = ?, calendar_ref_id = ?,
+                color_modified = CASE WHEN color IS NOT NULL THEN 1 ELSE color_modified END
             WHERE id = ?
           `).run(uid, objectUrl, calRefId, event.id);
 

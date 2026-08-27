@@ -57,25 +57,30 @@ export function icsFieldsForEvent(event) {
   // COLOR ist Teil von MIRRORED_FIELDS, wurde aber nie geschrieben (#897): eine
   // Umfaerbung kostete einen PUT, der beim Server nichts aenderte.
   //
-  // Geschrieben wird nur eine VORHANDENE Eigenfarbe. Fehlt sie, bleibt das Feld
-  // weg - "nicht anfassen" statt "entfernen". Der Unterschied ist kein Detail:
+  // DREI FAELLE, und der Unterschied zwischen den letzten beiden ist der ganze
+  // Punkt von #899:
   //
-  // Ein null hiesse "der Nutzer hat die Farbe geleert". Lokal ist dieser Zustand
-  // aber nicht von "wir haben nie eine gelernt" zu unterscheiden. user_modified
-  // wird bei JEDER Bearbeitung gesetzt (crud.js), und der Inbound schreibt color
-  // nur, solange das 0 ist - wer einmal den Titel aendert, friert die Farbspalte
-  // ein. Faerbt danach ein anderer Client den Termin auf dem SERVER, erfaehrt
-  // Yuvomi es nie, und die naechste beliebige Bearbeitung raeumte dessen
-  // COLOR-Zeile ab. Dauerhaft, weil auch kein Inbound-Lauf sie zurueckholt.
+  //   1. Eine Eigenfarbe, die sich abbilden laesst → ihr CSS3-Name geht hinaus.
+  //   2. Keine Eigenfarbe, und der Nutzer hat sie GELEERT (color_modified = 1)
+  //      → null, und der Patcher entfernt die COLOR-Zeile. Verwaltet heisst
+  //      ersetzen UND entfernen; erst hier wird die zweite Haelfte gebraucht.
+  //   3. Keine Eigenfarbe, weil wir nie eine gelernt haben (color_modified = 0)
+  //      → das Feld bleibt weg, "nicht anfassen".
+  //
+  // Fall 3 ist keine Vorsicht ohne Anlass. Ein Termin kommt ohne COLOR herein,
+  // jemand faerbt ihn spaeter auf dem SERVER, und Yuvomi erfaehrt davon erst
+  // beim naechsten Inbound-Lauf - der aber laeuft nicht zwischen der Bearbeitung
+  // und ihrem Push. Ein pauschales null haette dessen Farbe abgeraeumt, und vor
+  // #899 dauerhaft: das Gatter hing an `user_modified`, das jede Bearbeitung
+  // setzt, also holte auch kein spaeterer Lauf sie zurueck.
   //
   // Eine Farbe, die sich nicht abbilden laesst (kein gueltiges #RRGGBB), faellt
-  // in denselben Zweig, und das ist dort aus demselben Grund richtig.
-  //
-  // Das Leeren kommt zurueck, sobald es einen eigenen Zustand dafuer gibt
-  // (color_modified statt des ueberladenen user_modified). Solange der fehlt,
-  // ist Schweigen die einzige verlustfreie Antwort.
+  // NICHT in Fall 2: `event.color` steht, geleert wurde nichts. Sie bleibt in
+  // Fall 3 - ein null wuerde eine fremde Farbe wegwerfen, um einen Wert
+  // wiederzugeben, den wir gar nicht ausdruecken koennen.
   const colorName = nearestIcalColorName(event.color);
   if (colorName) fields.COLOR = colorName;
+  else if (!event.color && event.color_modified) fields.COLOR = null;
 
   return fields;
 }

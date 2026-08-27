@@ -1,5 +1,5 @@
 /**
- * Test: Ein Termin darf keine eigene Farbe haben (#891)
+ * Test: Wem gehoert die Farbe eines Termins (#891, #899)
  * Zweck: Migration 166 baut calendar_events neu auf, um `color` nullable zu
  *        machen - der riskanteste Eingriff dieser Aenderung, weil vier Tabellen
  *        auf die Tabelle zeigen und zwei davon mit ON DELETE CASCADE. Diese
@@ -12,6 +12,14 @@
  *        bis v2.48.0 gruen ueber totem Code, weil ein Termin aus der Datenbank
  *        die unteren Zweige nie erreichen konnte (#856). Ohne diese Suite waere
  *        er es wieder, sobald ein Importpfad seinen Fallback zurueckbekommt.
+ *
+ *        Seit #899 dazu die Frage, die daran haengt: WEM gehoert die Farbe? Der
+ *        Inbound gattert sie, und er tat es an `user_modified` - einem Flag, das
+ *        JEDE Bearbeitung setzt. Eine Titelaenderung fror die Farbspalte damit
+ *        dauerhaft ein, und weil "keine Farbe" nicht von "nie eine gelernt" zu
+ *        unterscheiden war, konnte der Ausgang ein Leeren nicht spiegeln.
+ *        Migration 167 gibt der Farbe ihren eigenen Zustand; die Regel-Guards
+ *        unten halten fest, dass alle drei Anbieter ihn benutzen.
  * Ausfuehren: node --test test/test-calendar-inherited-color.js
  */
 
@@ -26,7 +34,8 @@ process.env.SESSION_SECRET = process.env.SESSION_SECRET || 'test-secret';
 process.env.DB_PATH = join(mkdtempSync(join(tmpdir(), 'yuvomi-colmig-')), 'unused.db');
 const { MIGRATIONS } = await import('../server/db.js');
 
-const NULLABLE_COLOR_VERSION = 166;
+const NULLABLE_COLOR_VERSION  = 166;
+const COLOR_MODIFIED_VERSION  = 167;
 
 function applyMigration(db, migration) {
   if (typeof migration.up === 'function') migration.up(db);
@@ -51,11 +60,14 @@ function applyWithMigrateSemantics(db, migration) {
   }
 }
 
-/** Echte Migrationskette bis v165 - der Stand, den ein Bestandsnutzer mitbringt. */
-function buildPreNullableDatabase() {
+/**
+ * Echte Migrationskette bis kurz vor `version` - der Stand, den ein
+ * Bestandsnutzer mitbringt, wenn genau diese Migration ansteht.
+ */
+function buildDatabaseBefore(version = NULLABLE_COLOR_VERSION) {
   const db = new Database(join(mkdtempSync(join(tmpdir(), 'yuvomi-colmig-')), 'db.sqlite'));
   db.pragma('foreign_keys = ON');
-  for (const migration of MIGRATIONS.filter((m) => m.version < NULLABLE_COLOR_VERSION)) {
+  for (const migration of MIGRATIONS.filter((m) => m.version < version)) {
     applyMigration(db, migration);
   }
   return db;
@@ -112,7 +124,7 @@ function snapshot(db) {
 // --------------------------------------------------------
 
 test('Migration 166 nimmt beim Rebuild keine abhaengige Zeile mit', () => {
-  const db = buildPreNullableDatabase();
+  const db = buildDatabaseBefore();
   const seeded = seed(db);
   const before = snapshot(db);
   assert.equal(before.length, 3);
@@ -153,7 +165,7 @@ test('Migration 166 nimmt beim Rebuild keine abhaengige Zeile mit', () => {
 });
 
 test('Migration 166 stellt Trigger und Indizes vollstaendig wieder her', () => {
-  const db = buildPreNullableDatabase();
+  const db = buildDatabaseBefore();
   const objectsOf = () => db.prepare(
     "SELECT type, name FROM sqlite_master WHERE tbl_name='calendar_events' AND type IN ('index','trigger') ORDER BY type, name"
   ).all().filter((o) => !o.name.startsWith('sqlite_autoindex'));
@@ -171,7 +183,7 @@ test('Migration 166 stellt Trigger und Indizes vollstaendig wieder her', () => {
 });
 
 test('Migration 166 macht color nullable, ohne einen Bestandswert anzufassen', () => {
-  const db = buildPreNullableDatabase();
+  const db = buildDatabaseBefore();
   seed(db);
   applyWithMigrateSemantics(db, MIGRATIONS.find((m) => m.version === NULLABLE_COLOR_VERSION));
 
@@ -199,7 +211,7 @@ test('Migration 166 uebersteht eine DB, der die tzid-Spalte fehlt (#549)', () =>
   // fehlt - und `reconcileCriticalSchema()` repariert das erst NACH `migrate()`.
   // Ohne die Absicherung in der Migration braeche das Update genau dieser
   // Bestandsinstallationen mit "no such column: tzid".
-  const db = buildPreNullableDatabase();
+  const db = buildDatabaseBefore();
   seed(db);
 
   // Den Schaden nachbauen: Spalte weg, Migration 97 weiterhin als angewendet.
@@ -255,6 +267,143 @@ test('der Test-Schema-Auszug haelt die Spalte ebenfalls nullable', async () => {
     assert.equal(db.prepare('SELECT color FROM calendar_events').get().color, null);
     db.close();
   }
+});
+
+// --------------------------------------------------------
+// Die Farbe bekommt einen eigenen Zustand (Migration 167, #899)
+// --------------------------------------------------------
+
+test('Migration 167 uebernimmt den bisherigen Schutz Zeile fuer Zeile', () => {
+  const db = buildDatabaseBefore(COLOR_MODIFIED_VERSION);
+  seed(db);
+
+  const vorher = db.prepare('SELECT user_modified FROM calendar_events ORDER BY id').all()
+    .map((r) => r.user_modified);
+  // VORBEDINGUNG. Waeren alle drei Zeilen gleich, sagte der Vergleich unten
+  // nichts: `color_modified = 0` waere dann von `color_modified = user_modified`
+  // nicht zu unterscheiden.
+  assert.ok(new Set(vorher).size > 1, `der Bestand muss beide Faelle tragen: ${vorher.join()}`);
+
+  applyWithMigrateSemantics(db, MIGRATIONS.find((m) => m.version === COLOR_MODIFIED_VERSION));
+
+  const nachher = db.prepare('SELECT user_modified, color_modified FROM calendar_events ORDER BY id').all();
+  assert.deepEqual(nachher.map((r) => r.color_modified), vorher,
+    'der Backfill ist konservativ: was heute geschuetzt ist, bleibt geschuetzt');
+  assert.deepEqual(nachher.map((r) => r.user_modified), vorher,
+    'und user_modified behaelt seine eigene Bedeutung');
+
+  const spalte = db.prepare('PRAGMA table_info(calendar_events)').all()
+    .find((c) => c.name === 'color_modified');
+  assert.equal(spalte.notnull, 1, 'das Flag ist nie unbekannt');
+  assert.equal(spalte.dflt_value, '0', 'ein neuer Termin faengt ohne eigene Farbwahl an');
+});
+
+test('Migration 167 laesst einen neuen Termin bei 0 anfangen', () => {
+  // Die Gegenprobe zum Backfill: er darf nicht als Default durchschlagen, sonst
+  // waere jeder frisch importierte Termin gegen die Farbe seines Anbieters
+  // gesperrt - genau der Zustand, den #899 aufloest.
+  const db = buildDatabaseBefore(COLOR_MODIFIED_VERSION);
+  seed(db);
+  db.prepare("UPDATE calendar_events SET user_modified = 1").run();
+  applyWithMigrateSemantics(db, MIGRATIONS.find((m) => m.version === COLOR_MODIFIED_VERSION));
+
+  db.prepare(`INSERT INTO calendar_events (title, start_datetime, created_by)
+              VALUES ('Frisch importiert', '2040-01-01T09:00', 1)`).run();
+  const neu = db.prepare("SELECT color_modified FROM calendar_events WHERE title = 'Frisch importiert'").get();
+  assert.equal(neu.color_modified, 0);
+});
+
+test('der Test-Schema-Auszug kennt den Zustand ebenfalls', async () => {
+  // Dieselbe Falle wie bei der nullable Farbe darueber: fehlt die Spalte im
+  // Auszug, stirbt jede Suite, die einen Sync-Upsert faehrt, an `no such
+  // column` - und zwar an einer Stelle, die mit ihrem Pruefzweck nichts zu tun
+  // hat. Der Beleg ist deshalb ein INSERT, keine Spaltendefinition.
+  const { MIGRATIONS_SQL } = await import('../server/db-schema-test.js');
+  const sql = MIGRATIONS_SQL[11];
+  const db = new Database(join(mkdtempSync(join(tmpdir(), 'yuvomi-auszug-')), 'db.sqlite'));
+  db.pragma('foreign_keys = OFF');
+  db.exec(sql);
+  db.prepare(`INSERT INTO calendar_events (title, start_datetime, created_by)
+              VALUES ('Farblos', '2040-01-01T09:00', 1)`).run();
+  assert.equal(db.prepare('SELECT color_modified FROM calendar_events').get().color_modified, 0);
+  db.close();
+});
+
+// --------------------------------------------------------
+// Wer das Gatter bedient (#899)
+// --------------------------------------------------------
+
+/**
+ * Quelltext ohne Kommentare. Ein Guard, der im Rohtext sucht, liest einen
+ * Kommentar als Regel - und die Kommentare an genau diesen Stellen ERKLAEREN
+ * den alten Zustand, nennen also `user_modified` mit voller Absicht.
+ */
+function ohneKommentare(quelle) {
+  return quelle
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n')
+    .filter((zeile) => !/^\s*(\/\/|--)/.test(zeile))
+    .join('\n');
+}
+
+const SYNC_DIENSTE = [
+  'server/services/caldav-sync.js',
+  'server/services/apple-calendar.js',
+  'server/services/google-calendar.js',
+];
+
+test('jedes Farb-Gatter des Inbound haengt an color_modified (#899)', async () => {
+  // Eine Regel statt einer Allowlist, aus demselben Grund wie beim Fallback
+  // darunter: die Stelle sieht in allen drei Diensten gleich aus. Gefunden wird
+  // der Ausdruck selbst, nicht seine Datei - der vierte Anbieter faellt damit
+  // automatisch unter die Regel.
+  const { readFile } = await import('node:fs/promises');
+  const GATTER_RE = /CASE\s+WHEN\s+(\w+)\s*=\s*0\s+THEN\s+\?\s+ELSE\s+color\s+END/g;
+
+  let gefunden = 0;
+  const falsch = [];
+  for (const datei of SYNC_DIENSTE) {
+    const quelle = ohneKommentare(await readFile(new URL(`../${datei}`, import.meta.url), 'utf8'));
+    for (const treffer of quelle.matchAll(GATTER_RE)) {
+      gefunden++;
+      if (treffer[1] !== 'color_modified') falsch.push(`${datei}: ${treffer[0]}`);
+    }
+  }
+
+  // VORBEDINGUNG: findet das Muster nichts, ist die Zusicherung darunter leer.
+  // Genau so waere sie gruen geblieben, als das Gatter noch falsch war.
+  assert.ok(gefunden >= 5, `nur ${gefunden} Farb-Gatter gefunden - stimmt das Muster noch?`);
+  assert.deepEqual(falsch, [],
+    'user_modified wird bei JEDER Bearbeitung gesetzt; ein Titel-Edit fror die Farbe damit ein (#899)');
+});
+
+test('der Upload merkt sich, dass die hinausgeschickte Farbe unsere ist (#899)', async () => {
+  // Der dritte Befund aus #899: beide Abbildungen sind verlustbehaftet (CSS3-
+  // Name bzw. eine von elf colorIds). Ohne das Flag holt der naechste
+  // Inbound-Lauf den gerundeten Wert zurueck und ersetzt die gewaehlte Farbe.
+  //
+  // Die Regel haengt an der Stelle, an der ein LOKALER Termin zu einem
+  // gespiegelten wird - das ist genau der Moment, in dem die Farbe erstmals
+  // hinausgeht, und er ist in jedem Dienst als `external_source = '<anbieter>'`
+  // in einer UPDATE-SET-Liste erkennbar.
+  const { readFile } = await import('node:fs/promises');
+  const UPDATE_RE = /UPDATE calendar_events\s+SET([\s\S]*?)WHERE/g;
+
+  let gefunden = 0;
+  const ohneFlag = [];
+  for (const datei of SYNC_DIENSTE) {
+    const quelle = ohneKommentare(await readFile(new URL(`../${datei}`, import.meta.url), 'utf8'));
+    for (const treffer of quelle.matchAll(UPDATE_RE)) {
+      const setListe = treffer[1];
+      if (!/external_source\s*=\s*'(caldav|apple|google)'/.test(setListe)) continue;
+      gefunden++;
+      if (!/color_modified/.test(setListe)) ohneFlag.push(datei);
+    }
+  }
+
+  assert.equal(gefunden, 3, `drei Anbieter, drei Upload-Stellen - gefunden: ${gefunden}`);
+  assert.deepEqual(ohneFlag, [],
+    'der Upload muss color_modified setzen, sonst verliert der Termin seine exakte Farbe an die gemappte');
 });
 
 // --------------------------------------------------------

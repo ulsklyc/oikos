@@ -50,6 +50,10 @@ describe('CalDAV Multi-Account Sync', () => {
         title                       TEXT NOT NULL,
         external_calendar_id        TEXT,
         external_source             TEXT,
+        -- Die Farbe und ihr Zustand: der Upload traegt sie hinaus und merkt
+        -- sich, dass sie unsere ist (#899).
+        color                       TEXT,
+        color_modified              INTEGER NOT NULL DEFAULT 0,
         target_caldav_account_id    INTEGER,
         target_caldav_calendar_url  TEXT
       );
@@ -422,6 +426,9 @@ describe('CalDAV sync yields to the event loop (#519)', () => {
         external_calendar_id TEXT, external_source TEXT,
         calendar_ref_id INTEGER, created_by INTEGER,
         user_modified INTEGER NOT NULL DEFAULT 0, assigned_to INTEGER,
+        -- Der eigene Zustand der Farbe (#899, Migration v167): das Farb-Gatter
+        -- des Inbound haengt daran, nicht mehr an user_modified.
+        color_modified INTEGER NOT NULL DEFAULT 0,
         target_caldav_account_id INTEGER, target_caldav_calendar_url TEXT,
         -- Ausgehende Vormerkungen (#593, Migrationen v104-v106)
         outbound_dirty INTEGER NOT NULL DEFAULT 0,
@@ -560,6 +567,9 @@ describe('CalDAV: RECURRENCE-ID-Overrides killen die Serie nicht (#549)', () => 
         external_calendar_id TEXT, external_source TEXT,
         calendar_ref_id INTEGER, created_by INTEGER,
         user_modified INTEGER NOT NULL DEFAULT 0, assigned_to INTEGER,
+        -- Der eigene Zustand der Farbe (#899, Migration v167): das Farb-Gatter
+        -- des Inbound haengt daran, nicht mehr an user_modified.
+        color_modified INTEGER NOT NULL DEFAULT 0,
         target_caldav_account_id INTEGER, target_caldav_calendar_url TEXT,
         -- Ausgehende Vormerkungen (#593, Migrationen v104-v106)
         outbound_dirty INTEGER NOT NULL DEFAULT 0,
@@ -739,6 +749,9 @@ describe('CalDAV: No-op-Syncs bleiben im Standard-Log-Level still', () => {
         external_calendar_id TEXT, external_source TEXT,
         calendar_ref_id INTEGER, created_by INTEGER,
         user_modified INTEGER NOT NULL DEFAULT 0, assigned_to INTEGER,
+        -- Der eigene Zustand der Farbe (#899, Migration v167): das Farb-Gatter
+        -- des Inbound haengt daran, nicht mehr an user_modified.
+        color_modified INTEGER NOT NULL DEFAULT 0,
         target_caldav_account_id INTEGER, target_caldav_calendar_url TEXT,
         outbound_dirty INTEGER NOT NULL DEFAULT 0,
         outbound_attempts INTEGER NOT NULL DEFAULT 0,
@@ -937,6 +950,179 @@ describe('CalDAV: No-op-Syncs bleiben im Standard-Log-Level still', () => {
 });
 
 // --------------------------------------------------------
+// Das Farb-Gatter des Inbound haengt an color_modified (#899)
+// --------------------------------------------------------
+
+describe('CalDAV: eine Bearbeitung friert die Farbe nicht mehr ein (#899)', () => {
+  const CALENDAR_URL = 'https://dav.example/cal-1/';
+
+  function buildDb() {
+    const d = new DatabaseSync(':memory:');
+    d.exec(`
+      CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, display_name TEXT);
+      INSERT INTO users (display_name) VALUES ('Owner');
+
+      CREATE TABLE caldav_accounts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT, caldav_url TEXT, username TEXT, password TEXT, last_sync TEXT
+      );
+      CREATE TABLE caldav_calendar_selection (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        account_id INTEGER, calendar_url TEXT, calendar_name TEXT,
+        calendar_color TEXT, enabled INTEGER NOT NULL DEFAULT 1
+      );
+      CREATE TABLE external_calendars (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source TEXT NOT NULL, external_id TEXT NOT NULL, name TEXT, color TEXT,
+        default_assignee_user_id INTEGER,
+        UNIQUE(source, external_id)
+      );
+      CREATE TABLE calendar_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL, description TEXT,
+        start_datetime TEXT, end_datetime TEXT, all_day INTEGER NOT NULL DEFAULT 0,
+        location TEXT, color TEXT, recurrence_rule TEXT, tzid TEXT,
+        external_calendar_id TEXT, external_source TEXT,
+        calendar_ref_id INTEGER, created_by INTEGER,
+        user_modified INTEGER NOT NULL DEFAULT 0, assigned_to INTEGER,
+        color_modified INTEGER NOT NULL DEFAULT 0,
+        target_caldav_account_id INTEGER, target_caldav_calendar_url TEXT,
+        outbound_dirty INTEGER NOT NULL DEFAULT 0,
+        outbound_attempts INTEGER NOT NULL DEFAULT 0,
+        outbound_move_to TEXT,
+        external_object_url TEXT
+      );
+      CREATE TABLE calendar_pending_deletions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source TEXT NOT NULL, calendar_external_id TEXT NOT NULL,
+        event_external_id TEXT NOT NULL,
+        attempts INTEGER NOT NULL DEFAULT 0, last_error TEXT,
+        object_url TEXT,
+        UNIQUE(source, calendar_external_id, event_external_id)
+      );
+      CREATE TABLE event_assignments (
+        event_id INTEGER, user_id INTEGER, UNIQUE(event_id, user_id)
+      );
+      CREATE TABLE calendar_event_exceptions (
+        event_id INTEGER NOT NULL, exception_date TEXT NOT NULL,
+        PRIMARY KEY (event_id, exception_date)
+      );
+
+      INSERT INTO caldav_accounts (name, caldav_url, username, password)
+        VALUES ('Radicale', 'https://dav.example/', 'u', 'p');
+      INSERT INTO caldav_calendar_selection
+        (account_id, calendar_url, calendar_name, calendar_color, enabled)
+        VALUES (1, '${CALENDAR_URL}', 'Cal 1', '#4A90E2', 1);
+    `);
+    return d;
+  }
+
+  // Derselbe Termin, wahlweise mit COLOR-Zeile - so faerbt ihn ein anderer
+  // Client auf dem Server ein, ohne dass in Yuvomi jemand etwas tut.
+  function clientWith({ color = null } = {}) {
+    return async () => ({
+      fetchCalendars:       async () => [{ url: CALENDAR_URL, displayName: 'Cal 1' }],
+      fetchCalendarObjects: async () => [{
+        url: `${CALENDAR_URL}evt-1.ics`,
+        data: [
+          'BEGIN:VCALENDAR', 'VERSION:2.0', 'BEGIN:VEVENT',
+          'UID:evt-1@test', 'SUMMARY:Zahnarzt',
+          ...(color ? [`COLOR:${color}`] : []),
+          'DTSTART:20260101T100000Z', 'DTEND:20260101T110000Z',
+          'END:VEVENT', 'END:VCALENDAR',
+        ].join('\r\n'),
+      }],
+      createCalendarObject: async () => ({}),
+    });
+  }
+
+  const row = (d) => d.prepare(
+    `SELECT color, user_modified, color_modified FROM calendar_events WHERE external_calendar_id = 'evt-1@test'`
+  ).get();
+
+  it('lernt die Farbe des Servers auch nach einer Titelaenderung', async () => {
+    // Der Repro aus #899, Schritt fuer Schritt: Termin kommt ohne COLOR herein,
+    // der Nutzer aendert in Yuvomi nur den TITEL (das setzt user_modified = 1),
+    // danach faerbt ihn jemand in Nextcloud ein. Solange das Farb-Gatter an
+    // user_modified hing, kam diese Farbe nie an - dauerhaft.
+    const d = buildDb();
+    _setTestDatabase(d);
+    try {
+      await sync({ createClient: clientWith() });
+      assert.strictEqual(row(d).color, null, 'Vorbedingung: keine Eigenfarbe');
+
+      d.prepare(`UPDATE calendar_events SET title = 'Zahnarzt (verschoben)', user_modified = 1`).run();
+
+      await sync({ createClient: clientWith({ color: 'tomato' }) });
+      const after = row(d);
+      assert.strictEqual(after.color, '#FF6347', 'die Farbe des Servers muss ankommen');
+      assert.strictEqual(after.user_modified, 1, 'die Bearbeitung selbst bleibt vermerkt');
+    } finally {
+      _resetTestDatabase();
+      d.close();
+    }
+  });
+
+  it('laesst eine lokal gewaehlte Farbe (color_modified = 1) in Ruhe', async () => {
+    // Die Gegenprobe, und der Grund, warum das Gatter ueberhaupt existiert:
+    // ohne sie waere der Test darueber auch dann gruen, wenn der Inbound die
+    // Farbspalte gar nicht mehr schuetzt.
+    const d = buildDb();
+    _setTestDatabase(d);
+    try {
+      await sync({ createClient: clientWith() });
+      d.prepare(`UPDATE calendar_events SET color = '#7C3AED', color_modified = 1`).run();
+
+      await sync({ createClient: clientWith({ color: 'tomato' }) });
+      assert.strictEqual(row(d).color, '#7C3AED', 'die eigene Farbe darf nicht ueberschrieben werden');
+    } finally {
+      _resetTestDatabase();
+      d.close();
+    }
+  });
+
+  it('ein hochgeladener Termin behaelt danach seine exakte Farbe', async () => {
+    // Der dritte Befund aus #899: der Upload schreibt die Farbe als CSS3-NAMEN
+    // hinaus (#7C3AED wird zu blueviolet, #8A2BE2). Ohne das Flag holte der
+    // naechste Inbound-Lauf genau den zurueck und ersetzte den gewaehlten Wert
+    // durch den gerundeten. Geprueft wird das Flag, nicht die Runde danach -
+    // es ist die Ursache, und der Lauf danach ist schon oben abgedeckt.
+    const d = buildDb();
+    d.prepare(`
+      INSERT INTO calendar_events
+        (title, start_datetime, end_datetime, color, external_source, created_by,
+         target_caldav_account_id, target_caldav_calendar_url)
+      VALUES ('Eigener Termin', '2026-02-01T09:00', '2026-02-01T10:00', '#7C3AED', 'local', 1, 1, ?)
+    `).run(CALENDAR_URL);
+    d.prepare(`
+      INSERT INTO calendar_events
+        (title, start_datetime, end_datetime, color, external_source, created_by,
+         target_caldav_account_id, target_caldav_calendar_url)
+      VALUES ('Farbloser Termin', '2026-02-01T09:00', '2026-02-01T10:00', NULL, 'local', 1, 1, ?)
+    `).run(CALENDAR_URL);
+    _setTestDatabase(d);
+    try {
+      await sync({ createClient: clientWith() });
+
+      const uploaded = d.prepare(
+        `SELECT color_modified FROM calendar_events WHERE title = 'Eigener Termin'`
+      ).get();
+      assert.strictEqual(uploaded.color_modified, 1, 'die hinausgeschickte Farbe gehoert uns');
+
+      // Ohne Eigenfarbe ist nichts hinausgegangen, was zu verteidigen waere:
+      // der Termin darf die Farbe des Servers weiterhin lernen.
+      const colourless = d.prepare(
+        `SELECT color_modified FROM calendar_events WHERE title = 'Farbloser Termin'`
+      ).get();
+      assert.strictEqual(colourless.color_modified, 0, 'ohne Farbe bleibt der Zustand offen');
+    } finally {
+      _resetTestDatabase();
+      d.close();
+    }
+  });
+});
+
+// --------------------------------------------------------
 // Bestandskonten: Aufgabenlisten fliegen aus der Kalenderauswahl (#617)
 // --------------------------------------------------------
 
@@ -973,6 +1159,9 @@ describe('CalDAV: eine Aufgabenliste bleibt kein Terminziel (#617)', () => {
         external_calendar_id TEXT, external_source TEXT,
         calendar_ref_id INTEGER, created_by INTEGER,
         user_modified INTEGER NOT NULL DEFAULT 0, assigned_to INTEGER,
+        -- Der eigene Zustand der Farbe (#899, Migration v167): das Farb-Gatter
+        -- des Inbound haengt daran, nicht mehr an user_modified.
+        color_modified INTEGER NOT NULL DEFAULT 0,
         target_caldav_account_id INTEGER, target_caldav_calendar_url TEXT,
         outbound_dirty INTEGER NOT NULL DEFAULT 0,
         outbound_attempts INTEGER NOT NULL DEFAULT 0,

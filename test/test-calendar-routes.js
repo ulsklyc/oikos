@@ -753,6 +753,49 @@ test('PUT /:id — externes Event wird als user_modified markiert', async () => 
   assert.equal(res.body.data.user_modified, 1, 'Bearbeitung eines externen Events setzt user_modified');
 });
 
+// ── color_modified: die Farbe fuehrt ihren eigenen Zustand (#899) ──────────────
+//
+// `user_modified` heisst "an diesem Termin wurde etwas bearbeitet". Der Inbound
+// aller drei Anbieter las es als "die Farbe wird lokal gefuehrt" und fror sie
+// damit bei jeder Titelaenderung ein. Diese vier Faelle halten die Trennung.
+
+test('PUT /:id — eine Titeländerung fasst color_modified nicht an (#899)', async () => {
+  const id = insertEvent({ title: 'COLMOD-TITEL', start_datetime: '2041-05-02T09:00', external_source: 'caldav' });
+  const res = await call('PUT', `/${id}`, { body: { title: 'Nur der Titel' } });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.data.user_modified, 1, 'bearbeitet wurde ja etwas');
+  assert.equal(res.body.data.color_modified, 0, 'aber nicht die Farbe - sonst friert sie ein');
+});
+
+test('PUT /:id — eine echte Umfärbung setzt color_modified (#899)', async () => {
+  const id = insertEvent({ title: 'COLMOD-FARBE', start_datetime: '2041-05-03T09:00', external_source: 'caldav' });
+  const res = await call('PUT', `/${id}`, { body: { color: '#7C3AED' } });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.data.color, '#7C3AED');
+  assert.equal(res.body.data.color_modified, 1);
+});
+
+test('PUT /:id — dieselbe Farbe noch einmal ist keine Umfärbung (#899)', async () => {
+  // Das Formular schickt den Bestandswert brav mit. Wuerde schon das Mitschicken
+  // zaehlen, waere jede Bearbeitung wieder eine Umfaerbung - und der Unterschied
+  // zu user_modified damit gerade wieder eingerissen.
+  const id = insertEvent({ title: 'COLMOD-GLEICH', start_datetime: '2041-05-04T09:00', external_source: 'caldav', color: '#007AFF' });
+  const res = await call('PUT', `/${id}`, { body: { title: 'Neuer Titel', color: '#007AFF' } });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.data.color_modified, 0);
+});
+
+test('PUT /:id — eine geleerte Farbe ist eine Aussage und wird vermerkt (#899)', async () => {
+  // Der Zustand, den der Ausgang braucht: `color IS NULL AND color_modified = 1`
+  // heisst "geleert" und darf beim Anbieter die COLOR-Zeile entfernen. Ohne das
+  // Flag waere er von "wir haben nie eine Farbe gelernt" nicht zu unterscheiden.
+  const id = insertEvent({ title: 'COLMOD-LEER', start_datetime: '2041-05-05T09:00', external_source: 'caldav', color: '#7C3AED' });
+  const res = await call('PUT', `/${id}`, { body: { color: null } });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.data.color, null);
+  assert.equal(res.body.data.color_modified, 1);
+});
+
 test('PUT /:id — Anhang entfernen', async () => {
   const dataUrl = `data:text/plain;base64,${Buffer.from('weg').toString('base64')}`;
   const created = await call('POST', '/', { actor: ADMIN, body: {
@@ -778,13 +821,20 @@ test('POST /:id/reset — 400/404/400-nicht-ics/403/Happy', async () => {
 
   const subId = db.prepare("INSERT INTO ics_subscriptions (name, url, color, created_by, shared) VALUES ('ResetSub','https://x/r.ics','#ABCDEF',2,1)").run().lastInsertRowid;
   const icsEv = insertEvent({ title: 'RESET-ICS', start_datetime: '2042-01-02T09:00', external_source: 'ics', subscription_id: subId, created_by: MARIA.id, user_modified: 1 });
+  // Auch die Farbe wurde lokal angefasst - sonst haette die Zusicherung weiter
+  // unten keinen Wert: `color_modified` stuende ohnehin auf 0 (#899).
+  db.prepare('UPDATE calendar_events SET color_modified = 1 WHERE id = ?').run(icsEv);
   // Tom: weder Event-Creator noch Sub-Creator, non-admin -> 403
   assert.equal((await call('POST', `/${icsEv}/reset`, { actor: TOM })).status, 403);
   // Maria (Event- + Sub-Creator) -> Happy
   const ok = await call('POST', `/${icsEv}/reset`, { actor: MARIA });
   assert.equal(ok.status, 200);
   assert.equal(ok.body.data.reset, true);
-  assert.equal(db.prepare('SELECT user_modified AS m FROM calendar_events WHERE id=?').get(icsEv).m, 0);
+  const zurueckgesetzt = db.prepare('SELECT user_modified AS m, color_modified AS c FROM calendar_events WHERE id=?').get(icsEv);
+  assert.equal(zurueckgesetzt.m, 0);
+  // Zuruecksetzen heisst "der Feed fuehrt diesen Termin wieder" - das schliesst
+  // seine Farbe ein, sonst bliebe ein Flag stehen, das keine Wahl mehr vertritt (#899).
+  assert.equal(zurueckgesetzt.c, 0);
 });
 
 // ════════════════════════════════════════════════════════════════════════════════

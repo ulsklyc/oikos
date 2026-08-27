@@ -262,12 +262,18 @@ test('ein ganztägiger Termin nutzt VALUE=DATE mit exklusivem Ende', () => {
   assert.deepEqual(fields.DTEND,   { value: '20350704', params: ';VALUE=DATE' }, 'RFC 5545: DTEND ist exklusiv');
 });
 
-// ── COLOR: die Eigenfarbe erreicht den Anbieter (#897) ─────────────────────────
+// ── COLOR: die Eigenfarbe erreicht den Anbieter (#897, #899) ──────────────────
 //
 // `color` stand seit jeher in MIRRORED_FIELDS, aber COLOR kam im Server nur
 // LESEND vor (ics-parser.js). Eine Umfaerbung kostete damit einen PUT, der beim
 // Server nichts aenderte - und seit ein Termin gar keine Eigenfarbe mehr haben
 // muss (#891), fehlte auch der Weg, eine gesetzte wieder loszuwerden.
+//
+// DREI ZUSTAENDE, nicht zwei, und das ist der Beitrag von #899: eine Farbe, die
+// hinausgeht; eine geleerte, die drueben verschwinden soll; und eine, die wir
+// nie gelernt haben und deshalb nicht anfassen duerfen. Die letzten beiden sahen
+// vor der Spalte `color_modified` gleich aus, weshalb #898 zunaechst ganz
+// geschwiegen hat.
 
 test('die Eigenfarbe geht als CSS3-Name hinaus, nicht als Hex', () => {
   const fields = icsFieldsForEvent({
@@ -279,23 +285,37 @@ test('die Eigenfarbe geht als CSS3-Name hinaus, nicht als Hex', () => {
     'RFC 7986 §5.9 laesst fuer COLOR nur einen CSS3-Namen zu - ein Hex darf ein strenger Server verwerfen');
 });
 
-test('ein Termin ohne eigene Farbe gibt COLOR gar nicht erst mit', () => {
+test('ein Termin, dessen Farbe nie gelernt wurde, gibt COLOR gar nicht erst mit', () => {
   // "Kein Feld" heisst fuer den Patcher "nicht anfassen". Ein null hiesse
-  // "entfernen" - und das darf hier nicht stehen, weil lokal keine Farbe nicht
-  // dasselbe ist wie eine geleerte Farbe. Siehe den Repro-Test weiter unten.
+  // "entfernen" - und das darf hier nicht stehen, weil eine nie gelernte Farbe
+  // nicht dasselbe ist wie eine geleerte. Siehe den Repro-Test weiter unten.
   const fields = icsFieldsForEvent({
     title: 'Zahnarzt', start_datetime: '2035-03-10T09:00', end_datetime: '2035-03-10T10:00',
-    color: null,
+    color: null, color_modified: 0,
   });
   assert.ok(!Object.hasOwn(fields, 'COLOR'));
 });
 
-test('eine nicht abbildbare Farbe laesst die Property des Servers in Ruhe', () => {
-  // Der Termin TRAEGT eine Farbe, wir koennen sie nur nicht schreiben. Sie beim
-  // Anbieter dafuer zu loeschen waere ein Datenverlust.
+test('eine GELEERTE Farbe geht als null hinaus und entfernt COLOR (#899)', () => {
+  // Die Haelfte, die #898 offenlassen musste: erst `color_modified` macht aus
+  // "keine Farbe" eine Aussage. Der Patcher entfernt die Zeile daraufhin - die
+  // Faehigkeit dazu steht seit #897 bereit und bekommt hier ihren Aufrufer.
   const fields = icsFieldsForEvent({
     title: 'Zahnarzt', start_datetime: '2035-03-10T09:00', end_datetime: '2035-03-10T10:00',
-    color: 'nicht-hex',
+    color: null, color_modified: 1,
+  });
+  assert.ok(Object.hasOwn(fields, 'COLOR'), 'das Feld MUSS stehen, sonst entfernt der Patch nichts');
+  assert.equal(fields.COLOR, null);
+});
+
+test('eine nicht abbildbare Farbe laesst die Property des Servers in Ruhe', () => {
+  // Der Termin TRAEGT eine Farbe, wir koennen sie nur nicht schreiben. Sie beim
+  // Anbieter dafuer zu loeschen waere ein Datenverlust - auch dann, wenn an
+  // diesem Termin schon einmal die Farbe gewaehlt wurde (#899): geleert wurde
+  // nichts, der Wert steht, er passt nur in kein CSS3-Wort.
+  const fields = icsFieldsForEvent({
+    title: 'Zahnarzt', start_datetime: '2035-03-10T09:00', end_datetime: '2035-03-10T10:00',
+    color: 'nicht-hex', color_modified: 1,
   });
   assert.ok(!Object.hasOwn(fields, 'COLOR'),
     'ein fehlendes Feld heisst "nicht anfassen", ein null-Feld hiesse "entfernen"');
@@ -590,15 +610,16 @@ test('eine Umfaerbung erreicht den Server, statt einen leeren PUT zu kosten', as
   assert.equal(reload(event.id).outbound_dirty, 0);
 });
 
-test('ein Termin ohne lokale Farbe laesst die des Servers stehen', async () => {
-  // Der Repro aus der Review von #898, und der Grund, warum das Leeren einer
-  // Farbe hier NICHT mitgeht: ein Termin kommt ohne COLOR herein (lokal null),
-  // der Nutzer aendert nur den TITEL - das setzt user_modified = 1 und friert
-  // die Farbspalte ein -, und danach faerbt ein anderer Client ihn auf dem
-  // Server ein. Yuvomi erfaehrt davon nie. Wuerde der Push hier ein null
-  // schicken, raeumte diese Titelaenderung eine fremde Farbe ab, dauerhaft.
+test('eine Bearbeitung ohne Farbwahl laesst die des Servers stehen', async () => {
+  // Der Repro aus der Review von #898: ein Termin kommt ohne COLOR herein (lokal
+  // null), der Nutzer aendert nur den TITEL, und danach faerbt ein anderer
+  // Client ihn auf dem Server ein. Yuvomi erfaehrt davon zwischen Bearbeitung
+  // und Push nichts. Ginge hier ein pauschales null hinaus, raeumte die
+  // Titelaenderung eine fremde Farbe ab - vor #899 sogar dauerhaft, weil das
+  // Gatter des Inbound an user_modified hing und sie nie zurueckholte.
   reset();
   const event = seedDirty('c2@t', { color: null, title: 'Neuer Titel' });
+  assert.equal(reload(event.id).color_modified, 0, 'Vorbedingung: hier wurde keine Farbe gewaehlt');
 
   const client = fakeClient();
   assert.equal(await processPendingUpdates(client, 'caldav', indexFor('c2@t', {
@@ -608,6 +629,25 @@ test('ein Termin ohne lokale Farbe laesst die des Servers stehen', async () => {
   const sent = client.updates[0].calendarObject.data;
   assert.match(sent, /^COLOR:tomato$/m, 'die fremde Farbe ueberlebt die Bearbeitung');
   assert.match(sent, /SUMMARY:Neuer Titel/, 'und die Bearbeitung selbst kommt an');
+  assert.equal(reload(event.id).outbound_dirty, 0);
+});
+
+test('ein geleertes Feld raeumt die Farbe beim Server ab (#899)', async () => {
+  // Die Gegenprobe zum Test darueber und der Fall, den #898 zurueckbekommt:
+  // dieselbe Ausgangslage, nur hat der Nutzer die Farbe hier wirklich geleert.
+  // Ohne diesen Test waere der Test darueber auch dann gruen, wenn der Ausgang
+  // ueberhaupt keine Farbe mehr entfernen koennte.
+  reset();
+  const event = seedDirty('c3@t', { color: null, color_modified: 1 });
+
+  const client = fakeClient();
+  assert.equal(await processPendingUpdates(client, 'caldav', indexFor('c3@t', {
+    url: `${CAL_URL}c3@t.ics`, data: serverObject('c3@t', { extra: ['COLOR:tomato'] }),
+  })), 1);
+
+  const sent = client.updates[0].calendarObject.data;
+  assert.doesNotMatch(sent, /^COLOR:/m, 'die geleerte Farbe muss auch drueben verschwinden');
+  assert.match(sent, /ATTENDEE;CN=Maria/, 'und nur sie - der Rest des Objekts bleibt unangetastet');
   assert.equal(reload(event.id).outbound_dirty, 0);
 });
 
