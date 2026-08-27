@@ -18,27 +18,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   Yuvomi now writes `COLOR` (RFC 7986), the same property its parser already reads. **The value is a
   CSS3 colour name, not a hex code** - §5.9 allows nothing else, and a strict server may reject a hex
-  value - so a stored `#RRGGBB` is mapped to the nearest of the 148 CSS3 names by the same
+  value - so a stored `#RRGGBB` is mapped to the nearest of the 147 CSS3 names by the same
   perceptual redmean distance that already maps colours onto Google's eleven `colorId`s. The loss is
   small (the largest deviation across Yuvomi's own palette is 28 of 255 in a single channel) and it
   stays on the wire: recolouring sets `user_modified = 1`, and an inbound run writes `color` only
   while that is `0`, so the neighbouring value read back on the next sync never overwrites the
   choice.
 
-  **Clearing a colour removes the property rather than emptying it.** Since v2.49.0 an appointment
-  can have no colour of its own and borrow the assigned member's; switching a CalDAV appointment into
-  that state used to leave the old colour standing on the server forever, because the same edit sets
-  `user_modified = 1` and no inbound run reconciles the two again. `COLOR` is now a *managed*
-  property of the ICS patcher - without that it may be written but not replaced or removed, and an
-  emitted value would not have survived the patch. Freshly uploaded appointments carry their colour
-  from the start, and one without a colour of its own gets no `COLOR` line at all, so it inherits the
-  calendar's at the provider - the same shape as the explicit `colorId: null` sent to Google.
+  `COLOR` is now a *managed* property of the ICS patcher - without that it may be written but not
+  replaced, and an emitted value would not have survived the patch. Freshly uploaded appointments
+  carry their colour from the start too, so one created in Yuvomi no longer arrives at the server
+  colourless.
 
-  This also closes a second, quieter route that opened with v2.49.0: an appointment created in Yuvomi
-  and uploaded to CalDAV came back on the next inbound run **without any colour at all**, because the
-  object carried none and inbound writes `color` freely while `user_modified = 0`. It now comes back
-  as the nearest CSS3 name instead of as nothing - the same small shift Google's eleven colours have
-  always produced.
+  **An appointment without a colour of its own sends no `COLOR` field at all** - "leave it alone",
+  not "remove it". The distinction is not a detail: locally, *no colour* cannot be told apart from
+  *we never learned one*. `user_modified` is set on **any** edit, and inbound writes `color` only
+  while it is `0`, so a single title change freezes the colour column; if another client colours that
+  appointment on the server afterwards, Yuvomi never finds out. A `null` here would let that title
+  change strip a colour somebody else chose, permanently. Clearing a colour comes back once there is
+  a state of its own for it (#899).
 
 ## [2.49.0] - 2026-08-27
 

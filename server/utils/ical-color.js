@@ -10,7 +10,10 @@
  * ist — dann fällt der Aufrufer bewusst auf die Kalenderfarbe zurück.
  *
  * Die Tabelle deckt die vollständige CSS-Color-Module-Level-3-Namensliste ab
- * (inkl. der grey/gray- und aqua/cyan-Synonyme).
+ * (inkl. der grey/gray- und aqua/cyan-Synonyme) und zusätzlich `rebeccapurple`,
+ * das erst mit Level 4 dazukam. Beim LESEN ist diese Großzügigkeit richtig - wer
+ * den Namen schickt, meint eine gültige Farbe. Beim SCHREIBEN nicht: siehe
+ * `OUTBOUND_COLOR_NAMES`.
  */
 
 const CSS_COLOR_NAMES = {
@@ -87,13 +90,29 @@ export function resolveIcalColor(raw) {
   return CSS_COLOR_NAMES[value] || null;
 }
 
+// RFC 7986 §5.9 erlaubt für COLOR ausdrücklich die Namensliste aus CSS Color
+// Level 3 (W3C REC vom 07.06.2011). `rebeccapurple` steht dort nicht - es kam
+// erst 2014 mit Level 4 dazu. Ein strenger Server darf den Wert deshalb
+// zurückweisen, und weil ein abgelehnter PUT das ganze Kalenderobjekt betrifft,
+// nähme er die übrigen Änderungen desselben Termins mit.
+//
+// Die Farbe ist gut erreichbar, nicht exotisch: über ein grobes RGB-Raster
+// gelegt gewinnt `rebeccapurple` in 60 Fällen, und das Violett der App-Identität
+// liegt in der Nachbarschaft. Sie fällt für den Ausgang weg; der nächste
+// zulässige Name (`darkslateblue`/`blueviolet`) tritt an ihre Stelle.
+const NON_CSS3_NAMES = new Set(['rebeccapurple']);
+
+const OUTBOUND_COLOR_NAMES = Object.fromEntries(
+  Object.entries(CSS_COLOR_NAMES).filter(([name]) => !NON_CSS3_NAMES.has(name)),
+);
+
 /**
  * Umkehrung von resolveIcalColor: der CSS3-Name, der `#RRGGBB` am nächsten kommt.
  *
  * RFC 7986 §5.9 lässt für COLOR ausschliesslich einen case-insensitiven CSS3-Namen
  * zu; ein Hex-Wert wäre nicht konform und darf von einem strengen Server verworfen
  * werden. Die Abbildung ist deshalb verlustbehaftet - dieselbe Bauart wie die auf
- * Googles elf colorIds, nur mit 148 statt 11 Zielwerten.
+ * Googles elf colorIds, nur mit 147 statt 11 Zielwerten.
  *
  * Der Verlust bleibt lokal folgenlos: eine Umfärbung setzt `user_modified = 1`, und
  * der Inbound schreibt `color` nur, solange das 0 ist. Der beim nächsten Abruf
@@ -103,7 +122,7 @@ export function resolveIcalColor(raw) {
  * @returns {string|null} CSS3-Name (klein), oder null bei leerem/ungültigem Wert
  */
 export function nearestIcalColorName(hex) {
-  return nearestColorId(hex, CSS_COLOR_NAMES);
+  return nearestColorId(hex, OUTBOUND_COLOR_NAMES);
 }
 
 /** Zerlegt `#RRGGBB` in {r,g,b}; null bei ungültigem Wert. */
@@ -152,4 +171,4 @@ export function nearestColorId(hex, paletteMap) {
   return bestId;
 }
 
-export const __test = { CSS_COLOR_NAMES, hexToRgb };
+export const __test = { CSS_COLOR_NAMES, OUTBOUND_COLOR_NAMES, NON_CSS3_NAMES, hexToRgb };

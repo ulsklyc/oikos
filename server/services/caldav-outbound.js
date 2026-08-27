@@ -57,17 +57,25 @@ export function icsFieldsForEvent(event) {
   // COLOR ist Teil von MIRRORED_FIELDS, wurde aber nie geschrieben (#897): eine
   // Umfaerbung kostete einen PUT, der beim Server nichts aenderte.
   //
-  // DREI Faelle, und die letzten beiden sehen im Rueckgabewert gleich aus:
-  //   - abbildbare Eigenfarbe   -> CSS3-Name, ersetzt die Property
-  //   - gar keine Eigenfarbe    -> null, ENTFERNT die Property; der Termin soll
-  //     beim Anbieter wieder die Kalenderfarbe erben (wie colorId null bei Google)
-  //   - Farbe, aber nicht abbildbar (kein gueltiges #RRGGBB, etwa aus einem alten
-  //     Bestand) -> das Feld gar nicht erst mitgeben. "Nicht anfassen" ist hier
-  //     richtig: der Termin TRAEGT eine Farbe, wir koennen sie nur nicht schreiben,
-  //     und eine fremde COLOR dafuer zu loeschen waere ein Datenverlust.
+  // Geschrieben wird nur eine VORHANDENE Eigenfarbe. Fehlt sie, bleibt das Feld
+  // weg - "nicht anfassen" statt "entfernen". Der Unterschied ist kein Detail:
+  //
+  // Ein null hiesse "der Nutzer hat die Farbe geleert". Lokal ist dieser Zustand
+  // aber nicht von "wir haben nie eine gelernt" zu unterscheiden. user_modified
+  // wird bei JEDER Bearbeitung gesetzt (crud.js), und der Inbound schreibt color
+  // nur, solange das 0 ist - wer einmal den Titel aendert, friert die Farbspalte
+  // ein. Faerbt danach ein anderer Client den Termin auf dem SERVER, erfaehrt
+  // Yuvomi es nie, und die naechste beliebige Bearbeitung raeumte dessen
+  // COLOR-Zeile ab. Dauerhaft, weil auch kein Inbound-Lauf sie zurueckholt.
+  //
+  // Eine Farbe, die sich nicht abbilden laesst (kein gueltiges #RRGGBB), faellt
+  // in denselben Zweig, und das ist dort aus demselben Grund richtig.
+  //
+  // Das Leeren kommt zurueck, sobald es einen eigenen Zustand dafuer gibt
+  // (color_modified statt des ueberladenen user_modified). Solange der fehlt,
+  // ist Schweigen die einzige verlustfreie Antwort.
   const colorName = nearestIcalColorName(event.color);
-  if (colorName)        fields.COLOR = colorName;
-  else if (!event.color) fields.COLOR = null;
+  if (colorName) fields.COLOR = colorName;
 
   return fields;
 }

@@ -32,7 +32,8 @@ const { processPendingDeletions, processPendingUpdates, icsFieldsForEvent, filen
   await import('../server/services/caldav-outbound.js');
 const { patchICSEvent, countVEvents, unfoldICS, foldICSLine } =
   await import('../server/utils/ics-patch.js');
-const { nearestIcalColorName, resolveIcalColor } = await import('../server/utils/ical-color.js');
+const { nearestIcalColorName, resolveIcalColor, __test: icalColorTest } =
+  await import('../server/utils/ical-color.js');
 // Die ICS-Builder fuer frisch hochgeladene Termine liegen je einmal im CalDAV- und
 // im Apple-Sync. Beide sind ueber __test erreichbar, weil der Sync-Pfad drumherum
 // zu gross ist, um ihn fuer eine Property nachzustellen.
@@ -278,34 +279,42 @@ test('die Eigenfarbe geht als CSS3-Name hinaus, nicht als Hex', () => {
     'RFC 7986 §5.9 laesst fuer COLOR nur einen CSS3-Namen zu - ein Hex darf ein strenger Server verwerfen');
 });
 
-test('ein Termin ohne eigene Farbe gibt COLOR als null aus, damit die Property verschwindet', () => {
+test('ein Termin ohne eigene Farbe gibt COLOR gar nicht erst mit', () => {
+  // "Kein Feld" heisst fuer den Patcher "nicht anfassen". Ein null hiesse
+  // "entfernen" - und das darf hier nicht stehen, weil lokal keine Farbe nicht
+  // dasselbe ist wie eine geleerte Farbe. Siehe den Repro-Test weiter unten.
   const fields = icsFieldsForEvent({
     title: 'Zahnarzt', start_datetime: '2035-03-10T09:00', end_datetime: '2035-03-10T10:00',
     color: null,
   });
-  assert.equal(fields.COLOR, null,
-    'weder Leerstring noch geerbte Farbe: beim Anbieter soll der Termin wieder die des Kalenders erben');
+  assert.ok(!Object.hasOwn(fields, 'COLOR'));
 });
 
 test('eine nicht abbildbare Farbe laesst die Property des Servers in Ruhe', () => {
-  // Der Unterschied, der bei #891 auf der Google-Seite fast eine Regression war:
-  // "keine Eigenfarbe" und "Farbe, die wir nicht schreiben koennen" sind nicht
-  // dasselbe. Im zweiten Fall TRAEGT der Termin eine Farbe - sie zu loeschen
-  // waere ein Datenverlust auf dem Server, also darf das Feld gar nicht auftauchen.
+  // Der Termin TRAEGT eine Farbe, wir koennen sie nur nicht schreiben. Sie beim
+  // Anbieter dafuer zu loeschen waere ein Datenverlust.
   const fields = icsFieldsForEvent({
     title: 'Zahnarzt', start_datetime: '2035-03-10T09:00', end_datetime: '2035-03-10T10:00',
     color: 'nicht-hex',
   });
   assert.ok(!Object.hasOwn(fields, 'COLOR'),
-    'ein fehlendes Feld heisst "nicht anfassen", ein null-Feld heisst "entfernen"');
+    'ein fehlendes Feld heisst "nicht anfassen", ein null-Feld hiesse "entfernen"');
+});
 
-  // Und die Gegenprobe: ohne Farbe MUSS das Feld da sein und null sein.
-  const cleared = icsFieldsForEvent({
-    title: 'Zahnarzt', start_datetime: '2035-03-10T09:00', end_datetime: '2035-03-10T10:00',
-    color: null,
-  });
-  assert.ok(Object.hasOwn(cleared, 'COLOR'));
-  assert.equal(cleared.COLOR, null);
+test('kein Farbname stammt aus CSS Color Level 4 - RFC 7986 kennt nur Level 3', () => {
+  // rebeccapurple kam 2014 mit Level 4 dazu; RFC 7986 §5.9 verweist auf die
+  // Level-3-Liste von 2011. Ein strenger Server darf den Wert verwerfen, und
+  // weil ein abgelehnter PUT das ganze Kalenderobjekt betrifft, naehme er die
+  // uebrigen Aenderungen desselben Termins mit.
+  const { NON_CSS3_NAMES, CSS_COLOR_NAMES } = icalColorTest;
+  assert.ok(NON_CSS3_NAMES.size > 0, 'die Liste steht nicht leer da');
+  for (const name of NON_CSS3_NAMES) {
+    assert.ok(CSS_COLOR_NAMES[name], `${name} muss beim LESEN weiter gelten`);
+    const hex = CSS_COLOR_NAMES[name];
+    assert.notEqual(nearestIcalColorName(hex), name,
+      `${name} (${hex}) darf beim Schreiben nicht gewaehlt werden`);
+    assert.ok(resolveIcalColor(name), `${name} muss beim Lesen weiter aufloesen`);
+  }
 });
 
 test('jede Farbe der Yuvomi-Palette findet einen Namen, den der eigene Parser zurueckliest', () => {
@@ -328,7 +337,7 @@ test('jede Farbe der Yuvomi-Palette findet einen Namen, den der eigene Parser zu
     assert.ok(back, `${name} liest sich nicht zurueck - der Inbound saehe eine unbekannte Farbe`);
 
     // Die Schwelle prueft den DISTANZVERGLEICH, nicht die Feinheit der Tabelle:
-    // die CSS3-Liste ist mit 148 Eintraegen dicht genug, dass die groesste echte
+    // die CSS3-Liste ist mit 147 Eintraegen dicht genug, dass die groesste echte
     // Abweichung ueber diese Palette bei 28 liegt. Ein Wert jenseits von 48 hiesse
     // nicht "knapp danebengegriffen", sondern "im falschen Farbbereich gelandet".
     const drift = Math.max(...channels(hex).map((v, i) => Math.abs(v - channels(back)[i])));
@@ -350,10 +359,13 @@ test('der Patch ersetzt ein vorhandenes COLOR, statt ein zweites danebenzustelle
   assert.equal(unfoldICS(out).split('\n').filter((l) => l.startsWith('COLOR:')).length, 1);
 });
 
-test('der Patch ENTFERNT COLOR, wenn der Termin seine Eigenfarbe verliert', () => {
-  // Der Kernfall: ohne COLOR in MANAGED_VEVENT bliebe die alte Farbe auf dem Server
-  // stehen, und weil dieselbe Bearbeitung user_modified = 1 setzt, holt kein
-  // Inbound-Lauf die beiden je wieder zusammen - eine dauerhafte Divergenz.
+test('ein null entfernt COLOR - die Faehigkeit des Patchers, noch ohne Aufrufer', () => {
+  // Verwaltet heisst ersetzen UND entfernen, hier fuer COLOR wie fuer LOCATION.
+  // Der CalDAV-Outbound loest das NICHT aus: er schickt gar kein Feld, solange
+  // "lokal keine Farbe" nicht von "wir haben nie eine gelernt" zu unterscheiden
+  // ist (siehe den Repro weiter unten). Der Test steht trotzdem hier, weil die
+  // Faehigkeit gebraucht wird, sobald es einen eigenen Zustand fuers Leeren gibt -
+  // und weil ein spaeterer Aufrufer sich darauf verlassen koennen muss.
   const out = patchICSEvent(
     serverObject('col3@t', { extra: ['COLOR:tomato'] }), 'col3@t', { COLOR: null },
   );
@@ -578,16 +590,24 @@ test('eine Umfaerbung erreicht den Server, statt einen leeren PUT zu kosten', as
   assert.equal(reload(event.id).outbound_dirty, 0);
 });
 
-test('eine geleerte Farbe nimmt dem Server-Termin seine COLOR-Property', async () => {
+test('ein Termin ohne lokale Farbe laesst die des Servers stehen', async () => {
+  // Der Repro aus der Review von #898, und der Grund, warum das Leeren einer
+  // Farbe hier NICHT mitgeht: ein Termin kommt ohne COLOR herein (lokal null),
+  // der Nutzer aendert nur den TITEL - das setzt user_modified = 1 und friert
+  // die Farbspalte ein -, und danach faerbt ein anderer Client ihn auf dem
+  // Server ein. Yuvomi erfaehrt davon nie. Wuerde der Push hier ein null
+  // schicken, raeumte diese Titelaenderung eine fremde Farbe ab, dauerhaft.
   reset();
-  const event = seedDirty('c2@t', { color: null });
+  const event = seedDirty('c2@t', { color: null, title: 'Neuer Titel' });
 
   const client = fakeClient();
   assert.equal(await processPendingUpdates(client, 'caldav', indexFor('c2@t', {
     url: `${CAL_URL}c2@t.ics`, data: serverObject('c2@t', { extra: ['COLOR:tomato'] }),
   })), 1);
 
-  assert.doesNotMatch(client.updates[0].calendarObject.data, /^COLOR:/m);
+  const sent = client.updates[0].calendarObject.data;
+  assert.match(sent, /^COLOR:tomato$/m, 'die fremde Farbe ueberlebt die Bearbeitung');
+  assert.match(sent, /SUMMARY:Neuer Titel/, 'und die Bearbeitung selbst kommt an');
   assert.equal(reload(event.id).outbound_dirty, 0);
 });
 
