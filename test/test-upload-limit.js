@@ -72,12 +72,14 @@ test('keine Datei trägt die Grenze mehr selbst', () => {
     'server/utils/upload-limit.js',         // hier steht sie, als Vorgabewert
     'public/utils/upload-limit.js',         // dito im Browser
     'test/test-upload-limit.js',            // diese Datei
-    // Profilbilder sind kein Dokument-Upload: die Rohdatei wird zugeschnitten
-    // und landet mit hoechstens 768 KB in der Datenbank. Die 5 MB sind hier die
-    // Grenze fuer das, was der Zuschneider ueberhaupt annimmt, und haengen an
-    // der Bildbearbeitung im Browser - nicht an dem, was der Server speichert.
-    'public/settings/pages/admin-family.js',
-    'public/settings/pages/personal-account.js',
+    // Zugeschnittene Bilder sind kein Dokument-Upload: die Rohdatei wird
+    // zugeschnitten und landet mit hoechstens 768 KB (Portraet) bzw. 128 KB
+    // (Kachel) in der Datenbank. Die 5 MB sind hier die Grenze fuer das, was
+    // der Zuschneider ueberhaupt annimmt, und haengen an der Bildbearbeitung
+    // im Browser - nicht an dem, was der Server speichert. Seit #901 steht die
+    // Zahl EINMAL statt zweimal: die beiden Settings-Blaetter trugen sie
+    // vorher jedes fuer sich.
+    'public/utils/avatar-crop.js',
   ]);
   const treffer = [];
   const walk = (dir) => {
