@@ -40,7 +40,9 @@ jobs:
   build-and-push:
     name: Build & Push Image
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # Gemessene Laufzeit 0.7-3.1 min, kein absichtliches Warten im Job -
+    # 30 ist ~10x Puffer fuer einen kalten buildx-Cache.
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v7

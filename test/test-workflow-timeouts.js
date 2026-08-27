@@ -6,8 +6,15 @@
  *        Arbeitstag Runner-Zeit und liest sich die ganze Zeit als „in
  *        progress" statt als rotes X. Der Deckel macht aus „hängt" wieder
  *        „fällt durch".
- * Regel statt Allowlist: geprüft wird JEDER Job in JEDEM Workflow, damit ein
- *        neu angelegter Workflow nicht stillschweigend am Guard vorbeiläuft.
+ * Regel statt Allowlist: geprüft wird JEDER Job in JEDEM Workflow unter
+ *        `.github/workflows/`, damit ein neu angelegter Workflow nicht
+ *        stillschweigend am Guard vorbeiläuft. Jobs aus GitHubs Default-Setups
+ *        (CodeQL: `Analyze`, `CodeQL`) haben dort keine Datei - sie behalten
+ *        den 6-Stunden-Default, und dieser Guard kann sie nicht sehen.
+ * Bekannte Grenze: ein Job, der ein wiederverwendbares Workflow aufruft
+ *        (`uses:` auf Job-Ebene), darf laut GitHub KEIN `timeout-minutes`
+ *        tragen - der Parser lehnt den Schlüssel dort ab. Das Repo hat heute
+ *        keinen solchen Job; der erste braucht hier eine benannte Ausnahme.
  * Ausführen: node --test test/test-workflow-timeouts.js
  */
 
@@ -73,7 +80,12 @@ test('es gibt überhaupt Workflows zu prüfen', () => {
 for (const file of files) {
   test(`${file}: jeder Job hat einen Laufzeitdeckel`, () => {
     const jobs = jobsOf(readFileSync(new URL(file, DIR), 'utf8'), file);
-    assert.ok(jobs.length > 0, `${file}: kein Job erkannt - der Guard misst hier nichts`);
+    assert.ok(
+      jobs.length > 0,
+      `${file}: kein Job erkannt - erwartet Job-Keys auf Indent 2 unter einem `
+      + "LF-'jobs:'. Ein anderer Indent-Stil (4 Spaces, CRLF) fällt hier "
+      + 'absichtlich auf, statt still übergangen zu werden'
+    );
 
     for (const job of jobs) {
       assert.notStrictEqual(
