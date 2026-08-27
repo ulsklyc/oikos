@@ -26,8 +26,17 @@ const MAX_MINUTES = 120;
  * Indent 2 unterhalb von `jobs:`, ihre Eigenschaften auf Indent 4. Ein
  * `timeout-minutes` tiefer drin gehört einem STEP und deckelt den Job nicht -
  * deshalb zählt hier ausschliesslich Indent 4.
+ *
+ * KEIN STILLES ÜBERGEHEN. Die erste Fassung erkannte `  deploy:` nur ohne
+ * alles dahinter - ein gültiges `  deploy: # produktiv` fiel durch, der Job
+ * wurde nicht gezählt, UND sein `timeout-minutes` landete beim Job davor.
+ * Der Guard wäre grün geblieben und hätte dabei genau das Gegenteil dessen
+ * belegt, was er behauptet. Eine Zeile auf Indent 2, die nach einem Schlüssel
+ * aussieht und trotzdem nicht passt, wirft deshalb, statt weiterzulaufen:
+ * lieber ein Guard, der über eine unbekannte Schreibweise stolpert, als
+ * einer, der sie für nicht vorhanden hält.
  */
-function jobsOf(source) {
+function jobsOf(source, file) {
   const lines = source.split('\n');
   const start = lines.findIndex((l) => l === 'jobs:');
   if (start === -1) return [];
@@ -38,15 +47,18 @@ function jobsOf(source) {
     if (!line.trim() || line.trimStart().startsWith('#')) continue;
     if (!line.startsWith(' ')) break; // zurück auf Top-Level: jobs-Sektion vorbei
 
-    const jobKey = line.match(/^ {2}([\w-]+):\s*$/);
-    if (jobKey) {
-      current = { name: jobKey[1], timeout: null };
+    if (/^ {2}\S/.test(line)) {
+      // Indent 2: hier steht ein Job-Name und sonst nichts. Optionale
+      // Anführungszeichen, optionaler Kommentar dahinter.
+      const jobKey = line.match(/^ {2}(?:"([\w-]+)"|'([\w-]+)'|([\w-]+)):\s*(?:#.*)?$/);
+      assert.ok(jobKey, `${file}: unverstandene Zeile auf Job-Ebene: "${line}"`);
+      current = { name: jobKey[1] ?? jobKey[2] ?? jobKey[3], timeout: null };
       jobs.push(current);
       continue;
     }
     if (!current) continue;
 
-    const timeout = line.match(/^ {4}timeout-minutes:\s*(\d+)\s*$/);
+    const timeout = line.match(/^ {4}timeout-minutes:\s*(\d+)\s*(?:#.*)?$/);
     if (timeout) current.timeout = Number(timeout[1]);
   }
   return jobs;
@@ -59,10 +71,8 @@ test('es gibt überhaupt Workflows zu prüfen', () => {
 });
 
 for (const file of files) {
-  const source = readFileSync(new URL(file, DIR), 'utf8');
-  const jobs = jobsOf(source);
-
   test(`${file}: jeder Job hat einen Laufzeitdeckel`, () => {
+    const jobs = jobsOf(readFileSync(new URL(file, DIR), 'utf8'), file);
     assert.ok(jobs.length > 0, `${file}: kein Job erkannt - der Guard misst hier nichts`);
 
     for (const job of jobs) {
