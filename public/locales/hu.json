@@ -3555,7 +3555,8 @@
         "completed": "Befejezve",
         "completedOn": "Befejezve: {{date}}",
         "completedToast": "Előfizetés befejezve.",
-        "endsAfter": "Még {{count}} fizetés"
+        "endsAfter": "Még {{count}} fizetés",
+        "logoTypeError": "Használjon PNG, JPEG, WebP vagy SVG képet."
     },
     "health": {
         "tabs": {
@@ -4403,7 +4404,8 @@
         "icsWarrantySummary": "Warranty ends: {{name}}",
         "icsTrackedDateSummary": "{{label}}: {{name}}",
         "icsCalendarName": "Yuvomi Inventory",
-        "removeBookingAction": "Remove \"{{title}}\""
+        "removeBookingAction": "Remove \"{{title}}\"",
+        "photoTooLarge": "A fotó még mindig túl nagy az átméretezés után."
     },
     "documentAttach": {
         "label": "Mellékletek",

@@ -3555,7 +3555,8 @@
         "completed": "Ολοκληρώθηκε",
         "completedOn": "Ολοκληρώθηκε στις {{date}}",
         "completedToast": "Η συνδρομή ολοκληρώθηκε.",
-        "endsAfter": "Απομένουν {{count}} πληρωμές"
+        "endsAfter": "Απομένουν {{count}} πληρωμές",
+        "logoTypeError": "Χρησιμοποιήστε εικόνα PNG, JPEG, WebP ή SVG."
     },
     "health": {
         "tabs": {
@@ -4403,7 +4404,8 @@
         "icsWarrantySummary": "Warranty ends: {{name}}",
         "icsTrackedDateSummary": "{{label}}: {{name}}",
         "icsCalendarName": "Yuvomi Inventory",
-        "removeBookingAction": "Remove \"{{title}}\""
+        "removeBookingAction": "Remove \"{{title}}\"",
+        "photoTooLarge": "Η φωτογραφία παραμένει πολύ μεγάλη μετά την αλλαγή μεγέθους."
     },
     "documentAttach": {
         "label": "Συνημμένα",

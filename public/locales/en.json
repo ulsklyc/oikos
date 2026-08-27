@@ -3555,7 +3555,8 @@
         "completed": "Completed",
         "completedOn": "Completed on {{date}}",
         "completedToast": "Subscription completed.",
-        "endsAfter": "{{count}} payments left"
+        "endsAfter": "{{count}} payments left",
+        "logoTypeError": "Use a PNG, JPEG, WebP or SVG image."
     },
     "health": {
         "tabs": {
@@ -4403,7 +4404,8 @@
         "icsWarrantySummary": "Warranty ends: {{name}}",
         "icsTrackedDateSummary": "{{label}}: {{name}}",
         "icsCalendarName": "Yuvomi Inventory",
-        "removeBookingAction": "Remove \"{{title}}\""
+        "removeBookingAction": "Remove \"{{title}}\"",
+        "photoTooLarge": "Photo is still too large after resizing."
     },
     "documentAttach": {
         "label": "Attachments",

@@ -3555,7 +3555,8 @@
         "completed": "पूर्ण",
         "completedOn": "{{date}} को पूर्ण",
         "completedToast": "सदस्यता पूर्ण हुई।",
-        "endsAfter": "{{count}} भुगतान शेष"
+        "endsAfter": "{{count}} भुगतान शेष",
+        "logoTypeError": "PNG, JPEG, WebP या SVG चित्र इस्तेमाल करें।"
     },
     "health": {
         "tabs": {
@@ -4403,7 +4404,8 @@
         "icsWarrantySummary": "Warranty ends: {{name}}",
         "icsTrackedDateSummary": "{{label}}: {{name}}",
         "icsCalendarName": "Yuvomi Inventory",
-        "removeBookingAction": "Remove \"{{title}}\""
+        "removeBookingAction": "Remove \"{{title}}\"",
+        "photoTooLarge": "आकार बदलने के बाद भी फ़ोटो बहुत बड़ा है।"
     },
     "documentAttach": {
         "label": "अनुलग्नक",

@@ -3555,7 +3555,8 @@
         "completed": "완료됨",
         "completedOn": "{{date}}에 완료됨",
         "completedToast": "구독이 완료되었습니다.",
-        "endsAfter": "{{count}}회 결제 남음"
+        "endsAfter": "{{count}}회 결제 남음",
+        "logoTypeError": "PNG, JPEG, WebP 또는 SVG 이미지를 사용하세요."
     },
     "health": {
         "tabs": {
@@ -4403,7 +4404,8 @@
         "icsWarrantySummary": "Warranty ends: {{name}}",
         "icsTrackedDateSummary": "{{label}}: {{name}}",
         "icsCalendarName": "Yuvomi Inventory",
-        "removeBookingAction": "Remove \"{{title}}\""
+        "removeBookingAction": "Remove \"{{title}}\"",
+        "photoTooLarge": "축소 후에도 사진이 너무 큽니다."
     },
     "documentAttach": {
         "label": "첨부",

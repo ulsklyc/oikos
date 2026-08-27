@@ -3555,7 +3555,8 @@
         "completed": "Tamamlandı",
         "completedOn": "{{date}} tarihinde tamamlandı",
         "completedToast": "Abonelik tamamlandı.",
-        "endsAfter": "{{count}} ödeme kaldı"
+        "endsAfter": "{{count}} ödeme kaldı",
+        "logoTypeError": "PNG, JPEG, WebP veya SVG resmi kullanın."
     },
     "health": {
         "tabs": {
@@ -4403,7 +4404,8 @@
         "icsWarrantySummary": "Warranty ends: {{name}}",
         "icsTrackedDateSummary": "{{label}}: {{name}}",
         "icsCalendarName": "Yuvomi Inventory",
-        "removeBookingAction": "Remove \"{{title}}\""
+        "removeBookingAction": "Remove \"{{title}}\"",
+        "photoTooLarge": "Fotoğraf yeniden boyutlandırmadan sonra hâlâ çok büyük."
     },
     "documentAttach": {
         "label": "Ekler",

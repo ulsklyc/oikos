@@ -3555,7 +3555,8 @@
         "completed": "تکمیل‌شده",
         "completedOn": "تکمیل در {{date}}",
         "completedToast": "اشتراک تکمیل شد.",
-        "endsAfter": "{{count}} پرداخت باقی‌مانده"
+        "endsAfter": "{{count}} پرداخت باقی‌مانده",
+        "logoTypeError": "لطفاً از تصویر PNG، JPEG، WebP یا SVG استفاده کنید."
     },
     "health": {
         "tabs": {
@@ -4403,7 +4404,8 @@
         "icsWarrantySummary": "Warranty ends: {{name}}",
         "icsTrackedDateSummary": "{{label}}: {{name}}",
         "icsCalendarName": "Yuvomi Inventory",
-        "removeBookingAction": "Remove \"{{title}}\""
+        "removeBookingAction": "Remove \"{{title}}\"",
+        "photoTooLarge": "عکس پس از کوچک‌سازی هنوز بیش از حد بزرگ است."
     },
     "documentAttach": {
         "label": "پیوست‌ها",

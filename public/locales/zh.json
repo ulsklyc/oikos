@@ -3555,7 +3555,8 @@
         "completed": "已完成",
         "completedOn": "于 {{date}} 完成",
         "completedToast": "订阅已完成。",
-        "endsAfter": "还剩 {{count}} 次付款"
+        "endsAfter": "还剩 {{count}} 次付款",
+        "logoTypeError": "请使用 PNG、JPEG、WebP 或 SVG 图片。"
     },
     "health": {
         "tabs": {
@@ -4403,7 +4404,8 @@
         "icsWarrantySummary": "Warranty ends: {{name}}",
         "icsTrackedDateSummary": "{{label}}: {{name}}",
         "icsCalendarName": "Yuvomi Inventory",
-        "removeBookingAction": "Remove \"{{title}}\""
+        "removeBookingAction": "Remove \"{{title}}\"",
+        "photoTooLarge": "缩放后照片仍然太大。"
     },
     "documentAttach": {
         "label": "附件",

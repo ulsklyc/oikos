@@ -3555,7 +3555,8 @@
         "completed": "Selesai",
         "completedOn": "Selesai pada {{date}}",
         "completedToast": "Langganan selesai.",
-        "endsAfter": "Tersisa {{count}} pembayaran"
+        "endsAfter": "Tersisa {{count}} pembayaran",
+        "logoTypeError": "Gunakan gambar PNG, JPEG, WebP, atau SVG."
     },
     "health": {
         "tabs": {
@@ -4403,7 +4404,8 @@
         "icsWarrantySummary": "Warranty ends: {{name}}",
         "icsTrackedDateSummary": "{{label}}: {{name}}",
         "icsCalendarName": "Yuvomi Inventory",
-        "removeBookingAction": "Remove \"{{title}}\""
+        "removeBookingAction": "Remove \"{{title}}\"",
+        "photoTooLarge": "Foto masih terlalu besar setelah diperkecil."
     },
     "documentAttach": {
         "label": "Lampiran",

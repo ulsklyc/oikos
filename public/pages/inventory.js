@@ -1132,19 +1132,6 @@ function collectTrackedDates(panel) {
   }).filter((d) => d.label && d.date);
 }
 
-/** Datei roh als Data-URL einlesen. Inventarfotos gehen ohne Zuschnitt und
- *  ohne Typ-/Größenprüfung hinein - dieser Weg ist NICHT über
- *  pickCroppedImage() (#901) gelaufen; ob er es soll, ist eine offene
- *  Scope-Frage (ein Gegenstandsfoto ist kein quadratisches Porträt). */
-function readFileAsDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = () => reject(new Error('Failed to read image.'));
-    reader.readAsDataURL(file);
-  });
-}
-
 /** Vorschau im Formular-Editor: Bild oder ein neutrales Platzhalter-Icon -
  *  anders als birthdays.js's Initialen, die fuer einen Gegenstand keinen
  *  Sinn ergeben. */
@@ -1232,7 +1219,7 @@ function buildItemForm({ mode, item = null }) {
             <button type="button" class="inventory-photo-editor" id="inv-photo-preview" aria-label="${esc(t('inventory.photoLabel'))}">
               ${photoPreviewHtml(photoData)}
             </button>
-            <input class="sr-only" id="inv-photo" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+            <input class="sr-only" id="inv-photo" type="file" accept="image/png,image/jpeg,image/webp">
             <div class="inventory-photo-actions">
               <button type="button" class="inventory-photo-action" id="inv-photo-edit"
                       aria-label="${esc(t('inventory.photoLabel'))}" title="${esc(t('inventory.photoLabel'))}">
@@ -1337,9 +1324,20 @@ function buildItemForm({ mode, item = null }) {
     panel.querySelector('#inv-photo-edit')?.addEventListener('click', () => photoInput?.click());
     photoInput?.addEventListener('change', async (e) => {
       const file = e.target.files?.[0];
-      if (!file) return;
+      // Sofort zurücksetzen: ohne Reset feuert dieselbe Datei kein zweites
+      // `change`-Event - nach einem abgebrochenen Zuschnitt ließe sie sich
+      // nicht erneut wählen.
+      e.target.value = '';
       try {
-        photoData = await readFileAsDataUrl(file);
+        const { pickCroppedImage } = await import('/utils/avatar-crop.js');
+        const cropped = await pickCroppedImage(file, {
+          // Nur der Ergebnis-Text ist inventarspezifisch: „Profilbild" wäre
+          // für ein Gegenstandsfoto die falsche Vokabel.
+          messageKeys: { dataTooLarge: 'inventory.photoTooLarge' },
+        });
+        // Abgebrochener Zuschnitt: das bisherige Foto bleibt stehen.
+        if (cropped === undefined) return;
+        photoData = cropped;
         renderPhotoPreview();
       } catch (err) {
         window.yuvomi?.showToast(err.message, 'danger');

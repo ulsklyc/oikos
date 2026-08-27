@@ -5,7 +5,9 @@
  *        „Datei lesen, prüfen, zuschneiden, Ergebnis prüfen" liefen
  *        auseinander: eine schnitt gar nicht zu (die Meldung), eine prüfte
  *        keine Größe, eine schluckte jeden Fehler stumm. Diese Suite hält
- *        den einen Weg offen und die vier Umgehungen zu.
+ *        den einen Weg offen und die vier Umgehungen zu. Seit dem Nachzügler
+ *        (Inventarfoto zugeschnitten, Abo-Logo bewusst roh) misst sie auch
+ *        rohe Bildfelder: wer nicht zuschneidet, prüft selbst.
  * Ausführen: node --test test/test-image-picker.js
  */
 
@@ -92,36 +94,48 @@ function acceptedTypes() {
   return match[1].match(/'([^']+)'/g).map((s) => s.slice(1, -1));
 }
 
+/** Ob eine Datei den Zuschnitt VERWENDET (Import), nicht nur erwähnt: ein
+ *  `includes('pickCroppedImage')` machte den Guard schon scharf, wenn ein
+ *  Kommentar den Namen nannte - und ein Modul ohne Zuschnitt
+ *  (subscriptions.js) fiele dann fälschlich unter die accept-Regel.
+ *  Beide Bezugsformen: statisches `import { … } from` und das in den
+ *  Handlern übliche `const { … } = await import(…)`. */
+function usesPicker(source) {
+  return /import\s*\{[^}]*\bpickCroppedImage\b[^}]*\}\s*from/.test(source)
+    || /\{[^}]*\bpickCroppedImage\b[^}]*\}\s*=\s*await\s+import\(/.test(source);
+}
+
+/** Alle accept-Listen einer Datei, die ausschließlich Bildtypen anbieten.
+ *  BEIDE Anführungsarten, und keine stillschweigend übergangene: ein
+ *  `accept='image/gif'` ist gültiges HTML und fiel durch ein Muster, das
+ *  nur doppelte Anführungszeichen kannte - die Zähler der Tests blieben
+ *  dabei über der Schwelle, weil die anderen Felder sie allein tragen. Ein
+ *  `accept=`, das zu keiner der beiden Formen passt, wirft deshalb. */
+function imageOnlyAcceptLists(source, file) {
+  const lists = [];
+  for (const m of source.matchAll(/accept=(?:"([^"]*)"|'([^']*)'|(\S+))/g)) {
+    assert.ok(
+      m[3] === undefined,
+      `${rel(file)}: unverstandene Schreibweise des accept-Attributs: ${m[0]}`
+    );
+    const list = m[1] ?? m[2];
+    // Felder, die auch Nicht-Bilder annehmen (Belege, Anhaenge), gehören
+    // nicht zu den Bildaufnahmen und werden hier nicht gemessen.
+    if (!list.split(',').every((type) => type.startsWith('image/'))) continue;
+    lists.push(list);
+  }
+  return lists;
+}
+
 test('jedes reine Bildfeld neben einem Zuschnitt filtert dieselben Typen', () => {
   const expected = acceptedTypes().join(',');
   let checked = 0;
 
   for (const file of FILES) {
     const source = readFileSync(file, 'utf8');
-    // Gemessen wird, wer den Zuschnitt VERWENDET (Import), nicht wer ihn
-    // erwähnt: ein `includes('pickCroppedImage')` machte den Guard schon
-    // scharf, wenn ein Kommentar den Namen nannte - und ein Modul ohne
-    // Zuschnitt (inventory.js) fiele dann fälschlich unter die accept-Regel.
-    // Beide Bezugsformen: statisches `import { … } from` und das in den
-    // Handlern übliche `const { … } = await import(…)`.
-    const usesPicker = /import\s*\{[^}]*\bpickCroppedImage\b[^}]*\}\s*from/.test(source)
-      || /\{[^}]*\bpickCroppedImage\b[^}]*\}\s*=\s*await\s+import\(/.test(source);
-    if (!usesPicker) continue;
+    if (!usesPicker(source)) continue;
 
-    // BEIDE Schreibweisen, und keine stillschweigend uebergangene: ein
-    // `accept='image/gif'` ist gueltiges HTML und fiel durch ein Muster, das
-    // nur doppelte Anfuehrungszeichen kannte - der Zaehler unten blieb dabei
-    // ueber der Schwelle, weil die anderen Felder ihn allein tragen. Ein
-    // `accept=`, das zu keiner der beiden Formen passt, wirft deshalb.
-    for (const m of source.matchAll(/accept=(?:"([^"]*)"|'([^']*)'|(\S+))/g)) {
-      assert.ok(
-        m[3] === undefined,
-        `${rel(file)}: unverstandene Schreibweise des accept-Attributs: ${m[0]}`
-      );
-      const list = m[1] ?? m[2];
-      // Felder, die auch Nicht-Bilder annehmen (Belege, Anhaenge), gehören
-      // nicht zum Zuschnitt und werden hier nicht gemessen.
-      if (!list.split(',').every((type) => type.startsWith('image/'))) continue;
+    for (const list of imageOnlyAcceptLists(source, file)) {
       checked += 1;
       assert.strictEqual(
         list,
@@ -132,7 +146,48 @@ test('jedes reine Bildfeld neben einem Zuschnitt filtert dieselben Typen', () =>
     }
   }
 
-  assert.ok(checked >= 5, `nur ${checked} Bildfelder geprüft - erwartet mindestens 5`);
+  assert.ok(checked >= 6, `nur ${checked} Bildfelder geprüft - erwartet mindestens 6`);
+});
+
+test('ein reines Bildfeld ohne Zuschnitt prüft Typ und Größe selbst', () => {
+  let checked = 0;
+
+  for (const file of FILES) {
+    if (file === CROP_MODULE) continue;
+    const source = readFileSync(file, 'utf8');
+    if (usesPicker(source)) continue;
+    const lists = imageOnlyAcceptLists(source, file);
+    if (!lists.length) continue;
+    checked += 1;
+
+    // Wer nicht durch pickCroppedImage() geht, übernimmt dessen Pflichten
+    // selbst: eine Typprüfung, deren Liste EXAKT dem Dateidialog entspricht
+    // (sonst bietet der Dialog an, was der Code danach ablehnt - oder die
+    // Prüfung ist lascher als das Angebot), und eine Größenprüfung. Genau
+    // diese Lücke hatten inventory.js (gar keine Prüfung, englische
+    // Meldung) und subscriptions.js (keine Typprüfung) vor #901.
+    for (const list of lists) {
+      const literal = `['` + list.split(',').join(`', '`) + `']`;
+      assert.ok(
+        source.includes(literal),
+        `${rel(file)}: kein Array-Literal ${literal} gefunden - die Typprüfung `
+        + `muss dieselben Typen tragen wie accept="${list}"`
+      );
+    }
+    assert.ok(
+      /\.includes\(file\.type\)/.test(source),
+      `${rel(file)}: prüft file.type nicht gegen die eigene Typliste`
+    );
+    assert.ok(
+      /file\.size\s*>/.test(source),
+      `${rel(file)}: prüft file.size nicht`
+    );
+  }
+
+  // Heute genau das Abo-Logo: SVG und Transparenz vertragen keinen
+  // 256-px-JPEG-Zuschnitt, also bleibt der Weg roh - mit eigenen Prüfungen.
+  // Fällt die Erkennung auf 0, misst dieser Test nichts mehr.
+  assert.ok(checked >= 1, 'kein rohes Bildfeld gefunden - erwartet mindestens 1 (subscriptions.js)');
 });
 
 // ---------------------------------------------------------------------------
