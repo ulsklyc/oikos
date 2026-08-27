@@ -1132,7 +1132,10 @@ function collectTrackedDates(panel) {
   }).filter((d) => d.label && d.date);
 }
 
-/** Gleiche Umsetzung wie public/pages/birthdays.js#readFileAsDataUrl. */
+/** Datei roh als Data-URL einlesen. Inventarfotos gehen ohne Zuschnitt und
+ *  ohne Typ-/Größenprüfung hinein - dieser Weg ist NICHT über
+ *  pickCroppedImage() (#901) gelaufen; ob er es soll, ist eine offene
+ *  Scope-Frage (ein Gegenstandsfoto ist kein quadratisches Porträt). */
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

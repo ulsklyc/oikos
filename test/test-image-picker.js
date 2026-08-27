@@ -48,11 +48,27 @@ test('openCropDialog wird nicht exportiert', () => {
     /^function openCropDialog\(/m.test(cropSource),
     'openCropDialog muss modul-privat deklariert sein'
   );
+  // JEDE Export-Form des Moduls, vom Schlüsselwort bis zum Statement-Kopf -
+  // keine Liste bekannter Schreibweisen. Die erste Fassung verbot nur
+  // `export function openCropDialog` und blieb grün, als testweise ein
+  // nachgestelltes `export { openCropDialog };` dazukam: Test 2 überspringt
+  // CROP_MODULE, die Re-Export-Zeile sah also niemand. Erfasst sind jetzt
+  // auch `export default`, Export-Listen (mehrzeilig, mit `as`-Alias) und
+  // ein Alias wie `export const x = openCropDialog`.
+  const exportStatements = cropSource.match(
+    /^[ \t]*export\s+(?:\{[^}]*\}|default[^\n]*|(?:async\s+)?function\s+\w+|class\s+\w+|(?:const|let|var)[^\n]*)/gm
+  ) || [];
   assert.ok(
-    !/export\s+(async\s+)?function openCropDialog/.test(cropSource),
-    'openCropDialog darf nicht exportiert werden - sonst baut sich der nächste '
-    + 'Aufrufer wieder seinen eigenen Weg dorthin'
+    exportStatements.length >= 1,
+    'kein export-Statement erkannt - pickCroppedImage muss exportiert sein, das Muster greift nicht mehr'
   );
+  for (const statement of exportStatements) {
+    assert.ok(
+      !statement.includes('openCropDialog'),
+      'openCropDialog darf nicht exportiert werden - sonst baut sich der nächste '
+      + `Aufrufer wieder seinen eigenen Weg dorthin: ${statement.trim()}`
+    );
+  }
 });
 
 test('kein Modul greift am Zuschnitt vorbei auf den Dialog zu', () => {
@@ -82,7 +98,15 @@ test('jedes reine Bildfeld neben einem Zuschnitt filtert dieselben Typen', () =>
 
   for (const file of FILES) {
     const source = readFileSync(file, 'utf8');
-    if (!source.includes('pickCroppedImage')) continue;
+    // Gemessen wird, wer den Zuschnitt VERWENDET (Import), nicht wer ihn
+    // erwähnt: ein `includes('pickCroppedImage')` machte den Guard schon
+    // scharf, wenn ein Kommentar den Namen nannte - und ein Modul ohne
+    // Zuschnitt (inventory.js) fiele dann fälschlich unter die accept-Regel.
+    // Beide Bezugsformen: statisches `import { … } from` und das in den
+    // Handlern übliche `const { … } = await import(…)`.
+    const usesPicker = /import\s*\{[^}]*\bpickCroppedImage\b[^}]*\}\s*from/.test(source)
+      || /\{[^}]*\bpickCroppedImage\b[^}]*\}\s*=\s*await\s+import\(/.test(source);
+    if (!usesPicker) continue;
 
     // BEIDE Schreibweisen, und keine stillschweigend uebergangene: ein
     // `accept='image/gif'` ist gueltiges HTML und fiel durch ein Muster, das
@@ -126,7 +150,13 @@ test('alle Meldungsschlüssel der Aufnahme existieren in der Referenz-Locale', (
   const collect = (source) => {
     const block = source.match(/(DEFAULT_MESSAGE_KEYS|messageKeys)\s*[:=]\s*\{([^}]*)\}/gs) || [];
     for (const b of block) {
-      for (const m of b.matchAll(/'([a-zA-Z]+\.[a-zA-Z]+)'/g)) keys.add(m[1]);
+      // Punktschlüssel JEDER Tiefe: die erste Fassung kannte genau zwei
+      // Segmente ([a-zA-Z]+\.[a-zA-Z]+). de.json hat aber auch drei- und
+      // viersegmentige Schlüssel - ein Tippfehler in einem davon wurde nie
+      // eingesammelt, also nie gegen de.json gehalten, und die Mindestzahl
+      // unten fing das nicht auf, weil ein nicht gezählter Schlüssel ihr
+      // nicht fehlt. Genau der Blindflug, gegen den es diese Suite gibt.
+      for (const m of b.matchAll(/'([a-zA-Z][a-zA-Z0-9]*(?:\.[a-zA-Z][a-zA-Z0-9]*)+)'/g)) keys.add(m[1]);
     }
   };
   collect(cropSource);

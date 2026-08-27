@@ -294,7 +294,7 @@ function buildDialog(img, resolve) {
  */
 function openCropDialog(imageDataUrl) {
   injectStyles();
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
       const dialog = buildDialog(img, resolve);
@@ -316,7 +316,11 @@ function openCropDialog(imageDataUrl) {
         resolve(null);
       });
     };
-    img.onerror = () => resolve(null);
+    /* Ein Bild, das der Browser nicht dekodieren kann (gültiger MIME-Typ,
+     * kaputte Bytes), ist ein Lesefehler, kein Abbruch: `null` hieße für
+     * jeden Aufrufer „nichts gewählt" - kein Toast, keine Meldung, die
+     * Vorschau bliebe unverändert stehen, als wäre nie etwas passiert. */
+    img.onerror = () => reject(new Error('image decode failed'));
     img.src = imageDataUrl;
   });
 }
