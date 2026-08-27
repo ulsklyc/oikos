@@ -120,11 +120,16 @@ function eventRoot(html) {
   const nodes = new Map();
   for (const [, tag, id] of html.matchAll(/<(\w[\w-]*)[^>]*\bid="([^"]+)"/g)) {
     const chunk = new RegExp(`<${tag}[^>]*id="${id}"[^>]*>`).exec(html)?.[0] ?? '';
+    const attrs = new Map();
+    for (const [, name, val] of chunk.matchAll(/([a-z-]+)="([^"]*)"/g)) attrs.set(name, val);
     nodes.set(`#${id}`, {
-      tagName: tag, hidden: /\shidden(?=[\s>])/.test(chunk), value: '',
+      tagName: tag, id, hidden: /\shidden(?=[\s>])/.test(chunk), value: '',
       listeners: {},
       addEventListener(type, fn) { (this.listeners[type] ??= []).push(fn); },
       fire(type) { for (const fn of this.listeners[type] ?? []) fn(); },
+      getAttribute(name) { return attrs.has(name) ? attrs.get(name) : null; },
+      setAttribute(name, val) { attrs.set(name, String(val)); },
+      removeAttribute(name) { attrs.delete(name); },
     });
   }
   return {
@@ -154,10 +159,30 @@ test('Hinweis und Detailbereich sind komplementaer, nie beide da und nie beide w
   }
 });
 
-test('der Hinweis ist dem Auswahlfeld zugeordnet, nicht nur danebengesetzt', () => {
-  const html = renderRRuleFields('task', null, {});
-  assert.match(html, /aria-describedby="task-rrule-hint"/,
-    'ohne die Zuordnung liest ein Screenreader die Auswahl ohne ihre Erklaerung vor');
+test('die Beschreibung des Auswahlfelds folgt dem Hinweis, nicht nur sein hidden', () => {
+  // Ein per aria-describedby DIREKT referenzierter Knoten zaehlt zur Beschreibung,
+  // auch wenn er verborgen ist (accname 1.2 §4.3.1 nimmt genau die direkt
+  // Referenzierten von der Verborgen-Regel aus). Bliebe die Referenz stehen,
+  // hoerte ein Screenreader-Nutzer den Hinweis weiter, den Sehende nicht mehr
+  // sehen - beide Modalitaeten muessen denselben Zustand zeigen.
+  assert.match(renderRRuleFields('task', null, {}), /aria-describedby="task-rrule-hint"/,
+    'ohne Wiederholung: ohne die Zuordnung liest ein Screenreader die Auswahl ohne ihre Erklaerung vor');
+  assert.doesNotMatch(renderRRuleFields('task', 'FREQ=WEEKLY', {}), /aria-describedby/,
+    'mit Wiederholung: der Hinweis ist beantwortet und darf auch nicht mehr vorgelesen werden');
+});
+
+test('die Referenz wird beim Umschalten mitgefuehrt, nicht nur beim Rendern', () => {
+  const root = eventRoot(renderRRuleFields('event', null, { allowCount: true }));
+  const freq = root.get('#event-rrule-freq');
+
+  bindRRuleEvents(root, 'event');
+  assert.equal(freq.getAttribute('aria-describedby'), 'event-rrule-hint', 'Ausgangslage');
+
+  freq.value = 'MONTHLY'; freq.fire('change');
+  assert.equal(freq.getAttribute('aria-describedby'), null, 'gewaehlt: Beschreibung weg');
+
+  freq.value = ''; freq.fire('change');
+  assert.equal(freq.getAttribute('aria-describedby'), 'event-rrule-hint', 'abgewaehlt: wieder da');
 });
 
 test('die Auswahl einer Frequenz nimmt den Hinweis weg und holt den Takt hervor', () => {

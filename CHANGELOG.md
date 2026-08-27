@@ -19,8 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   A line under the menu now says the interval is free to set, and names two examples. It is shown
   in exactly the state where the misreading is possible and goes away with it - the hint and the
-  detail block are complements, never both there and never both gone. Task and appointment forms
-  share the field, so both get it.
+  detail block are complements, never both there and never both gone. The select's
+  `aria-describedby` is removed along with the hint rather than merely hidden, because a directly
+  referenced node counts towards the accessible description even while hidden - otherwise a
+  screen-reader user would keep hearing the hint that answers the question they just answered. Task
+  and appointment forms share the field, so both get it.
 
 ## [2.49.0] - 2026-08-27
 

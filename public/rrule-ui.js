@@ -106,6 +106,15 @@ export function renderRRuleFields(prefix, existingRule, opts = {}) {
   const fromCompletion = !!opts.fromCompletion;
   const parsed = parseRRule(existingRule);
 
+  // aria-describedby haengt am SELBEN Zustand wie der Hinweis, nicht nur dessen
+  // hidden-Attribut: ein direkt referenzierter Knoten zaehlt zur Beschreibung,
+  // AUCH wenn er verborgen ist (accname 1.2 §4.3.1, Schritt 2A nimmt genau die
+  // direkt Referenzierten von der Verborgen-Regel aus). Bliebe die Referenz
+  // stehen, hoerte ein Screenreader-Nutzer den Hinweis weiter, den Sehende
+  // schon nicht mehr sehen - und zwar ausgerechnet den, der die Frage
+  // beantwortet, die er mit seiner Auswahl gerade beantwortet hat.
+  const hintRef = parsed.freq ? '' : ` aria-describedby="${prefix}-rrule-hint"`;
+
   const freqOpts = FREQ_OPTIONS().map(o =>
     `<option value="${o.value}" ${parsed.freq === o.value ? 'selected' : ''}>${o.label}</option>`
   ).join('');
@@ -140,8 +149,7 @@ export function renderRRuleFields(prefix, existingRule, opts = {}) {
       ${sourceRule}
       <div class="form-group">
         <label class="label form-label" for="${prefix}-rrule-freq">${t('rrule.labelRepeat')}</label>
-        <select class="input form-input" id="${prefix}-rrule-freq"
-                aria-describedby="${prefix}-rrule-hint">
+        <select class="input form-input" id="${prefix}-rrule-freq"${hintRef}>
           ${freqOpts}
         </select>
         <p class="rrule-hint" id="${prefix}-rrule-hint" ${parsed.freq ? 'hidden' : ''}>${t('rrule.intervalHint')}</p>
@@ -306,8 +314,13 @@ export function bindRRuleEvents(root, prefix) {
     if (weekdays) weekdays.hidden = freq !== 'WEEKLY';
     // Der Hinweis ist die Umkehrung des Detailbereichs: er beantwortet die Frage
     // "sind das die einzigen vier Takte?", und sobald der Takt sichtbar danebensteht,
-    // hat sie sich erledigt (#862).
-    if (hint)     hint.hidden     = !!freq;
+    // hat sie sich erledigt (#862). Die Beschreibung des Auswahlfelds geht mit -
+    // ein verborgener, aber referenzierter Knoten wird trotzdem vorgelesen.
+    if (hint) {
+      hint.hidden = !!freq;
+      if (freq) freqSelect.removeAttribute('aria-describedby');
+      else      freqSelect.setAttribute('aria-describedby', hint.id || `${prefix}-rrule-hint`);
+    }
     updateUnit();
   });
 
