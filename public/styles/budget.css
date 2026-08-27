@@ -305,16 +305,19 @@
 
 /* Der Budget-Tab hält seine eigene Scroll-Region: Zusammenfassung und
  * Kategoriebalken bleiben stehen, nur die Transaktionsliste scrollt - solange
- * der feste Teil in den Viewport passt. `overflow-y: auto` statt `hidden`,
- * denn der feste Teil wächst mit den Kategorien: mit `hidden` war die Liste
- * auf einem kurzen Desktop-Viewport unerreichbar abgeschnitten (#904). Im
- * Normalfall läuft nichts über und das Panel scrollt nicht; erst wenn die
- * Untergrenze von .budget-list-section das Panel überlaufen lässt, scrollen
- * Zusammenfassung und Balken mit. Der Abstand kommt aus .budget-summary-bar. */
+ * der feste Teil in den Viewport passt. Die Scroll-Achse kommt aus der
+ * Basisregel (.budget-tab-panel, overflow-y: auto) und wird hier bewusst
+ * NICHT mehr überschrieben: das frühere `overflow: hidden` schnitt die Liste
+ * auf kurzen Desktop-Viewports unerreichbar ab (#904). Im Normalfall läuft
+ * nichts über und das Panel scrollt nicht; erst wenn die Untergrenze von
+ * .budget-list-section das Panel überlaufen lässt, scrollen Zusammenfassung
+ * und Balken mit. Mit dem Shorthand entfiel auch `overflow-x: hidden` - die
+ * x-Achse steht damit auf `auto`, gemessen ohne horizontalen Überlauf
+ * (scrollWidth == clientWidth bei 641/900/1512px Breite). Der Abstand kommt
+ * aus .budget-summary-bar. */
 .budget-tab-panel--budget {
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding-block-start: 0;
 }
@@ -1194,9 +1197,12 @@
    * auf Kopfzeilenhöhe, und das Panel (damals `overflow: hidden`) ließ sie
    * unerreichbar (#904). 280px = Kopfzeile (60px) + drei Buchungszeilen (64px)
    * + eine angeschnittene vierte, die das interne Scrollen sichtbar macht.
+   * Das `min(…, 100%)` kappt die Untergrenze am Panel-Viewport: auf einer
+   * Kompakthöhe (Panel < 280px) erzwänge der harte Wert sonst einen Überlauf,
+   * bei dem selbst am Scroll-Ende die Kopfzeile angeschnitten bliebe.
    * Unterhalb von 640px setzt der Mobil-Reflow sie zurück - dort scrollt das
    * Panel als Ganzes und die Sektion wächst mit ihrem Inhalt. */
-  min-height: 280px;
+  min-height: min(280px, 100%);
   /* Das Lesemaß steht an der SEKTION, nicht an `.budget-list` darunter, und
    * zwar aus zwei Gründen. Erstens fluchten so Kopf und Liste an derselben
    * Kante - läge es an der Liste, stünde die Überschrift „Transaktionen" über
@@ -1282,28 +1288,37 @@
   border-top: 1px solid var(--color-border-subtle);
 }
 
+/* Seit #904 kann auch das Budget-Panel selbst scrollen (Untergrenze der
+ * Transaktionssektion laesst es ueberlaufen) - es gehoert deshalb wie
+ * --loans in die Gruppe der duennen Modul-Scrollbars, sonst stuende auf
+ * Plattformen mit klassischen Scrollbalken ein System-Balken direkt
+ * neben dem 10px-Akzentbalken der Liste. */
 .budget-list,
 .budget-loans__list,
-.budget-tab-panel--loans {
+.budget-tab-panel--loans,
+.budget-tab-panel--budget {
   scrollbar-width: thin;
   scrollbar-color: var(--module-accent) transparent;
 }
 
 .budget-list::-webkit-scrollbar,
 .budget-loans__list::-webkit-scrollbar,
-.budget-tab-panel--loans::-webkit-scrollbar {
+.budget-tab-panel--loans::-webkit-scrollbar,
+.budget-tab-panel--budget::-webkit-scrollbar {
   width: 10px;
 }
 
 .budget-list::-webkit-scrollbar-track,
 .budget-loans__list::-webkit-scrollbar-track,
-.budget-tab-panel--loans::-webkit-scrollbar-track {
+.budget-tab-panel--loans::-webkit-scrollbar-track,
+.budget-tab-panel--budget::-webkit-scrollbar-track {
   background: transparent;
 }
 
 .budget-list::-webkit-scrollbar-thumb,
 .budget-loans__list::-webkit-scrollbar-thumb,
-.budget-tab-panel--loans::-webkit-scrollbar-thumb {
+.budget-tab-panel--loans::-webkit-scrollbar-thumb,
+.budget-tab-panel--budget::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--module-accent) var(--tint-hint), transparent);
   border: 3px solid transparent;
   border-radius: var(--radius-full);

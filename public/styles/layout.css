@@ -327,9 +327,10 @@
  * `:not(:has(.page-scrollport))` an BEIDEN Selektoren, und das ist keine
  * Symmetrie um ihrer selbst willen. Am Default-Port beantwortet es „bringt die
  * Seite ihren eigenen mit?". An der Rolle beantwortet es dieselbe Frage eine
- * Ebene tiefer: das Budget schaltet seinen Scrollport bei 640px um (darüber
- * scrollt `.budget-list` im Panel, darunter das Panel selbst), beide tragen die
- * Rolle, und der Nachlauf gehört jeweils dem inneren. Ohne den Ausschluss
+ * Ebene tiefer: im Budget tragen Panel und `.budget-list` BEIDE die Rolle -
+ * unter 640px scrollt nur das Panel, darüber die Liste (und seit #904 bei
+ * Überlauf zusätzlich das Panel) -, und der Nachlauf gehört in jeder dieser
+ * Konstellationen dem inneren Träger. Ohne den Ausschluss
  * polsterte das Panel die Liste, die es enthält, aus dem sichtbaren Bereich -
  * derselbe Fehler wie oben, nur eine Ebene tiefer.
  *
