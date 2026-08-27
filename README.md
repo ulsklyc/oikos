@@ -7,7 +7,7 @@
 
   <p>
     Tasks, calendar, budget, groceries, meals, health and more - for a family, a couple,
-    or just you. Eighteen modules on a server you own, and the only thing that leaves it
+    or just you. Nineteen modules on a server you own, and the only thing that leaves it
     is a version check.
   </p>
 
