@@ -484,30 +484,41 @@ describe('CalDAV sync yields to the event loop (#519)', () => {
   // Zählt Makrotask-Durchläufe des Event-Loops. Ohne Yield liefe die komplette
   // Inbound-Verarbeitung in EINEM Makrotask, sodass dieser Zähler währenddessen
   // nie an die Reihe käme.
+  //
+  // Ein Beobachter darf das beobachtete System nicht am Leben halten (#903):
+  // ein sich selbst neu planender `setImmediate` hält den Event-Loop ganz
+  // allein offen. Stand das Abschalten hinter dem `await sync(...)`, wurde es
+  // bei einem Throw nie erreicht - die Suite meldete ihr `✖`, aber nie ihr
+  // Ende: kein Summary, kein Exit-Code, `npm test` stand still statt rot zu
+  // werden. Deshalb beides: `unref()` nimmt dem Timer das Recht, den Prozess
+  // offenzuhalten, und `stop()` gehört in ein `finally`, nicht dahinter.
   function startTicker() {
     const state = { ticks: 0, running: true };
-    const tick = () => { if (state.running) { state.ticks += 1; setImmediate(tick); } };
-    setImmediate(tick);
+    const schedule = (fn) => { setImmediate(fn).unref(); };
+    const tick = () => { if (state.running) { state.ticks += 1; schedule(tick); } };
+    schedule(tick);
+    state.stop = () => { state.running = false; };
     return state;
   }
 
   it('interleaves event-loop turns while processing a large calendar', async () => {
     const d = buildDb();
     _setTestDatabase(d);
+    const ticker = startTicker();
     try {
-      const ticker = startTicker();
       const OBJECTS = 150; // 3 Batches à YIELD_EVERY=50 → mindestens 2 Yields
       const result = await sync({ createClient: fakeClientFactory(OBJECTS) });
-      ticker.running = false;
+      const ticks = ticker.ticks; // Momentaufnahme am Sync-Ende
 
       assert.strictEqual(result.syncedEvents, OBJECTS, 'alle Objekte upserted');
       const count = d.prepare('SELECT COUNT(*) AS n FROM calendar_events').get().n;
       assert.strictEqual(count, OBJECTS, 'alle Events in der DB');
       assert.ok(
-        ticker.ticks >= 2,
-        `Event-Loop muss während des Syncs mehrfach dran sein (ticks=${ticker.ticks})`
+        ticks >= 2,
+        `Event-Loop muss während des Syncs mehrfach dran sein (ticks=${ticks})`
       );
     } finally {
+      ticker.stop();
       _resetTestDatabase();
       d.close();
     }
@@ -516,15 +527,16 @@ describe('CalDAV sync yields to the event loop (#519)', () => {
   it('completes a small calendar within a single loop turn (no needless yields)', async () => {
     const d = buildDb();
     _setTestDatabase(d);
+    const ticker = startTicker();
     try {
-      const ticker = startTicker();
       await sync({ createClient: fakeClientFactory(10) }); // < YIELD_EVERY
-      ticker.running = false;
+      const ticks = ticker.ticks; // Momentaufnahme am Sync-Ende
 
-      assert.strictEqual(ticker.ticks, 0, 'kleiner Sync yieldet nicht (kein Overhead)');
+      assert.strictEqual(ticks, 0, 'kleiner Sync yieldet nicht (kein Overhead)');
       const count = d.prepare('SELECT COUNT(*) AS n FROM calendar_events').get().n;
       assert.strictEqual(count, 10, 'alle Events in der DB');
     } finally {
+      ticker.stop();
       _resetTestDatabase();
       d.close();
     }
