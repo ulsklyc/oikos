@@ -87,6 +87,25 @@ export function resolveIcalColor(raw) {
   return CSS_COLOR_NAMES[value] || null;
 }
 
+/**
+ * Umkehrung von resolveIcalColor: der CSS3-Name, der `#RRGGBB` am nächsten kommt.
+ *
+ * RFC 7986 §5.9 lässt für COLOR ausschliesslich einen case-insensitiven CSS3-Namen
+ * zu; ein Hex-Wert wäre nicht konform und darf von einem strengen Server verworfen
+ * werden. Die Abbildung ist deshalb verlustbehaftet - dieselbe Bauart wie die auf
+ * Googles elf colorIds, nur mit 148 statt 11 Zielwerten.
+ *
+ * Der Verlust bleibt lokal folgenlos: eine Umfärbung setzt `user_modified = 1`, und
+ * der Inbound schreibt `color` nur, solange das 0 ist. Der beim nächsten Abruf
+ * zurückgelesene Nachbarwert überschreibt die Wahl des Nutzers also nicht.
+ *
+ * @param {string|null|undefined} hex `#RRGGBB`
+ * @returns {string|null} CSS3-Name (klein), oder null bei leerem/ungültigem Wert
+ */
+export function nearestIcalColorName(hex) {
+  return nearestColorId(hex, CSS_COLOR_NAMES);
+}
+
 /** Zerlegt `#RRGGBB` in {r,g,b}; null bei ungültigem Wert. */
 function hexToRgb(hex) {
   const m = /^#([0-9a-fA-F]{6})$/.exec(String(hex ?? '').trim());

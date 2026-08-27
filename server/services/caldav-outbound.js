@@ -15,6 +15,7 @@ import { createLogger } from '../logger.js';
 import * as outbound from './calendar-outbound.js';
 import { patchICSEvent } from '../utils/ics-patch.js';
 import { toICSDatetime } from '../utils/ics-format.js';
+import { nearestIcalColorName } from '../utils/ical-color.js';
 
 const log = createLogger('CalDAVOutbound');
 
@@ -44,7 +45,7 @@ export function icsFieldsForEvent(event) {
     end   = { value: toICSDatetime(event.end_datetime || event.start_datetime), params: tzParam };
   }
 
-  return {
+  const fields = {
     SUMMARY:     event.title,
     DESCRIPTION: event.description || null,
     LOCATION:    event.location || null,
@@ -52,6 +53,23 @@ export function icsFieldsForEvent(event) {
     DTSTART:     start,
     DTEND:       end,
   };
+
+  // COLOR ist Teil von MIRRORED_FIELDS, wurde aber nie geschrieben (#897): eine
+  // Umfaerbung kostete einen PUT, der beim Server nichts aenderte.
+  //
+  // DREI Faelle, und die letzten beiden sehen im Rueckgabewert gleich aus:
+  //   - abbildbare Eigenfarbe   -> CSS3-Name, ersetzt die Property
+  //   - gar keine Eigenfarbe    -> null, ENTFERNT die Property; der Termin soll
+  //     beim Anbieter wieder die Kalenderfarbe erben (wie colorId null bei Google)
+  //   - Farbe, aber nicht abbildbar (kein gueltiges #RRGGBB, etwa aus einem alten
+  //     Bestand) -> das Feld gar nicht erst mitgeben. "Nicht anfassen" ist hier
+  //     richtig: der Termin TRAEGT eine Farbe, wir koennen sie nur nicht schreiben,
+  //     und eine fremde COLOR dafuer zu loeschen waere ein Datenverlust.
+  const colorName = nearestIcalColorName(event.color);
+  if (colorName)        fields.COLOR = colorName;
+  else if (!event.color) fields.COLOR = null;
+
+  return fields;
 }
 
 /** Dateiname eines Kalenderobjekts aus seiner URL, ersatzweise aus der UID. */

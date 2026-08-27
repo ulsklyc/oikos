@@ -27,6 +27,7 @@ import * as outbound from './calendar-outbound.js';
 import { processPendingDeletions, processPendingUpdates, flushAccount } from './caldav-outbound.js';
 import { rruleLine } from './recurrence.js';
 import { createCalDAVClient } from '../utils/caldav-client.js';
+import { nearestIcalColorName } from '../utils/ical-color.js';
 
 const APPLE_COLOR = '#FC3C44';
 
@@ -203,6 +204,11 @@ function buildICS(event) {
 
   if (event.description) lines.push(`DESCRIPTION:${escapeICS(event.description)}`);
   if (event.location)    lines.push(`LOCATION:${escapeICS(event.location)}`);
+  // Eigenfarbe als CSS3-Name (RFC 7986, #897). Ein Termin ohne eigene Farbe
+  // bekommt keine Zeile und erbt beim Anbieter die des Kalenders.
+  const colorName = nearestIcalColorName(event.color);
+  if (colorName) lines.push(`COLOR:${colorName}`);
+
   // Beide Schreibweisen kommen vor: eingelesene Serien tragen die volle
   // ICS-Zeile, lokal angelegte nur den Regelkörper (#756). Roh übernommen ergab
   // letzteres eine Zeile ohne Property-Namen - ein VEVENT, das kein Server als
@@ -528,3 +534,8 @@ async function runSync() {
 
 export { sync, flushOutbound, getStatus, saveCredentials, clearCredentials,
          clearMirroredEvents, testConnection };
+
+// Nur fuer Tests: der ICS-Builder ist der einzige Weg, auf dem ein rein lokaler
+// Termin zum Anbieter kommt, und der Sync-Pfad drumherum ist zu gross, um ihn
+// dafuer nachzustellen.
+export const __test = { buildICS };

@@ -12,7 +12,14 @@
 import { rruleLine } from '../services/recurrence.js';
 
 // Properties, die Yuvomi verwaltet und daher ersetzen darf - je Komponente.
-const MANAGED_VEVENT = new Set(['SUMMARY', 'DESCRIPTION', 'LOCATION', 'DTSTART', 'DTEND', 'RRULE']);
+//
+// COLOR (RFC 7986) kam mit #897 dazu. Es reicht nicht, den Wert auszugeben:
+// solange die Property hier fehlt, verwirft der Patcher sie wieder, und ein
+// Termin, dem seine Eigenfarbe genommen wurde, behielte die alte auf dem Server.
+// Verwaltet heisst deshalb beides - ersetzen UND entfernen.
+const MANAGED_VEVENT = new Set([
+  'SUMMARY', 'DESCRIPTION', 'LOCATION', 'DTSTART', 'DTEND', 'RRULE', 'COLOR',
+]);
 // VTODO (#617): STATUS, COMPLETED und PERCENT-COMPLETE gehören zusammen - Clients
 // lesen den Erledigt-Zustand mal am einen, mal am anderen ab.
 //

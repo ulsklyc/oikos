@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A colour set on a CalDAV or Apple appointment now reaches the server** (#897). `color` has
+  always been one of the mirrored fields, so recolouring an appointment marked it for an outbound
+  push - but `COLOR` appeared exactly once in the whole server, in `ics-parser.js`, where it is
+  *read*. Nothing ever wrote it. Every recolouring therefore cost a full `PUT` round trip that
+  changed nothing on the server, and the field list claimed a mirroring that did not happen for two
+  of the three outbound providers. This was the promise from #815 that never got a thread of its own.
+
+  Yuvomi now writes `COLOR` (RFC 7986), the same property its parser already reads. **The value is a
+  CSS3 colour name, not a hex code** - §5.9 allows nothing else, and a strict server may reject a hex
+  value - so a stored `#RRGGBB` is mapped to the nearest of the 148 CSS3 names by the same
+  perceptual redmean distance that already maps colours onto Google's eleven `colorId`s. The loss is
+  small (the largest deviation across Yuvomi's own palette is 28 of 255 in a single channel) and it
+  stays on the wire: recolouring sets `user_modified = 1`, and an inbound run writes `color` only
+  while that is `0`, so the neighbouring value read back on the next sync never overwrites the
+  choice.
+
+  **Clearing a colour removes the property rather than emptying it.** Since v2.49.0 an appointment
+  can have no colour of its own and borrow the assigned member's; switching a CalDAV appointment into
+  that state used to leave the old colour standing on the server forever, because the same edit sets
+  `user_modified = 1` and no inbound run reconciles the two again. `COLOR` is now a *managed*
+  property of the ICS patcher - without that it may be written but not replaced or removed, and an
+  emitted value would not have survived the patch. Freshly uploaded appointments carry their colour
+  from the start, and one without a colour of its own gets no `COLOR` line at all, so it inherits the
+  calendar's at the provider - the same shape as the explicit `colorId: null` sent to Google.
+
+  This also closes a second, quieter route that opened with v2.49.0: an appointment created in Yuvomi
+  and uploaded to CalDAV came back on the next inbound run **without any colour at all**, because the
+  object carried none and inbound writes `color` freely while `user_modified = 0`. It now comes back
+  as the nearest CSS3 name instead of as nothing - the same small shift Google's eleven colours have
+  always produced.
+
 ## [2.49.0] - 2026-08-27
 
 ### Fixed

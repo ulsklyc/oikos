@@ -32,6 +32,12 @@ const { processPendingDeletions, processPendingUpdates, icsFieldsForEvent, filen
   await import('../server/services/caldav-outbound.js');
 const { patchICSEvent, countVEvents, unfoldICS, foldICSLine } =
   await import('../server/utils/ics-patch.js');
+const { nearestIcalColorName, resolveIcalColor } = await import('../server/utils/ical-color.js');
+// Die ICS-Builder fuer frisch hochgeladene Termine liegen je einmal im CalDAV- und
+// im Apple-Sync. Beide sind ueber __test erreichbar, weil der Sync-Pfad drumherum
+// zu gross ist, um ihn fuer eine Property nachzustellen.
+const { __test: caldavSyncTest } = await import('../server/services/caldav-sync.js');
+const { __test: appleSyncTest }  = await import('../server/services/apple-calendar.js');
 
 db.prepare("INSERT INTO users (username, display_name, password_hash, role) VALUES ('admin','Admin','x','admin')").run();
 
@@ -255,6 +261,128 @@ test('ein ganztägiger Termin nutzt VALUE=DATE mit exklusivem Ende', () => {
   assert.deepEqual(fields.DTEND,   { value: '20350704', params: ';VALUE=DATE' }, 'RFC 5545: DTEND ist exklusiv');
 });
 
+// ── COLOR: die Eigenfarbe erreicht den Anbieter (#897) ─────────────────────────
+//
+// `color` stand seit jeher in MIRRORED_FIELDS, aber COLOR kam im Server nur
+// LESEND vor (ics-parser.js). Eine Umfaerbung kostete damit einen PUT, der beim
+// Server nichts aenderte - und seit ein Termin gar keine Eigenfarbe mehr haben
+// muss (#891), fehlte auch der Weg, eine gesetzte wieder loszuwerden.
+
+test('die Eigenfarbe geht als CSS3-Name hinaus, nicht als Hex', () => {
+  const fields = icsFieldsForEvent({
+    title: 'Zahnarzt', start_datetime: '2035-03-10T09:00', end_datetime: '2035-03-10T10:00',
+    color: '#CE5053',
+  });
+  assert.equal(fields.COLOR, 'indianred');
+  assert.doesNotMatch(String(fields.COLOR), /^#/,
+    'RFC 7986 §5.9 laesst fuer COLOR nur einen CSS3-Namen zu - ein Hex darf ein strenger Server verwerfen');
+});
+
+test('ein Termin ohne eigene Farbe gibt COLOR als null aus, damit die Property verschwindet', () => {
+  const fields = icsFieldsForEvent({
+    title: 'Zahnarzt', start_datetime: '2035-03-10T09:00', end_datetime: '2035-03-10T10:00',
+    color: null,
+  });
+  assert.equal(fields.COLOR, null,
+    'weder Leerstring noch geerbte Farbe: beim Anbieter soll der Termin wieder die des Kalenders erben');
+});
+
+test('eine nicht abbildbare Farbe laesst die Property des Servers in Ruhe', () => {
+  // Der Unterschied, der bei #891 auf der Google-Seite fast eine Regression war:
+  // "keine Eigenfarbe" und "Farbe, die wir nicht schreiben koennen" sind nicht
+  // dasselbe. Im zweiten Fall TRAEGT der Termin eine Farbe - sie zu loeschen
+  // waere ein Datenverlust auf dem Server, also darf das Feld gar nicht auftauchen.
+  const fields = icsFieldsForEvent({
+    title: 'Zahnarzt', start_datetime: '2035-03-10T09:00', end_datetime: '2035-03-10T10:00',
+    color: 'nicht-hex',
+  });
+  assert.ok(!Object.hasOwn(fields, 'COLOR'),
+    'ein fehlendes Feld heisst "nicht anfassen", ein null-Feld heisst "entfernen"');
+
+  // Und die Gegenprobe: ohne Farbe MUSS das Feld da sein und null sein.
+  const cleared = icsFieldsForEvent({
+    title: 'Zahnarzt', start_datetime: '2035-03-10T09:00', end_datetime: '2035-03-10T10:00',
+    color: null,
+  });
+  assert.ok(Object.hasOwn(cleared, 'COLOR'));
+  assert.equal(cleared.COLOR, null);
+});
+
+test('jede Farbe der Yuvomi-Palette findet einen Namen, den der eigene Parser zurueckliest', () => {
+  // Die Palette aus public/pages/calendar.js. Sie steht hier als Kopie, weil der
+  // Server die Frontend-Palette nicht importieren darf (Schichtgrenze). Driftet sie,
+  // meldet dieser Test nur den Fall, auf den es ankommt: eine Farbe, die keinen Namen
+  // findet - und damit farblos hinausginge.
+  const palette = [
+    '#587DCE', '#3CA368', '#E0843E', '#CE5053', '#8156C0',
+    '#DB684C', '#3E9DCA', '#D8B349', '#85868B', '#279EA4',
+  ];
+  const channels = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+
+  for (const hex of palette) {
+    const name = nearestIcalColorName(hex);
+    assert.ok(name, `${hex} bekommt keinen Namen und ginge damit farblos hinaus`);
+    assert.match(name, /^[a-z]+$/, `${hex} -> ${name} ist kein CSS3-Name`);
+
+    const back = resolveIcalColor(name);
+    assert.ok(back, `${name} liest sich nicht zurueck - der Inbound saehe eine unbekannte Farbe`);
+
+    // Die Schwelle prueft den DISTANZVERGLEICH, nicht die Feinheit der Tabelle:
+    // die CSS3-Liste ist mit 148 Eintraegen dicht genug, dass die groesste echte
+    // Abweichung ueber diese Palette bei 28 liegt. Ein Wert jenseits von 48 hiesse
+    // nicht "knapp danebengegriffen", sondern "im falschen Farbbereich gelandet".
+    const drift = Math.max(...channels(hex).map((v, i) => Math.abs(v - channels(back)[i])));
+    assert.ok(drift <= 48, `${hex} -> ${name} (${back}) weicht um ${drift} je Kanal ab`);
+  }
+});
+
+test('der Patch traegt COLOR in ein Objekt ein, das bisher keins hatte', () => {
+  const out = patchICSEvent(serverObject('col1@t'), 'col1@t', { COLOR: 'indianred' });
+  assert.match(out, /^COLOR:indianred$/m);
+});
+
+test('der Patch ersetzt ein vorhandenes COLOR, statt ein zweites danebenzustellen', () => {
+  const out = patchICSEvent(
+    serverObject('col2@t', { extra: ['COLOR:tomato'] }), 'col2@t', { COLOR: 'steelblue' },
+  );
+  assert.match(out, /^COLOR:steelblue$/m);
+  assert.doesNotMatch(out, /^COLOR:tomato$/m);
+  assert.equal(unfoldICS(out).split('\n').filter((l) => l.startsWith('COLOR:')).length, 1);
+});
+
+test('der Patch ENTFERNT COLOR, wenn der Termin seine Eigenfarbe verliert', () => {
+  // Der Kernfall: ohne COLOR in MANAGED_VEVENT bliebe die alte Farbe auf dem Server
+  // stehen, und weil dieselbe Bearbeitung user_modified = 1 setzt, holt kein
+  // Inbound-Lauf die beiden je wieder zusammen - eine dauerhafte Divergenz.
+  const out = patchICSEvent(
+    serverObject('col3@t', { extra: ['COLOR:tomato'] }), 'col3@t', { COLOR: null },
+  );
+  assert.doesNotMatch(out, /^COLOR:/m);
+  assert.match(out, /ATTENDEE;CN=Maria/, 'und der Rest des Objekts bleibt unangetastet');
+});
+
+test('beide ICS-Builder geben einem frisch hochgeladenen Termin seine Farbe mit', () => {
+  const event = {
+    id: 7, title: 'Zahnarzt', description: null, location: null, color: '#CE5053',
+    start_datetime: '2035-03-10T09:00', end_datetime: '2035-03-10T10:00',
+    all_day: 0, recurrence_rule: null,
+  };
+  for (const [label, build] of [['CalDAV', caldavSyncTest.buildCalDAVICS], ['Apple', appleSyncTest.buildICS]]) {
+    assert.match(build(event), /^COLOR:indianred$/m, label);
+  }
+});
+
+test('ohne Eigenfarbe schreiben die Builder gar keine COLOR-Zeile', () => {
+  const event = {
+    id: 8, title: 'Zahnarzt', description: null, location: null, color: null,
+    start_datetime: '2035-03-10T09:00', end_datetime: '2035-03-10T10:00',
+    all_day: 0, recurrence_rule: null,
+  };
+  for (const [label, build] of [['CalDAV', caldavSyncTest.buildCalDAVICS], ['Apple', appleSyncTest.buildICS]]) {
+    assert.doesNotMatch(build(event), /^COLOR:/m, label);
+  }
+});
+
 test('filenameFromUrl nimmt den Dateinamen der URL, sonst die UID', () => {
   assert.equal(filenameFromUrl('https://dav.example/cal/abc.ics', 'x@t'), 'abc.ics');
   assert.equal(filenameFromUrl('https://dav.example/cal/', 'x@t'), 'x@t.ics');
@@ -434,6 +562,32 @@ test('schreibt die Änderung als PUT auf die Objekt-URL zurück', async () => {
   assert.equal(sent.url, `${CAL_URL}u1@t.ics`);
   assert.match(sent.data, /SUMMARY:Neuer Titel/);
   assert.match(sent.data, /ATTENDEE;CN=Maria/, 'der Teilnehmer des Servers bleibt erhalten');
+  assert.equal(reload(event.id).outbound_dirty, 0);
+});
+
+test('eine Umfaerbung erreicht den Server, statt einen leeren PUT zu kosten', async () => {
+  reset();
+  const event = seedDirty('c1@t', { color: '#3CA368' });
+
+  const client = fakeClient();
+  assert.equal(await processPendingUpdates(client, 'caldav', indexFor('c1@t', {
+    url: `${CAL_URL}c1@t.ics`, data: serverObject('c1@t', { extra: ['COLOR:tomato'] }),
+  })), 1);
+
+  assert.match(client.updates[0].calendarObject.data, /^COLOR:mediumseagreen$/m);
+  assert.equal(reload(event.id).outbound_dirty, 0);
+});
+
+test('eine geleerte Farbe nimmt dem Server-Termin seine COLOR-Property', async () => {
+  reset();
+  const event = seedDirty('c2@t', { color: null });
+
+  const client = fakeClient();
+  assert.equal(await processPendingUpdates(client, 'caldav', indexFor('c2@t', {
+    url: `${CAL_URL}c2@t.ics`, data: serverObject('c2@t', { extra: ['COLOR:tomato'] }),
+  })), 1);
+
+  assert.doesNotMatch(client.updates[0].calendarObject.data, /^COLOR:/m);
   assert.equal(reload(event.id).outbound_dirty, 0);
 });
 

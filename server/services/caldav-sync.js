@@ -17,6 +17,7 @@ import { detachAccountRows } from './caldav-todo-outbound.js';
 import { toICSDatetime, escapeICSText } from '../utils/ics-format.js';
 import { createCalDAVClient, supportsComponent } from '../utils/caldav-client.js';
 import { rruleLine } from './recurrence.js';
+import { nearestIcalColorName } from '../utils/ical-color.js';
 
 // Reused functions from apple-calendar.js
 import {
@@ -59,6 +60,11 @@ function buildCalDAVICS(event) {
 
   if (event.description)     lines.push(`DESCRIPTION:${escapeICSText(event.description)}`);
   if (event.location)        lines.push(`LOCATION:${escapeICSText(event.location)}`);
+  // Eigenfarbe als CSS3-Name (RFC 7986, #897). Ein Termin ohne eigene Farbe
+  // bekommt keine Zeile und erbt beim Anbieter die des Kalenders.
+  const colorName = nearestIcalColorName(event.color);
+  if (colorName) lines.push(`COLOR:${colorName}`);
+
   if (event.recurrence_rule) {
     lines.push(rruleLine(event.recurrence_rule));
   }
@@ -964,3 +970,8 @@ export {
   flushOutbound,
   getStatus
 };
+
+// Nur fuer Tests: der ICS-Builder ist der einzige Weg, auf dem ein rein lokaler
+// Termin zum Anbieter kommt, und der Sync-Pfad drumherum ist zu gross, um ihn
+// dafuer nachzustellen.
+export const __test = { buildCalDAVICS };
