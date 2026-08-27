@@ -84,8 +84,17 @@ test('jedes reine Bildfeld neben einem Zuschnitt filtert dieselben Typen', () =>
     const source = readFileSync(file, 'utf8');
     if (!source.includes('pickCroppedImage')) continue;
 
-    for (const m of source.matchAll(/accept="([^"]+)"/g)) {
-      const list = m[1];
+    // BEIDE Schreibweisen, und keine stillschweigend uebergangene: ein
+    // `accept='image/gif'` ist gueltiges HTML und fiel durch ein Muster, das
+    // nur doppelte Anfuehrungszeichen kannte - der Zaehler unten blieb dabei
+    // ueber der Schwelle, weil die anderen Felder ihn allein tragen. Ein
+    // `accept=`, das zu keiner der beiden Formen passt, wirft deshalb.
+    for (const m of source.matchAll(/accept=(?:"([^"]*)"|'([^']*)'|(\S+))/g)) {
+      assert.ok(
+        m[3] === undefined,
+        `${rel(file)}: unverstandene Schreibweise des accept-Attributs: ${m[0]}`
+      );
+      const list = m[1] ?? m[2];
       // Felder, die auch Nicht-Bilder annehmen (Belege, Anhaenge), gehören
       // nicht zum Zuschnitt und werden hier nicht gemessen.
       if (!list.split(',').every((type) => type.startsWith('image/'))) continue;
