@@ -2594,7 +2594,8 @@
         "summaryCount_one": "{{count}}回",
         "fromCompletionLabel": "完了日から繰り返す",
         "fromCompletionHint": "期限日ではなく、タスクを完了した日から間隔が始まります。",
-        "summaryFromCompletion": "完了日から"
+        "summaryFromCompletion": "完了日から",
+        "intervalHint": "選択したあとで間隔を自由に設定できます。2週間ごと、3ヶ月ごとなど。"
     },
     "recipes": {
         "mealTypeNone": "食事なし",

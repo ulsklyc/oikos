@@ -2594,7 +2594,8 @@
         "summaryCount_one": "{{count}} repetición",
         "fromCompletionLabel": "Repetir desde que se completa",
         "fromCompletionHint": "El intervalo empieza el día en que marcas la tarea como hecha, no en su fecha de vencimiento.",
-        "summaryFromCompletion": "desde que se completa"
+        "summaryFromCompletion": "desde que se completa",
+        "intervalHint": "Tras elegir una, el intervalo se ajusta libremente - por ejemplo, cada 2 semanas o cada 3 meses."
     },
     "recipes": {
         "mealTypeNone": "Sin comida",

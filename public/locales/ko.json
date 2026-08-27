@@ -2606,7 +2606,8 @@
         "summaryCount_one": "{{count}}회",
         "fromCompletionLabel": "완료일부터 반복",
         "fromCompletionHint": "마감일이 아니라 작업을 완료한 날부터 간격이 시작됩니다.",
-        "summaryFromCompletion": "완료일부터"
+        "summaryFromCompletion": "완료일부터",
+        "intervalHint": "선택한 뒤에는 간격을 자유롭게 정할 수 있습니다. 2주마다, 3개월마다처럼요."
     },
     "reminders": {
         "sectionTitle": "알림",

@@ -1,10 +1,8 @@
-<!-- version: 2.49.0 -->
-An appointment that nobody picked a colour for now takes the colour of the person it belongs to. That sounds small, but it had stopped working: every new appointment was quietly given the first colour of the palette, and every appointment arriving from a synced calendar was given that calendar's colour. Both looked exactly like a deliberate choice afterwards, so the colour of the family member always lost - even though their picture was sitting right next to the entry.
+<!-- version: 2.49.1 -->
+When you set an appointment or a task to repeat, the menu offers daily, weekly, monthly and yearly. Those four read like the only rhythms on offer, and they are not: once you pick one, a field appears next to it that lets you set any interval you like - every two weeks, every three months. Someone opened a thread asking for exactly that, found it days later by picking an option on the off chance, and apologised for not having searched harder. He had searched enough. The menu had answered the wrong question.
 
-The event dialog now opens on a new first option, "colour of the assigned person", and that is where a new appointment starts. Choosing a colour still keeps it, in the calendar and across syncs, so nothing you have set by hand changes. Appointments you already have are left exactly as they are: a colour that was stored years ago cannot be told apart from one that was chosen on purpose, and this update would rather change nothing than throw away a real choice. Entries from a synced calendar sort themselves out on their own with the next sync; for the ones you created in Yuvomi, opening the appointment once and picking the new option is enough.
+A line under the menu now says so before you choose, and it steps aside the moment the interval is standing there in front of you. Anyone using a screen reader hears the same thing at the same time, rather than being told about a choice that has already been made. Both the appointment dialog and the task dialog share this field, so it reads the same in either place.
 
-Two smaller things follow from the same change. Clearing a colour on an appointment that is mirrored to Google now clears it there too, instead of leaving the two sides showing different colours forever. And the countdown tile on the overview borrows the colour the same way, so the same appointment no longer looks one way in the calendar and another way on the tile beside it.
+Nothing needs to be done by hand, and nothing changes about the appointments, tasks or repeat rules you already have.
 
-This version changes the shape of one database table so that "no colour of its own" can be stored at all. It happens automatically when the container starts; nothing needs to be done by hand, and no appointment, assignment or reminder is lost in the process.
-
-Full release notes are available at https://github.com/ulsklyc/yuvomi/releases/tag/v2.49.0
+Full release notes are available at https://github.com/ulsklyc/yuvomi/releases/tag/v2.49.1

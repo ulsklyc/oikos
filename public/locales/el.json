@@ -2594,7 +2594,8 @@
         "summaryCount_one": "{{count}} επανάληψη",
         "fromCompletionLabel": "Επανάληψη από την ολοκλήρωση",
         "fromCompletionHint": "Το διάστημα ξεκινά την ημέρα που ολοκληρώνετε την εργασία, όχι από την ημερομηνία λήξης.",
-        "summaryFromCompletion": "από την ολοκλήρωση"
+        "summaryFromCompletion": "από την ολοκλήρωση",
+        "intervalHint": "Μετά την επιλογή, το διάστημα ρυθμίζεται ελεύθερα - π.χ. κάθε 2 εβδομάδες ή κάθε 3 μήνες."
     },
     "recipes": {
         "mealTypeNone": "Χωρίς γεύμα",

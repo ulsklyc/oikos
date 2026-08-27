@@ -2606,7 +2606,8 @@
         "summaryCount_one": "{{count}} kejadian",
         "fromCompletionLabel": "Ulangi dari tanggal penyelesaian",
         "fromCompletionHint": "Interval dimulai pada hari Anda menandai tugas selesai, bukan pada tanggal jatuh temponya.",
-        "summaryFromCompletion": "dari penyelesaian"
+        "summaryFromCompletion": "dari penyelesaian",
+        "intervalHint": "Setelah memilih, interval dapat diatur bebas - misalnya setiap 2 minggu atau setiap 3 bulan."
     },
     "reminders": {
         "sectionTitle": "Pengingat",

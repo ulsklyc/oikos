@@ -2594,7 +2594,8 @@
         "summaryCount_one": "{{count}} tillfälle",
         "fromCompletionLabel": "Upprepa från slutförandet",
         "fromCompletionHint": "Intervallet börjar den dag du bockar av uppgiften, inte på förfallodatumet.",
-        "summaryFromCompletion": "från slutförandet"
+        "summaryFromCompletion": "från slutförandet",
+        "intervalHint": "Efter valet kan intervallet ställas in fritt - till exempel varannan vecka eller var tredje månad."
     },
     "recipes": {
         "mealTypeNone": "Ingen måltid",

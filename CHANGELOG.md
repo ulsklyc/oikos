@@ -59,6 +59,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   existing data the two are indistinguishable. Resetting an ICS appointment to its original clears
   both flags: the feed manages it again, colour included.
 
+## [2.49.1] - 2026-08-27
+
+### Changed
+
+- **The repeat menu says that its intervals are adjustable** (#862). The four options - daily,
+  weekly, monthly, yearly - read like fixed values, because the field that turns them into `every 2
+  weeks` or `every 3 months` lives in a block that stays hidden until one of them is picked. A
+  reporter opened a thread asking for custom intervals and found them himself a few days later,
+  by picking a frequency on the off chance: *"sorry for opening a topic about an already built-in
+  feature, could have searched a little longer"*. He had not searched too little; the menu had
+  answered the wrong question.
+
+  A line under the menu now says the interval is free to set, and names two examples. It is shown
+  in exactly the state where the misreading is possible and goes away with it - the hint and the
+  detail block are complements, never both there and never both gone. The select's
+  `aria-describedby` is removed along with the hint rather than merely hidden, because a directly
+  referenced node counts towards the accessible description even while hidden - otherwise a
+  screen-reader user would keep hearing the hint that answers the question they just answered. Task
+  and appointment forms share the field, so both get it.
+
 ## [2.49.0] - 2026-08-27
 
 ### Fixed

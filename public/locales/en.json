@@ -2594,7 +2594,8 @@
         "summaryCount_one": "{{count}} occurrence",
         "fromCompletionLabel": "Repeat from completion",
         "fromCompletionHint": "The interval starts on the day you tick the task off, not on its due date.",
-        "summaryFromCompletion": "from completion"
+        "summaryFromCompletion": "from completion",
+        "intervalHint": "Once you pick one, the interval is yours to set - every 2 weeks, or every 3 months."
     },
     "reminders": {
         "sectionTitle": "Reminder",
