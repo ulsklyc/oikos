@@ -304,12 +304,18 @@
 }
 
 /* Der Budget-Tab hält seine eigene Scroll-Region: Zusammenfassung und
- * Kategoriebalken bleiben stehen, nur die Transaktionsliste scrollt. Das Panel
- * selbst scrollt deshalb nicht, und sein Abstand kommt aus .budget-summary-bar. */
+ * Kategoriebalken bleiben stehen, nur die Transaktionsliste scrollt - solange
+ * der feste Teil in den Viewport passt. `overflow-y: auto` statt `hidden`,
+ * denn der feste Teil wächst mit den Kategorien: mit `hidden` war die Liste
+ * auf einem kurzen Desktop-Viewport unerreichbar abgeschnitten (#904). Im
+ * Normalfall läuft nichts über und das Panel scrollt nicht; erst wenn die
+ * Untergrenze von .budget-list-section das Panel überlaufen lässt, scrollen
+ * Zusammenfassung und Balken mit. Der Abstand kommt aus .budget-summary-bar. */
 .budget-tab-panel--budget {
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding-block-start: 0;
 }
 
@@ -1183,7 +1189,14 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  min-height: 0;
+  /* Untergrenze statt `min-height: 0`: als flex:1-Kind neben dem inhaltshohen
+   * Kategorie-Chart kollabierte die Sektion auf kurzen Desktop-Viewports bis
+   * auf Kopfzeilenhöhe, und das Panel (damals `overflow: hidden`) ließ sie
+   * unerreichbar (#904). 280px = Kopfzeile (60px) + drei Buchungszeilen (64px)
+   * + eine angeschnittene vierte, die das interne Scrollen sichtbar macht.
+   * Unterhalb von 640px setzt der Mobil-Reflow sie zurück - dort scrollt das
+   * Panel als Ganzes und die Sektion wächst mit ihrem Inhalt. */
+  min-height: 280px;
   /* Das Lesemaß steht an der SEKTION, nicht an `.budget-list` darunter, und
    * zwar aus zwei Gründen. Erstens fluchten so Kopf und Liste an derselben
    * Kante - läge es an der Liste, stünde die Überschrift „Transaktionen" über
@@ -1412,11 +1425,11 @@
    * Der Eltern-Container begrenzt die Breite nicht, daher viewport-relativ. */
   .budget-tabs { max-width: calc(100vw - var(--space-8)); }
 
-  .budget-tab-panel--budget {
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
+  /* `overflow-y: auto` + Momentum stehen seit #904 an der Basisregel des
+   * Panels - hier bleibt nur der Reflow: Sektion und Liste geben ihre eigene
+   * Scroll-Achse ab und wachsen mit ihrem Inhalt, das Panel scrollt als
+   * Ganzes. `min-height: 0` nimmt der Sektion die 280px-Untergrenze der
+   * Desktop-Fassung wieder ab - hier ist sie kein Scrollfenster mehr. */
   .budget-tab-panel--budget .budget-list-section,
   .budget-tab-panel--budget .budget-list {
     flex: 0 0 auto;

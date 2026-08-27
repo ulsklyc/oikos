@@ -10,6 +10,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { withoutHtmlComments } from './source-text.js';
+import { eachRule } from './css-rules.js';
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), 'utf8').replace(/\r/g, '');
 
@@ -908,6 +909,44 @@ test('Panel-Fläche und Kopfleiste sind geteilt, nicht pro Tab gebaut', () => {
       `${rule[1]} setzt Scroll-Achse oder Padding selbst - beides gehört .budget-tab-panel`,
     );
   }
+});
+
+test('die Transaktionsliste bleibt auf kurzen Desktop-Viewports erreichbar (#904)', () => {
+  // Der feste Teil des Budget-Tabs (Zusammenfassung + Kategorie-Chart) wächst
+  // mit den Kategorien. Zwei Regeln zusammen hielten die Liste gefangen: das
+  // Panel clippte mit `overflow: hidden`, und die Sektion durfte per
+  // `min-height: 0` bis auf Kopfzeilenhöhe kollabieren - bei neun Kategorien
+  // auf 1512x747 lag die Liste vollständig unterhalb des Viewports, und weil
+  // das Panel nicht scrollte, führte kein Weg zu ihr (#904, gemessen: Sektion
+  // 32px hoch, Liste ab y=648 bei 620px Viewport). Beide Hälften einzeln
+  // gepinnt: jede allein genügt, um den Defekt wiederzubeleben.
+  let panelSeen = false;
+  let sectionSeen = false;
+  for (const { selector, body, at } of eachRule(budgetCss)) {
+    if (at.length) continue; // der Mobil-Reflow (≤640px) scrollt das Panel als Ganzes
+    if (selector.trim() === '.budget-tab-panel--budget') {
+      panelSeen = true;
+      assert.doesNotMatch(
+        body, /overflow(?:-y)?\s*:\s*hidden/,
+        '.budget-tab-panel--budget clippt wieder: wächst der feste Teil über den '
+        + 'Viewport, ist die Transaktionsliste unerreichbar (#904) - das Panel '
+        + 'braucht overflow-y: auto als Ausweichweg',
+      );
+    }
+    if (selector.trim() === '.budget-list-section') {
+      sectionSeen = true;
+      const min = body.match(/min-height\s*:\s*([^;]+)/);
+      assert.ok(min, '.budget-list-section braucht eine nutzbare min-height-Untergrenze (#904)');
+      assert.doesNotMatch(
+        min[1], /^\s*0(?:px)?\s*$/,
+        '.budget-list-section darf nicht wieder auf 0 kollabieren: als flex:1-Kind '
+        + 'neben dem inhaltshohen Kategorie-Chart schrumpft sie sonst auf '
+        + 'Kopfzeilenhöhe (#904)',
+      );
+    }
+  }
+  assert.ok(panelSeen, '.budget-tab-panel--budget fehlt in budget.css');
+  assert.ok(sectionSeen, '.budget-list-section fehlt in budget.css');
 });
 
 test('Trendpfeile sind Icons, keine Textglyphen', () => {
