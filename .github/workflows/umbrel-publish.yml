@@ -53,6 +53,7 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Check out (for the authored Umbrel release notes)
         uses: actions/checkout@v7

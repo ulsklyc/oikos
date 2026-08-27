@@ -13,6 +13,7 @@ jobs:
   test:
     name: Tests (Node.js ${{ matrix.node-version }})
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     strategy:
       matrix:
