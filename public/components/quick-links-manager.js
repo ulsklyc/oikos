@@ -38,8 +38,6 @@ const VISIBILITY_VALUES = ['all', 'private'];
  */
 const MAX_ICON_DATA_LENGTH = 128 * 1024;
 
-const ICON_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
-
 /**
  * Die Absage der Adressprüfung als Satz, den jemand lesen kann.
  *
@@ -123,26 +121,21 @@ function faceInk(color) {
 
 /**
  * Liest eine Bilddatei und lässt sie zuschneiden.
- * Nutzt denselben Zuschnitt-Dialog wie das Mitgliedsfoto - ein zweiter wäre
- * dieselbe Arbeit mit einer zweiten Bedienung.
+ * Derselbe Weg wie beim Mitgliedsfoto (#901) - hier nur mit der engeren
+ * Obergrenze einer Kachel und dem eigenen Vokabular: was hier gewählt wird,
+ * ist ein Symbol und kein Profilbild.
  * @returns {Promise<string|undefined>} Data-URL, oder undefined bei Abbruch
  */
 async function readIconAsDataUrl(file) {
-  if (!file) return undefined;
-  if (!ICON_TYPES.includes(file.type)) throw new Error(t('quickLinks.iconTypeError'));
-
-  const dataUrl = await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = () => reject(new Error(t('quickLinks.iconReadError')));
-    reader.readAsDataURL(file);
+  const { pickCroppedImage } = await import('/utils/avatar-crop.js');
+  return pickCroppedImage(file, {
+    maxDataLength: MAX_ICON_DATA_LENGTH,
+    messageKeys: {
+      type:         'quickLinks.iconTypeError',
+      read:         'quickLinks.iconReadError',
+      dataTooLarge: 'quickLinks.iconTooLarge',
+    },
   });
-
-  const { openCropDialog } = await import('/utils/avatar-crop.js');
-  const cropped = await openCropDialog(dataUrl);
-  if (cropped === null) return undefined;
-  if (cropped.length > MAX_ICON_DATA_LENGTH) throw new Error(t('quickLinks.iconTooLarge'));
-  return cropped;
 }
 
 // --------------------------------------------------------

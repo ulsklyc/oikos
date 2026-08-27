@@ -7,8 +7,6 @@ import {
 import { esc } from '/utils/html.js';
 import { prefersInkText } from '/utils/contrast.js';
 
-const MAX_AVATAR_DATA_LENGTH = 768 * 1024;
-
 function initials(name) {
   if (!name) return '?';
   return name
@@ -71,31 +69,6 @@ function setAvatarPreview(container, user) {
     avatarHtml(user, 'settings-avatar settings-avatar--lg'),
   );
   window.lucide?.createIcons({ el: preview });
-}
-
-async function readImageAsDataUrl(file) {
-  if (!file) return undefined;
-  if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
-    throw new Error(t('settings.profilePictureTypeError'));
-  }
-  if (file.size > 5 * 1024 * 1024) {
-    throw new Error(t('settings.profilePictureFileTooLarge'));
-  }
-
-  const dataUrl = await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = () => reject(new Error(t('settings.profilePictureReadError')));
-    reader.readAsDataURL(file);
-  });
-
-  const { openCropDialog } = await import('/utils/avatar-crop.js');
-  const cropped = await openCropDialog(dataUrl);
-  if (cropped === null) return undefined;
-  if (cropped.length > MAX_AVATAR_DATA_LENGTH) {
-    throw new Error(t('settings.profilePictureTooLarge'));
-  }
-  return cropped;
 }
 
 const SETTINGS_NOTICE_KEY = 'yuvomi:settings:notice';
@@ -627,16 +600,19 @@ function bindEvents(container, user, profileState) {
 
   avatarFile?.addEventListener('change', async () => {
     clearError(profileError);
+    const file = avatarFile.files?.[0];
+    // Das Feld ist ein Transportmittel, kein Zustand - sofort leeren, wie
+    // beim Kachelbild (`quick-links-manager.js`). Bleibt der Dateiname
+    // stehen, feuert `change` beim nächsten Griff zu DERSELBEN Datei nicht
+    // mehr, und „nochmal anders zuschneiden" täte gar nichts.
+    avatarFile.value = '';
     try {
-      const avatarData = await readImageAsDataUrl(avatarFile.files?.[0]);
-      if (avatarData !== undefined) {
-        profileState.avatarData = avatarData;
-        updatePreview();
-      } else {
-        avatarFile.value = '';
-      }
+      const { pickCroppedImage } = await import('/utils/avatar-crop.js');
+      const avatarData = await pickCroppedImage(file);
+      if (avatarData === undefined) return; // abgebrochen: bisheriges Bild bleibt
+      profileState.avatarData = avatarData;
+      updatePreview();
     } catch (error) {
-      avatarFile.value = '';
       showError(profileError, error.message);
     }
   });

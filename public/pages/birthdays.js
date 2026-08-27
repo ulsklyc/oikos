@@ -344,15 +344,6 @@ function bindEvents() {
   });
 }
 
-function readFileAsDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = () => reject(new Error('Failed to read image.'));
-    reader.readAsDataURL(file);
-  });
-}
-
 function birthdayPreviewHtml(name, photoData) {
   if (photoData) return `<img class="birthday-preview__image" src="${photoData}" alt="${esc(name || '')}">`;
   return `<span class="birthday-preview__fallback">${esc(initials(name))}</span>`;
@@ -372,7 +363,7 @@ function openBirthdayModal({ mode, birthday = null }) {
             <button type="button" class="birthday-avatar-editor" id="birthday-preview" aria-label="${t('birthdays.photoLabel')}">
               ${birthdayPreviewHtml(birthday?.name || '', photoData)}
             </button>
-            <input class="sr-only" id="bd-photo" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+            <input class="sr-only" id="bd-photo" type="file" accept="image/png,image/jpeg,image/webp">
             <div class="birthday-modal__photo-actions">
               <button type="button" class="birthday-modal__photo-action" id="bd-photo-edit" aria-label="${t('birthdays.photoLabel')}" title="${t('birthdays.photoLabel')}">
                 <i data-lucide="pencil" aria-hidden="true"></i>
@@ -426,8 +417,17 @@ function openBirthdayModal({ mode, birthday = null }) {
       fileInput?.addEventListener('change', async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
+        // Das Feld ist ein Transportmittel, kein Zustand - sofort leeren, wie
+        // beim Kachelbild (`quick-links-manager.js`). Bleibt der Dateiname
+        // stehen, feuert `change` beim nächsten Griff zu DERSELBEN Datei nicht
+        // mehr, und „nochmal anders zuschneiden" täte gar nichts.
+        e.target.value = '';
         try {
-          photoData = await readFileAsDataUrl(file);
+          const { pickCroppedImage } = await import('/utils/avatar-crop.js');
+          const cropped = await pickCroppedImage(file);
+          // Abgebrochener Zuschnitt: das bisherige Bild bleibt stehen.
+          if (cropped === undefined) return;
+          photoData = cropped;
           renderPreview();
         } catch (err) {
           window.yuvomi?.showToast(err.message, 'danger');

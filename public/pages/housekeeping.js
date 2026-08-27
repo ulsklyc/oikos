@@ -1199,21 +1199,23 @@ function openStaffModal(worker, content, options = {}) {
   avatarFile?.addEventListener('change', async () => {
     const file = avatarFile.files?.[0];
     if (!file) return;
+    // Das Feld ist ein Transportmittel, kein Zustand - sofort leeren, wie
+    // beim Kachelbild (`quick-links-manager.js`). Bleibt der Dateiname
+    // stehen, feuert `change` beim nächsten Griff zu DERSELBEN Datei nicht
+    // mehr, und „nochmal anders zuschneiden" täte gar nichts.
+    avatarFile.value = '';
     try {
-      const dataUrl = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.addEventListener('load', () => resolve(String(reader.result || '')));
-        reader.addEventListener('error', () => reject(new Error()));
-        reader.readAsDataURL(file);
-      });
-      const { openCropDialog } = await import('/utils/avatar-crop.js');
-      const cropped = await openCropDialog(dataUrl);
-      if (!cropped) { avatarFile.value = ''; return; }
+      const { pickCroppedImage } = await import('/utils/avatar-crop.js');
+      const cropped = await pickCroppedImage(file);
+      if (cropped === undefined) return; // abgebrochen: bisheriges Bild bleibt
       state.workerAvatar = cropped;
       avatarButton.replaceChildren();
       avatarButton.insertAdjacentHTML('beforeend', `<img src="${esc(state.workerAvatar)}" alt="">`);
-    } catch {
-      avatarFile.value = '';
+    } catch (err) {
+      // Vorher verschwand hier JEDER Fehler in einem leeren `catch` - eine zu
+      // große oder falsch getypte Datei sah aus wie ein Abbruch, und der
+      // Reader warf ohnehin einen Error ohne Text. Jetzt gibt es eine Meldung.
+      window.yuvomi?.showToast(err.message, 'danger');
     }
   });
   if (window.lucide) window.lucide.createIcons({ el: panel });

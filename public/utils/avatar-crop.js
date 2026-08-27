@@ -6,6 +6,24 @@ const CROP_SIZE = 240;
 const CROP_OFFSET = (CANVAS_SIZE - CROP_SIZE) / 2; // 24
 const OUTPUT_SIZE = 256;
 
+// Was hereindarf. Die Liste war vor #901 an fünf Stellen einzeln
+// hingeschrieben und überall dieselbe - der Zuschnitt gibt ohnehin JPEG
+// zurück, also hängt sie nicht am Ziel, sondern daran, was ein `<img>` laden
+// kann. Sie ist deshalb Konstante und keine Option.
+const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+const MAX_FILE_BYTES = 5 * 1024 * 1024;
+
+// Was am Ende herauskommen darf. DAS hängt am Ziel: ein Porträt landet in
+// `avatar_data`/`photo_data`, ein Kachelbild in einer deutlich engeren Spalte.
+const MAX_PORTRAIT_DATA_LENGTH = 768 * 1024;
+
+const DEFAULT_MESSAGE_KEYS = {
+  type:         'settings.profilePictureTypeError',
+  fileTooLarge: 'settings.profilePictureFileTooLarge',
+  read:         'settings.profilePictureReadError',
+  dataTooLarge: 'settings.profilePictureTooLarge',
+};
+
 let stylesInjected = false;
 
 function injectStyles() {
@@ -265,7 +283,16 @@ function buildDialog(img, resolve) {
   return dialog;
 }
 
-export function openCropDialog(imageDataUrl) {
+/**
+ * Der Zuschnitt-Dialog selbst - MODUL-PRIVAT, und das ist der Punkt.
+ *
+ * Solange er exportiert war, konnte jeder Aufrufer seinen eigenen Weg dorthin
+ * bauen, und genau das ist fünfmal passiert: fünf Fassungen von "Datei lesen,
+ * prüfen, zuschneiden, Ergebnis prüfen", von denen eine gar nicht zuschnitt
+ * (#901), eine keine Größe prüfte und eine jeden Fehler stumm schluckte. Der
+ * einzige Weg hinein ist jetzt `pickCroppedImage()`.
+ */
+function openCropDialog(imageDataUrl) {
   injectStyles();
   return new Promise((resolve) => {
     const img = new Image();
@@ -292,4 +319,54 @@ export function openCropDialog(imageDataUrl) {
     img.onerror = () => resolve(null);
     img.src = imageDataUrl;
   });
+}
+
+/**
+ * DER EINE WEG VON EINER DATEI ZU EINEM ZUGESCHNITTENEN BILD.
+ *
+ * Vor #901 gab es ihn fünfmal: zeichengleich in `admin-family.js` und
+ * `personal-account.js`, mit eigenen Grenzen in `quick-links-manager.js`, ohne
+ * Größenprüfung und mit leerem `catch` in `housekeeping.js` - und in
+ * `birthdays.js` als abgemagerte Fassung ohne Typprüfung, ohne Größenprüfung,
+ * ohne Zuschnitt und mit einer hartcodiert englischen Fehlermeldung. Genau die
+ * war die Meldung: ein Geburtstagsfoto ließ sich nicht zuschneiden, ein
+ * Profilbild schon. Der Grund war kein fehlender Dialog, sondern ein Dialog,
+ * an dem sich jeder Aufrufer vorbeibauen konnte.
+ *
+ * Konfigurierbar ist deshalb nur, was sich WIRKLICH unterscheidet: die
+ * Obergrenze des Ergebnisses und die Texte. Typen, Dateigröße und der Ablauf
+ * selbst sind für alle gleich.
+ *
+ * GIF fällt dabei aus dem Geburtstagsmodul heraus, und zwar bewusst.
+ * `buildDialog()` gibt IMMER ein JPEG von 256 Pixeln zurück - ein GIF durch
+ * den Zuschnitt zu schicken hieße, eine Animation stumm gegen ein Standbild
+ * zu tauschen. Lieber eine Ablehnung, die man liest, als ein Ergebnis, das
+ * anders ist als das Hochgeladene. Der Server nimmt GIF unverändert an; das
+ * hier ist der Weg durch die Oberfläche, nicht die Zusage der API.
+ *
+ * @param {File|undefined} file
+ * @param {{maxDataLength?: number, messageKeys?: Record<string,string>}} [options]
+ * @returns {Promise<string|undefined>} das zugeschnittene Bild als Data-URL,
+ *   oder `undefined`, wenn nichts gewählt oder der Zuschnitt abgebrochen wurde.
+ *   Wirft mit einer übersetzten Meldung, wenn die Datei nicht taugt.
+ */
+export async function pickCroppedImage(file, options = {}) {
+  const maxDataLength = options.maxDataLength ?? MAX_PORTRAIT_DATA_LENGTH;
+  const keys = { ...DEFAULT_MESSAGE_KEYS, ...(options.messageKeys || {}) };
+
+  if (!file) return undefined;
+  if (!ACCEPTED_TYPES.includes(file.type)) throw new Error(t(keys.type));
+  if (file.size > MAX_FILE_BYTES) throw new Error(t(keys.fileTooLarge));
+
+  const dataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error(t(keys.read)));
+    reader.readAsDataURL(file);
+  });
+
+  const cropped = await openCropDialog(dataUrl);
+  if (cropped === null) return undefined;
+  if (cropped.length > maxDataLength) throw new Error(t(keys.dataTooLarge));
+  return cropped;
 }

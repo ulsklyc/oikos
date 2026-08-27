@@ -16,7 +16,6 @@ import {
 
 const FAMILY_ROLES = ['dad', 'mom', 'parent', 'child', 'grandparent', 'relative', 'other'];
 
-const MAX_AVATAR_DATA_LENGTH = 768 * 1024;
 const randomAvatarColor = () => AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
 
 /**
@@ -107,31 +106,6 @@ function bindAvatarPicker(container, prefix) {
   ].forEach((picker) => {
     picker?.addEventListener('click', () => fileInput?.click());
   });
-}
-
-async function readImageAsDataUrl(file) {
-  if (!file) return undefined;
-  if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
-    throw new Error(t('settings.profilePictureTypeError'));
-  }
-  if (file.size > 5 * 1024 * 1024) {
-    throw new Error(t('settings.profilePictureFileTooLarge'));
-  }
-
-  const dataUrl = await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = () => reject(new Error(t('settings.profilePictureReadError')));
-    reader.readAsDataURL(file);
-  });
-
-  const { openCropDialog } = await import('/utils/avatar-crop.js');
-  const cropped = await openCropDialog(dataUrl);
-  if (cropped === null) return undefined;
-  if (cropped.length > MAX_AVATAR_DATA_LENGTH) {
-    throw new Error(t('settings.profilePictureTooLarge'));
-  }
-  return cropped;
 }
 
 function memberHtml(u, currentUserId) {
@@ -655,20 +629,23 @@ async function openEditMemberModal(member, currentUser, users, container) {
       bindAvatarPicker(panel, 'edit-member');
       fileInput?.addEventListener('change', async () => {
         errorEl.hidden = true;
+        const file = fileInput.files?.[0];
+        // Das Feld ist ein Transportmittel, kein Zustand - sofort leeren, wie
+        // beim Kachelbild (`quick-links-manager.js`). Bleibt der Dateiname
+        // stehen, feuert `change` beim nächsten Griff zu DERSELBEN Datei nicht
+        // mehr, und „nochmal anders zuschneiden" täte gar nichts.
+        fileInput.value = '';
         try {
-          const avatarData = await readImageAsDataUrl(fileInput.files?.[0]);
-          if (avatarData !== undefined) {
-            state.avatarData = avatarData;
-            setAvatarPreview(panel, '#edit-member-avatar-preview', {
-              display_name: panel.querySelector('#edit-member-display-name')?.value || member.display_name,
-              avatar_color: panel.querySelector('#edit-member-avatar-color')?.value || member.avatar_color,
-              avatar_data: avatarData,
-            });
-          } else {
-            fileInput.value = '';
-          }
+          const { pickCroppedImage } = await import('/utils/avatar-crop.js');
+          const avatarData = await pickCroppedImage(file);
+          if (avatarData === undefined) return; // abgebrochen: bisheriges Bild bleibt
+          state.avatarData = avatarData;
+          setAvatarPreview(panel, '#edit-member-avatar-preview', {
+            display_name: panel.querySelector('#edit-member-display-name')?.value || member.display_name,
+            avatar_color: panel.querySelector('#edit-member-avatar-color')?.value || member.avatar_color,
+            avatar_data: avatarData,
+          });
         } catch (err) {
-          fileInput.value = '';
           showError(errorEl, err.message ?? t('common.errorGeneric'));
         }
       });
