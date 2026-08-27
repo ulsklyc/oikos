@@ -140,9 +140,11 @@ export function renderRRuleFields(prefix, existingRule, opts = {}) {
       ${sourceRule}
       <div class="form-group">
         <label class="label form-label" for="${prefix}-rrule-freq">${t('rrule.labelRepeat')}</label>
-        <select class="input form-input" id="${prefix}-rrule-freq">
+        <select class="input form-input" id="${prefix}-rrule-freq"
+                aria-describedby="${prefix}-rrule-hint">
           ${freqOpts}
         </select>
+        <p class="rrule-hint" id="${prefix}-rrule-hint" ${parsed.freq ? 'hidden' : ''}>${t('rrule.intervalHint')}</p>
       </div>
 
       <div class="rrule-details" id="${prefix}-rrule-details" ${parsed.freq ? '' : 'hidden'}>
@@ -294,6 +296,7 @@ export function bindRRuleEvents(root, prefix) {
   const endSelect   = root.querySelector(`#${prefix}-rrule-end`);
   const untilWrap   = root.querySelector(`#${prefix}-rrule-until-wrap`);
   const countWrap   = root.querySelector(`#${prefix}-rrule-count-wrap`);
+  const hint        = root.querySelector(`#${prefix}-rrule-hint`);
 
   if (!freqSelect) return;
 
@@ -301,6 +304,10 @@ export function bindRRuleEvents(root, prefix) {
     const freq = freqSelect.value;
     if (details)  details.hidden  = !freq;
     if (weekdays) weekdays.hidden = freq !== 'WEEKLY';
+    // Der Hinweis ist die Umkehrung des Detailbereichs: er beantwortet die Frage
+    // "sind das die einzigen vier Takte?", und sobald der Takt sichtbar danebensteht,
+    // hat sie sich erledigt (#862).
+    if (hint)     hint.hidden     = !!freq;
     updateUnit();
   });
 

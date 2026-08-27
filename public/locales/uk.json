@@ -2594,7 +2594,8 @@
         "summaryCount_one": "{{count}} повторення",
         "fromCompletionLabel": "Повторювати від дня виконання",
         "fromCompletionHint": "Інтервал починається від дня, коли ви позначили завдання виконаним, а не від терміну.",
-        "summaryFromCompletion": "від виконання"
+        "summaryFromCompletion": "від виконання",
+        "intervalHint": "Після вибору інтервал налаштовується вільно - наприклад, кожні 2 тижні або кожні 3 місяці."
     },
     "reminders": {
         "sectionTitle": "Нагадування",

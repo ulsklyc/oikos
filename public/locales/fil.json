@@ -2606,7 +2606,8 @@
         "summaryCount_one": "{{count}} pagkakataon",
         "fromCompletionLabel": "Ulitin mula sa araw ng pagkumpleto",
         "fromCompletionHint": "Magsisimula ang agwat sa araw na markahan mong tapos ang gawain, hindi sa takdang petsa nito.",
-        "summaryFromCompletion": "mula sa pagkumpleto"
+        "summaryFromCompletion": "mula sa pagkumpleto",
+        "intervalHint": "Pagkatapos pumili, malaya mong maitatakda ang agwat - halimbawa tuwing 2 linggo o tuwing 3 buwan."
     },
     "reminders": {
         "sectionTitle": "Paalala",

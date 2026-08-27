@@ -2594,7 +2594,8 @@
         "summaryCount_one": "{{count}} tekrar",
         "fromCompletionLabel": "Tamamlandığı günden itibaren tekrarla",
         "fromCompletionHint": "Aralık, görevi tamamladığınız gün başlar; son tarihte değil.",
-        "summaryFromCompletion": "tamamlanmadan itibaren"
+        "summaryFromCompletion": "tamamlanmadan itibaren",
+        "intervalHint": "Seçtikten sonra aralığı istediğin gibi ayarlayabilirsin - örneğin her 2 haftada bir veya her 3 ayda bir."
     },
     "recipes": {
         "mealTypeNone": "Öğün yok",

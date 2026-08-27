@@ -2594,7 +2594,8 @@
         "summaryCount_one": "{{count}} ocorrência",
         "fromCompletionLabel": "Repetir a partir da conclusão",
         "fromCompletionHint": "O intervalo começa no dia em que você marca a tarefa como concluída, não na data de vencimento.",
-        "summaryFromCompletion": "a partir da conclusão"
+        "summaryFromCompletion": "a partir da conclusão",
+        "intervalHint": "Depois de escolher, o intervalo fica livre - por exemplo, a cada 2 semanas ou a cada 3 meses."
     },
     "recipes": {
         "mealTypeNone": "Sem refeição",

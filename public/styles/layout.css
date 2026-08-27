@@ -5652,6 +5652,16 @@ textarea::placeholder {
   color: var(--color-text-secondary);
 }
 
+/* Gegenstueck zur Progressive Disclosure oben: solange keine Frequenz gewaehlt
+ * ist, sagt die Liste nichts darueber, dass der Takt danach frei einstellbar
+ * ist - sie liest sich wie vier feste Werte (#862). Der Hinweis steht genau in
+ * dem Zustand, in dem der Irrtum moeglich ist, und verschwindet mit ihm. */
+.rrule-hint {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
 .rrule-day {
   width: var(--target-md);
   height: var(--target-md);

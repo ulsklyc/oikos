@@ -2594,7 +2594,8 @@
         "summaryCount_one": "{{count}} повторение",
         "fromCompletionLabel": "Повторять от даты выполнения",
         "fromCompletionHint": "Интервал отсчитывается со дня, когда вы отметили задачу выполненной, а не от срока.",
-        "summaryFromCompletion": "от выполнения"
+        "summaryFromCompletion": "от выполнения",
+        "intervalHint": "После выбора интервал настраивается свободно - например, каждые 2 недели или каждые 3 месяца."
     },
     "recipes": {
         "mealTypeNone": "Без приёма пищи",

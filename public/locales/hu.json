@@ -2594,7 +2594,8 @@
         "summaryCount_one": "{{count}} alkalom",
         "fromCompletionLabel": "Ismétlés a teljesítéstől",
         "fromCompletionHint": "Az időköz azon a napon indul, amikor kipipálod a feladatot, nem a határidőtől.",
-        "summaryFromCompletion": "a teljesítéstől"
+        "summaryFromCompletion": "a teljesítéstől",
+        "intervalHint": "A választás után az időköz szabadon beállítható - például minden 2. héten vagy minden 3. hónapban."
     },
     "reminders": {
         "sectionTitle": "Emlékeztetők",

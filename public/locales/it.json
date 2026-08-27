@@ -2594,7 +2594,8 @@
         "summaryCount_one": "{{count}} ricorrenza",
         "fromCompletionLabel": "Ripeti dal completamento",
         "fromCompletionHint": "L'intervallo parte dal giorno in cui completi l'attività, non dalla data di scadenza.",
-        "summaryFromCompletion": "dal completamento"
+        "summaryFromCompletion": "dal completamento",
+        "intervalHint": "Dopo la scelta l’intervallo è liberamente impostabile - ad esempio ogni 2 settimane o ogni 3 mesi."
     },
     "recipes": {
         "mealTypeNone": "Nessun pasto",

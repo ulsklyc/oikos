@@ -2594,7 +2594,8 @@
         "summaryCount_one": "{{count}} पुनरावृत्ति",
         "fromCompletionLabel": "पूरा होने से दोहराएँ",
         "fromCompletionHint": "अंतराल उस दिन से शुरू होता है जिस दिन आप कार्य पूरा करते हैं, नियत तारीख से नहीं।",
-        "summaryFromCompletion": "पूरा होने से"
+        "summaryFromCompletion": "पूरा होने से",
+        "intervalHint": "चुनने के बाद अंतराल स्वतंत्र रूप से सेट किया जा सकता है, जैसे हर 2 सप्ताह या हर 3 माह।"
     },
     "recipes": {
         "mealTypeNone": "कोई भोजन नहीं",
