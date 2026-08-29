@@ -350,7 +350,15 @@ router.get('/', (req, res) => {
       FROM notes n
       LEFT JOIN users u ON n.created_by = u.id
       ORDER BY n.pinned DESC, n.updated_at DESC
-      LIMIT 3
+      -- FUENF, WEIL DIE KACHEL ZWEI HOCH SEIN DARF - dieselbe Korrektur, die
+      -- die Geburtstage oben schon bekommen haben und bei der die Notizen
+      -- uebersehen wurden. Der Schnitt stand auf drei und war damit die
+      -- Obergrenze fuer JEDE Kachelgroesse; die Notizkachel startet ab Werk auf
+      -- 1x2, hat also Platz fuer fuenf Zeilen und bekam trotzdem nur drei
+      -- geliefert. Wie viele wirklich erscheinen, entscheidet die Kachel
+      -- (listRowCap in public/pages/dashboard.js) - der Server liefert nur
+      -- den Vorrat fuer die groesste Fassung.
+      LIMIT 5
     `).all();
     /* `pinnedNotes` HEISST SO, IST ES ABER NICHT: die Liste sortiert Gepinntes
      * nach vorn und schneidet bei drei ab - sie filtert nicht. Fuer die Vorschau

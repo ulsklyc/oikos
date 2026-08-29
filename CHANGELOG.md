@@ -22,6 +22,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   next real appointments instead of leaving a shorter list; recognised by the birthday entry behind
   the event, not by its title, which is stored in the household's data language.
 
+### Fixed
+
+- **The Notes tile on the Overview shows as many notes as it has room for.** It was the only list
+  tile that never read its own size: the route capped the supply at three, so three was the ceiling
+  for every size the tile can take. Since the tile ships at 1×2 - tall - that left roughly a third
+  of the card empty, and a household with five pinned notes saw three of them and no hint that
+  there were more, while the metric tile beside it said "5 pinned". Reported as pinned notes not
+  appearing on the dashboard (#928). The row count now comes from the size class the way it does
+  for birthdays, tasks and appointments (`listRowCap`), and the route supplies five - the amount
+  the largest version can hold. Exactly the same correction the birthday tile got when it had the
+  same defect; the notes were missed at the time.
+
 ## [2.53.0] - 2026-08-29
 
 ### Changed

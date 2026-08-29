@@ -515,6 +515,31 @@ test('Notiz-Widget: nur der Auszug landet im DOM, nie der Volltext (Paket 3)', a
   nodeAssert.match(html, /…/, 'der Auszug endet mit einer Ellipse');
 });
 
+test('Notiz-Widget: die Zeilenzahl kommt aus der Kachelgroesse, nicht aus einer festen Drei (#928)', async () => {
+  const { __test } = await import('../public/pages/dashboard.js');
+  // Fuenf angepinnte Notizen - der Vorrat, den die Route seit #928 liefert.
+  const notes = ['A', 'B', 'C', 'D', 'E'].map((titel, i) => ({
+    id: i + 1, title: `Notiz ${titel}`, content: titel, pinned: 1,
+  }));
+  const zeilen = (html) => (html.match(/class="note-item"/g) || []).length;
+
+  // Die Standardgroesse der Kachel ist 1x2, also hoch: dort passen fuenf.
+  // Genau hier stand der Fehler - die Kachel hatte den Platz und bekam drei.
+  nodeAssert.equal(zeilen(__test.renderPinnedNotes(notes, '1x2')), 5,
+    'die hohe Kachel zeigt nicht alle fuenf');
+  nodeAssert.equal(zeilen(__test.renderPinnedNotes(notes, '2x2')), 5,
+    'die grosse Kachel zeigt nicht alle fuenf');
+  // Gegenprobe: die flache Kachel deckelt weiterhin, sonst quillt sie ueber.
+  nodeAssert.equal(zeilen(__test.renderPinnedNotes(notes, '1x1')), 3,
+    'die flache Kachel deckelt nicht mehr');
+  nodeAssert.equal(zeilen(__test.renderPinnedNotes(notes, '2x1')), 3,
+    'die breite flache Kachel deckelt nicht mehr');
+  // Ohne Groesse (aeltere Aufrufer, __test-Tor) bleibt es beim flachen Wert -
+  // die Kachel darf nicht ins Unbegrenzte kippen, nur weil niemand fragt.
+  nodeAssert.equal(zeilen(__test.renderPinnedNotes(notes)), 3,
+    'ohne Groesse wird nicht gedeckelt');
+});
+
 test('Tagesprogramm: Aufgaben-Zeile trägt den Quick-Action-Anker (Paket 2)', async () => {
   const { __test } = await import('../public/pages/dashboard.js');
   const todayStr = toLocalDateKey(new Date());

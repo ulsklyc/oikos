@@ -1167,7 +1167,16 @@ function renderTodayMeals(meals, visibleMealTypes = MEAL_ORDER) {
   </div>`;
 }
 
-function renderPinnedNotes(notes) {
+function renderPinnedNotes(allNotes, size) {
+  /* WIE VIELE ZEILEN, ENTSCHEIDET DIE KACHEL - wie bei jeder anderen
+   * Listenkachel (`listRowCap`). Die Notizen waren die einzige, die ihre Groesse
+   * gar nicht las: der Server schnitt bei drei, und drei war damit die
+   * Obergrenze fuer jede Fassung. Ab Werk steht die Kachel auf 1x2, also hoch -
+   * unter drei Zeilen blieb rund ein Drittel der Karte leer, und wer fuenf
+   * Notizen angepinnt hatte, sah drei davon und keinen Hinweis auf die
+   * uebrigen (#928). Dieselbe Korrektur haben die Geburtstage schon bekommen;
+   * die Notizen wurden dabei uebersehen. */
+  const notes = allNotes.slice(0, listRowCap(size));
   if (!notes.length) {
     return `<div class="widget widget--notes">
       ${widgetHeader('notes', t('nav.notes'), 0, '/notes')}
@@ -2552,7 +2561,7 @@ function renderDashboardLayout(cfg, data, weather, currency, { editing = false, 
     housekeeping: () => renderHousekeepingWidget(data.housekeeping ?? {}, currency),
     family: () => renderFamilyWidget(data.users ?? [], data),
     meals: () => renderTodayMeals(data.todayMeals ?? [], visibleMealTypes),
-    notes: () => renderPinnedNotes(data.pinnedNotes ?? []),
+    notes: (size) => renderPinnedNotes(data.pinnedNotes ?? [], size),
     shopping: () => renderShoppingLists(data.shoppingLists ?? []),
     weather: () => (weather ? renderWeatherWidget(weather) : ''),
     clock: () => renderClockWidget(),
