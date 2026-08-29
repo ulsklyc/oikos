@@ -3308,12 +3308,21 @@ export async function openTaskById(taskId, { user = null, container = null, onCh
       state.categories    = meta.categories ?? state.categories;
       state.allTags       = meta.tags       ?? state.allTags;
       state.defaultPoints = Number(meta.default_points) || state.defaultPoints;
-    } catch { /* Ansicht steht auch ohne - nur weniger aufgeloest. */ }
+    } catch { /* Ansicht steht auch ohne - nur weniger aufgeloest, siehe unten. */ }
   }
   if (user) {
     state.currentUserId = user.id ?? null;
     state.isAdmin       = user.role === 'admin';
   }
+
+  // OHNE KATEGORIEN KEIN FORMULAR. Die Auswahl wird aus `state.categories`
+  // gebaut; blieb der Aufruf oben ohne Antwort, stuende dort ein leeres
+  // Auswahlfeld, und ein Speichern schickte eine leere Kategorie, die der
+  // Server ablehnt - nachdem wartende Datei-Uploads bereits durch sind. Die
+  // Leseansicht bleibt, der Bearbeiten-Knopf faellt weg: kein Knopf ist
+  // ehrlicher als einer, der in einen Fehler laeuft (dieselbe Regel wie beim
+  // fehlenden Mounter).
+  const canOfferEdit = state.categories.length > 0;
 
   openTaskDetail({
     task,
@@ -3324,14 +3333,18 @@ export async function openTaskById(taskId, { user = null, container = null, onCh
     categories: state.categories,
     container,
     onChanged,
-    edit: {
+    edit: !canOfferEdit ? null : {
       mount: (panel, pane) => {
         modalTags = normalizeTagList(task.tags);
         pane.insertAdjacentHTML('beforeend', renderModalContent({ task, users: state.users, reminder }));
-        // Ohne Seiten-Container: das Formular schreibt, die aufrufende Ansicht
-        // frischt auf. `container` waere hier die Uebersicht, und die haelt
-        // keine Aufgabenliste, die sich neu zeichnen liesse.
-        wireTaskForm(panel, { task, container: null, onChanged });
+        // `container` reist MIT, obwohl es hier die Uebersicht ist und keine
+        // Aufgabenliste haelt: sein zweiter Zweck ist das Ausblenden der Zeile
+        // beim Loeschen. Ohne ihn haette derselbe Loeschbefehl zwei Verhalten -
+        // ueber den Knopf der Leseansicht ginge die Zeile sofort, ueber den im
+        // Formular bliebe sie den ganzen Rueckgaengig-Streifen lang stehen.
+        // Nachgeladen wird trotzdem nichts Fremdes: `onChanged` ist gesetzt und
+        // verdraengt den `loadTasks`-Default.
+        wireTaskForm(panel, { task, container, onChanged });
       },
     },
   });

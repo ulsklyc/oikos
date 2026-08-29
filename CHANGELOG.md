@@ -20,6 +20,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tasks get created and groomed. The view with fewer capabilities was the one being used more
   often. Every entry point now opens the full reading view, in place, and returns you to where you
   were: check something off in the Calendar and the day updates around you.
+- **The shared reading view now brings its own stylesheet.** The router keeps exactly one page
+  stylesheet loaded - `dashboard.css` on the Overview, `calendar.css` in the Calendar - and the
+  rules for comments, document chips, image previews, tags and the series history all lived in
+  `tasks.css`. Opening a task from anywhere but the Tasks module would have drawn it almost
+  unstyled: measured, a tag chip came out with `border-radius: 0` and an author line at weight 400.
+  Those rules moved into `task-detail.css`, loaded eagerly next to `detail-view.css` - the code was
+  shared, its appearance was not.
 - **The reading view of a task lives in one place instead of two.** It sat inside the Tasks page and
   could therefore only be opened from there; every other view had the choice of building a smaller
   card of its own or sending the user away, and both were in use. Duplicating the markup would have

@@ -436,6 +436,69 @@ test('der Rueckgaengig-Streifen blendet JEDE Darstellung der Aufgabe aus (#918)'
     'die Cockpit-Zeile benennt ihr Objekt');
   assert.match(dash, /class="task-item" data-task-id=/, 'die Widget-Zeile nennt ihre Aufgabe');
 });
+
+test('die geteilte Leseansicht bringt ihr Aussehen mit (#918)', async () => {
+  // DER ROUTER HAELT GENAU EIN SEITEN-BLATT (loadPageStyle in router.js). Auf
+  // der Uebersicht ist das dashboard.css, im Kalender calendar.css - tasks.css
+  // ist dort NICHT geladen. Seit die Leseansicht von dort geoeffnet werden kann,
+  // waeren ihre Kommentare, Dokument-Chips, Bildvorschauen, Etiketten und ihr
+  // Verlauf ohne Regeln erschienen: der Code war geteilt, sein Aussehen nicht.
+  const html = await read('public/index.html');
+  assert.match(html, /href="\/styles\/task-detail\.css"/,
+    'das Blatt der geteilten Ansicht wird eager geladen, nicht als Seiten-Blatt');
+
+  // Die eager geladene Menge wird aus index.html ABGELEITET, nicht abgetippt:
+  // eine getippte Liste veraltet still und macht den Guard entweder blind oder
+  // grundlos rot.
+  const eagerHrefs = [...html.matchAll(/<link rel="stylesheet" href="([^"]+)"/g)].map((m) => m[1]);
+  assert.ok(eagerHrefs.length >= 10, `unerwartet wenige eager Stylesheets: ${eagerHrefs.length}`);
+  const eager = (await Promise.all(
+    eagerHrefs.map((href) => read('public' + href)),
+  )).join('\n');
+
+  // Die Regel, nicht eine Allowlist: JEDE Klasse, die die Komponente selbst
+  // vergibt, muss aus einem immer geladenen Blatt kommen.
+  const detail = await taskDetailJs();
+  const classes = new Set();
+  for (const m of detail.matchAll(/className = '([^']+)'/g)) {
+    for (const c of m[1].split(/\s+/)) if (c) classes.add(c);
+  }
+  assert.ok(classes.size >= 15,
+    `nur ${classes.size} Klassen gefunden - das Muster passt nicht mehr auf die Komponente`);
+
+  const page = await read('public/styles/tasks.css');
+  const nurImSeitenblatt = [...classes].filter((c) => {
+    const re = new RegExp('\\.' + c.replace(/-/g, '\\-') + '(?![\\w-])');
+    return re.test(page) && !re.test(eager);
+  });
+  assert.deepEqual(nurImSeitenblatt, [],
+    'diese Klassen der geteilten Ansicht stehen NUR in tasks.css - aus der '
+    + 'Uebersicht und dem Kalender waeren sie ohne Regeln: ' + nurImSeitenblatt.join(', '));
+});
+test('derselbe Loeschbefehl verhaelt sich auf beiden Wegen gleich (#918)', async () => {
+  const src = await tasksJs();
+  // Der Container hat ZWEI Zwecke: eine Liste nachladen (die die Uebersicht
+  // nicht hat) und die Zeile beim Loeschen ausblenden (die sie sehr wohl hat).
+  // Wurde er wegen des ersten auf null gesetzt, fiel das zweite mit weg, und
+  // Loeschen ueber das Formular liess die Zeile den ganzen Streifen lang stehen.
+  const block = src.slice(src.indexOf('export async function openTaskById('));
+  assert.match(block, /wireTaskForm\(panel, \{ task, container, onChanged \}\)/,
+    'das von aussen gemountete Formular bekommt seinen Container');
+  assert.doesNotMatch(block, /container: null/,
+    'ein genullter Container nimmt dem Loeschen sein optimistisches Ausblenden');
+});
+
+test('ohne Auswahl wird kein Bearbeiten angeboten (#918)', async () => {
+  const src = await tasksJs();
+  const block = src.slice(src.indexOf('export async function openTaskById('));
+  // Scheitert /tasks/meta/options, ist die Kategorienliste leer. Ein Formular
+  // darauf schickte eine leere Kategorie an einen Server, der sie ablehnt -
+  // nachdem wartende Datei-Uploads schon durch sind.
+  assert.match(block, /const canOfferEdit = state\.categories\.length > 0/,
+    'die Bedingung fuer ein brauchbares Formular ist benannt');
+  assert.match(block, /edit: !canOfferEdit \? null :/,
+    'ohne sie faellt der Bearbeiten-Knopf weg statt in einen Fehler zu fuehren');
+});
 test('der Status lässt sich aus der Detailansicht weiterschalten', async () => {
   const src = await taskDetailJs();
   assert.match(src, /const NEXT_STATUS = \{/, 'die Kette open → in_progress → done ist benannt');
