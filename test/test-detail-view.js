@@ -21,6 +21,17 @@ import { readFile, readdir } from 'node:fs/promises';
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
+/**
+ * Einen Namen als Literal in ein RegExp setzen.
+ *
+ * VOLLSTAENDIG, nicht nur das Zeichen, das gerade stoert: Hier stand einmal
+ * `.replace(/-/g, '\\-')`, weil Klassennamen Bindestriche tragen - und liess
+ * jedes andere Metazeichen durch, den Backslash zuerst. Aus einem Namen wird
+ * dann ein Muster, das etwas anderes sucht als den Namen, und ein Guard, der
+ * still am Falschen vorbeimisst (CodeQL js/incomplete-sanitization).
+ */
+const reLiteral = (s) => s.replace(/[.*+?^${}()|[\]\\-]/g, (ch) => `\\${ch}`);
+
 const detailJs   = () => read('public/components/detail-view.js');
 const detailCss  = () => read('public/styles/detail-view.css');
 const modalJs    = () => read('public/components/modal.js');
@@ -369,7 +380,7 @@ test('die Leseansicht ist nicht an ihr Modul genagelt (#918)', async () => {
   assert.doesNotMatch(detail, /\bstate\.\w/, 'die Komponente liest keinen fremden Seiten-State');
   assert.doesNotMatch(detail, /loadTasks\(/, 'sie laedt keine fremde Liste nach');
   for (const field of ['users', 'currentUserId', 'isAdmin', 'categories', 'onChanged']) {
-    assert.match(detail, new RegExp('\\b' + field + '\\b'), field + ' kommt ueber den Aufruf');
+    assert.match(detail, new RegExp('\\b' + reLiteral(field) + '\\b'), field + ' kommt ueber den Aufruf');
   }
 
   // Und die zwei Ansichten, die vorher eine kleinere Fassung bauten oder
@@ -407,7 +418,7 @@ test('der Kontext erreicht JEDEN Knoten der Leseansicht (#918)', async () => {
     assert.match(call, /\bctx\b/, `commentRowNode ohne Kontext: ${call}`);
   }
   for (const fn of ['commentTextNode', 'wireMentionSuggest', 'subtaskListNode', 'commentsNode']) {
-    for (const call of detail.match(new RegExp(fn + '\\([^)]*\\)', 'g')) ?? []) {
+    for (const call of detail.match(new RegExp(reLiteral(fn) + '\\([^)]*\\)', 'g')) ?? []) {
       if (call.startsWith(fn + '(function') || /^\w+\(\s*\w+\s*,\s*ctx\s*\)$/.test(call)) continue;
       assert.match(call, /\bctx\b/, `${fn} ohne Kontext: ${call}`);
     }
@@ -468,7 +479,7 @@ test('die geteilte Leseansicht bringt ihr Aussehen mit (#918)', async () => {
 
   const page = await read('public/styles/tasks.css');
   const nurImSeitenblatt = [...classes].filter((c) => {
-    const re = new RegExp('\\.' + c.replace(/-/g, '\\-') + '(?![\\w-])');
+    const re = new RegExp('\\.' + reLiteral(c) + '(?![\\w-])');
     return re.test(page) && !re.test(eager);
   });
   assert.deepEqual(nurImSeitenblatt, [],
@@ -519,7 +530,7 @@ test('die Aufgaben-Detailansicht führt die Leseinformationen der Karte', async 
   for (const key of ['tasks.statusLabel', 'tasks.priorityLabel', 'tasks.dueDateLabel', 'tasks.startDateLabel',
     'tasks.categoryLabel', 'tasks.pointsLabel', 'tasks.tagsLabel',
     'tasks.subtasksLabel', 'tasks.documentsLabel', 'tasks.descriptionLabel']) {
-    assert.match(fn, new RegExp(key.replace('.', '\\.')), `${key} fehlt in der Detailansicht`);
+    assert.match(fn, new RegExp(reLiteral(key)), `${key} fehlt in der Detailansicht`);
   }
   // Der Anker ab Erledigung reist als zweites Argument mit (#658), die Zeile
   // bleibt aber die geteilte - deshalb offen bis zur Klammer statt exakt.
