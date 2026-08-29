@@ -394,6 +394,48 @@ test('die Leseansicht ist nicht an ihr Modul genagelt (#918)', async () => {
   assert.match(cal, /openTaskFromCalendar\(taskChip\.dataset\.taskId\)/,
     'er oeffnet die Aufgabe an Ort und Stelle');
 });
+
+test('der Kontext erreicht JEDEN Knoten der Leseansicht (#918)', async () => {
+  const detail = await taskDetailJs();
+  // Ein einziger vergessener Durchgriff reicht: `commentRowNode` liest
+  // `ctx.currentUserId` in seiner ersten Zeile, und der Abbrechen-Weg des
+  // Kommentar-Editors baute die Zeile ohne ctx neu. Der Kommentar blieb dann
+  // im Bearbeiten-Zustand stecken - ein TypeError, den keine Route sieht.
+  const calls = detail.match(/commentRowNode\(comment,\s*\{[^}]*\}/g) ?? [];
+  assert.ok(calls.length >= 2, 'beide Aufrufer von commentRowNode muessen auffindbar sein');
+  for (const call of calls) {
+    assert.match(call, /\bctx\b/, `commentRowNode ohne Kontext: ${call}`);
+  }
+  for (const fn of ['commentTextNode', 'wireMentionSuggest', 'subtaskListNode', 'commentsNode']) {
+    for (const call of detail.match(new RegExp(fn + '\\([^)]*\\)', 'g')) ?? []) {
+      if (call.startsWith(fn + '(function') || /^\w+\(\s*\w+\s*,\s*ctx\s*\)$/.test(call)) continue;
+      assert.match(call, /\bctx\b/, `${fn} ohne Kontext: ${call}`);
+    }
+  }
+});
+
+test('der Rueckgaengig-Streifen blendet JEDE Darstellung der Aufgabe aus (#918)', async () => {
+  const detail = await taskDetailJs();
+  const fn = detail.slice(detail.indexOf('function taskRowsIn('),
+                          detail.indexOf('export async function deleteTaskWithUndo('));
+  assert.ok(fn.length > 0, 'taskRowsIn ist nicht mehr auffindbar');
+
+  // DIE UEBERSICHT NENNT IHR OBJEKT ANDERS. Eine Cockpit-Zeile kann jedes
+  // Modul meinen und traegt `data-object-kind`/`data-object-id`; ein Selektor
+  // nur auf `data-task-id` findet dort nichts, und der Streifen sagte fuenf
+  // Sekunden lang „geloescht", waehrend die Zeile klickbar stehen blieb.
+  assert.match(fn, /data-task-id=/, 'die Listen-Schreibweise');
+  assert.match(fn, /data-object-kind="task"/, 'die Uebersicht-Schreibweise');
+  assert.match(fn, /querySelectorAll/,
+    'dieselbe Aufgabe kann zugleich im Cockpit und im Dringend-Widget stehen');
+
+  // Und die Uebersicht muss diese Namen wirklich vergeben - sonst liefe der
+  // Guard ueber eine leere Menge.
+  const dash = await dashboardJs();
+  assert.match(dash, /data-object-kind="\$\{esc\(row\.kind\)\}" data-object-id=/,
+    'die Cockpit-Zeile benennt ihr Objekt');
+  assert.match(dash, /class="task-item" data-task-id=/, 'die Widget-Zeile nennt ihre Aufgabe');
+});
 test('der Status lässt sich aus der Detailansicht weiterschalten', async () => {
   const src = await taskDetailJs();
   assert.match(src, /const NEXT_STATUS = \{/, 'die Kette open → in_progress → done ist benannt');

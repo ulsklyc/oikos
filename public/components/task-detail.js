@@ -64,6 +64,31 @@ export async function setTaskArchived(id, archived) {
 }
 
 /**
+ * Jede Darstellung DIESER Aufgabe in der übergebenen Umgebung.
+ *
+ * Zwei Gründe, warum das kein `querySelector` mit einem Selektor ist:
+ *
+ * 1. DIE ÜBERSICHT NENNT IHR OBJEKT ANDERS. Eine Cockpit-Zeile kann jedes Modul
+ *    meinen und trägt deshalb `data-object-kind` + `data-object-id` statt
+ *    `data-task-id`. Ein Selektor, der nur den zweiten Namen kennt, findet dort
+ *    nichts - und der Rückgängig-Streifen sagte fünf Sekunden lang "gelöscht",
+ *    während die Zeile stehen blieb und sich anklicken ließ.
+ * 2. EINE AUFGABE KANN MEHRFACH DASTEHEN. Auf der Übersicht zugleich im Cockpit
+ *    und im Dringend-Widget. `querySelector` nähme die erste und ließe die
+ *    andere stehen.
+ *
+ * Nur die äußersten Treffer: die Aufgabenkarte trägt ihre Id, und die
+ * Mehrfachauswahl-Box darin ein zweites Mal.
+ */
+function taskRowsIn(container, id) {
+  if (!container) return [];
+  const hits = [...container.querySelectorAll(
+    `[data-task-id="${id}"], [data-object-kind="task"][data-object-id="${id}"]`,
+  )];
+  return hits.filter((el) => !hits.some((other) => other !== el && other.contains(el)));
+}
+
+/**
  * Eine Aufgabe löschen, mit Rückgängig-Streifen statt Rückfrage.
  *
  * `container` ist optional und dient allein dem optimistischen Ausblenden: Wer
@@ -72,8 +97,8 @@ export async function setTaskArchived(id, archived) {
  */
 export async function deleteTaskWithUndo(id, { container = null, onChanged = () => {} } = {}) {
   closeModal({ force: true });
-  const itemEl = container?.querySelector(`[data-task-id="${id}"]`) ?? null;
-  if (itemEl) itemEl.style.display = 'none';
+  const rows = taskRowsIn(container, id);
+  for (const el of rows) el.style.display = 'none';
 
   scheduleUndoableDelete({
     message: t('tasks.deletedToast'),
@@ -86,7 +111,7 @@ export async function deleteTaskWithUndo(id, { container = null, onChanged = () 
       await onChanged();
     },
     restore: (err) => {
-      if (itemEl) itemEl.style.display = '';
+      for (const el of rows) el.style.display = '';
       if (err) window.yuvomi.showToast(err.message ?? t('common.unknownError'), 'danger');
     },
   });
@@ -467,7 +492,7 @@ function startCommentEdit(row, comment, { onChanged, ctx }) {
     // Die zurueckgeholte Zeile bringt ihre Icons als `data-lucide` mit, nicht
     // als fertiges SVG - ohne diesen Aufruf stuenden Bearbeiten und Loeschen
     // als leere Kaesten da, und zwar bis zum naechsten Nachladen.
-    const restored = commentRowNode(comment, { onChanged });
+    const restored = commentRowNode(comment, { onChanged, ctx });
     row.replaceWith(restored);
     if (window.lucide) window.lucide.createIcons({ el: restored });
   });
