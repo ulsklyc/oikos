@@ -1,0 +1,20 @@
+{
+  "name": "receipt-tracker-service",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Backend service for the Yuvomi Receipts module — vision-model extraction, receipt/item storage, search and spend analysis. Runs beside Yuvomi, never touches yuvomi.db.",
+  "scripts": {
+    "start": "node --import dotenv/config src/index.js",
+    "dev": "node --import dotenv/config --watch src/index.js",
+    "dev-proxy": "node --import dotenv/config dev-proxy.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.3.0",
+    "cookie-parser": "^1.4.6",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "http-proxy-middleware": "^3.0.3",
+    "multer": "^2.0.0"
+  }
+}
