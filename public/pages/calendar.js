@@ -561,6 +561,11 @@ let state = {
   offlineSince:  null,     // Date des letzten Cache-Stands, wenn offline bedient
   defaultDuration: 60,     // Standard-Termindauer (Minuten) aus den Präferenzen
   currentUserId: null,     // eigene User-ID für „Mir zugewiesen"-Filter
+  // Der angemeldete Mensch, wie der Router ihn hereingibt. Gehalten fuer die
+  // Aufgaben-Leseansicht (#918): an ihm haengt, wem seine eigenen Kommentare
+  // gehoeren und wer eine gesperrte Aufgabe umschreiben darf. `currentUserId`
+  // allein reichte dafuer nicht - die Rolle steht nicht darin.
+  user: null,
   assignedToMe:  false,    // nur Termine/Aufgaben zeigen, die mir zugewiesen sind
   // Gewaehlte Personen als Set von User-IDs; LEER heisst ALLE, nicht KEINE.
   //
@@ -1185,6 +1190,41 @@ async function loadRange(from, to) {
 }
 
 /**
+ * Eine Aufgabe aus dem Kalender öffnen (#918).
+ *
+ * Bis dahin sprang ein Klick auf einen Aufgaben-Chip ins Aufgabenmodul: Der
+ * Kalender war weg, der Monat, den man gerade las, auch, und der Weg zurück
+ * ging über die Navigation. Für das Abhaken einer Aufgabe, die man auf ihrem
+ * Tag stehen sieht, war das der ganze Vorgang.
+ *
+ * Jetzt öffnet dieselbe Leseansicht, die das Aufgabenmodul öffnet - über den
+ * einen Einstieg dort, nicht über eine zweite, kleinere Fassung hier. Das
+ * Modul wird dafür nachgeladen und nicht mit importiert: Es zieht das
+ * Aufgabenformular mit sich, und dessen Gewicht gehört nicht in den Start des
+ * Kalenders.
+ *
+ * Nach einer Änderung wird der sichtbare Bereich neu geholt statt nur neu
+ * gezeichnet: Abhaken, Ablegen und Löschen ändern, WELCHE Aufgaben auf einem
+ * Tag stehen, nicht nur wie sie aussehen.
+ */
+async function openTaskFromCalendar(taskId) {
+  try {
+    const { openTaskById } = await import('/pages/tasks.js');
+    await openTaskById(taskId, {
+      user: state.user,
+      container: _container,
+      onChanged: async () => {
+        await loadRange(state.rangeFrom, state.rangeTo);
+        renderView();
+      },
+    });
+  } catch (err) {
+    console.error('[Calendar] Aufgabe konnte nicht geöffnet werden:', err);
+    window.yuvomi?.showToast(err.message ?? t('tasks.loadError'), 'danger');
+  }
+}
+
+/**
  * Nur die Kalender-Events des aktuellen Bereichs neu laden (ohne Tasks/Feiertage).
  * Für serienweite Bearbeitungen (#532), bei denen sich lediglich die Expansion
  * ändert - vermeidet das Überholen unveränderter Tasks/Feiertage aus loadRange.
@@ -1303,6 +1343,7 @@ export async function render(container, { user }) {
   state.layerSchedule = localStorage.getItem(LAYER_SCHEDULE_KEY) !== 'false';
   state.scheduleDisplay = localStorage.getItem(SCHEDULE_DISPLAY_KEY) === 'blocks' ? 'blocks' : 'compact';
   state.currentUserId = user?.id ?? null;
+  state.user          = user ?? null;
   state.assignedToMe  = localStorage.getItem(ASSIGNED_TO_ME_KEY) === '1';
   state.people = restorePeopleFilter(state.users);
 
@@ -1818,7 +1859,7 @@ function renderMonthView(container) {
       const taskChip = e.target.closest('.cal-task-chip');
       if (taskChip) {
         e.stopPropagation();
-        window.yuvomi.navigate(`/tasks?open=${taskChip.dataset.taskId}`);
+        openTaskFromCalendar(taskChip.dataset.taskId);
         return;
       }
       const evEl = e.target.closest('.month-day__event');
@@ -2103,7 +2144,7 @@ function renderWeekView(container) {
   container.querySelector('.allday-row').addEventListener('click', (e) => {
     const taskChip = e.target.closest('.cal-task-chip');
     if (taskChip) {
-      window.yuvomi.navigate(`/tasks?open=${taskChip.dataset.taskId}`);
+      openTaskFromCalendar(taskChip.dataset.taskId);
       return;
     }
     const evEl = e.target.closest('.allday-event');
@@ -2315,7 +2356,7 @@ function renderDayView(container) {
   container.querySelector('.allday-row')?.addEventListener('click', (e) => {
     const taskChip = e.target.closest('.cal-task-chip');
     if (taskChip) {
-      window.yuvomi.navigate(`/tasks?open=${taskChip.dataset.taskId}`);
+      openTaskFromCalendar(taskChip.dataset.taskId);
       return;
     }
     const evEl = e.target.closest('.allday-event');
@@ -2453,7 +2494,7 @@ function renderAgendaView(container) {
     }
     const taskChip = e.target.closest('.cal-task-chip');
     if (taskChip) {
-      window.yuvomi.navigate(`/tasks?open=${taskChip.dataset.taskId}`);
+      openTaskFromCalendar(taskChip.dataset.taskId);
       return;
     }
     const evEl = e.target.closest('.agenda-event');

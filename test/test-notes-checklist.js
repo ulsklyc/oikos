@@ -193,7 +193,10 @@ test('das Dashboard rendert Notizen NICHT interaktiv', async () => {
  *
  * Die eigenen Faelle der Aufgaben liegen in test-tasks-checklist.js. */
 test('die Aufgaben rendern ihre Notiz interaktiv - sie zeigen den ganzen Text', async () => {
-  const src = await readFile(new URL('../public/pages/tasks.js', import.meta.url), 'utf8');
+  // Die Leseansicht wohnt seit #918 in der geteilten Komponente. Die Bedingung
+  // bleibt dieselbe - sie zeigt den vollstaendigen Text und kennt die Id -,
+  // und sie gilt jetzt auch dort, wo die Uebersicht die Aufgabe oeffnet.
+  const src = await readFile(new URL('../public/components/task-detail.js', import.meta.url), 'utf8');
   const calls = src.match(/renderMarkdownLight\([^)]*\)/g) ?? [];
   assert.ok(calls.length > 0, 'die Aufgaben rendern ihre Beschreibung');
   assert.ok(calls.some((c) => /interactive:\s*true/.test(c)),

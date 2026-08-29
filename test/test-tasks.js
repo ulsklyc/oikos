@@ -214,7 +214,9 @@ test('Users für Meta-Endpoint abrufbar', () => {
 // Klick-Handler des Seiten-Containers greift dort nicht, weil die Detailansicht
 // in den Top-Layer rendert; die Delegation muss also am Knoten selbst hängen.
 test('Teilaufgaben der Detailansicht sind abhakbar, nicht nur lesbar', () => {
-  const source = readFileSync(new URL('../public/pages/tasks.js', import.meta.url), 'utf8');
+  // Die Detailansicht wohnt seit #918 in der geteilten Komponente - dieselbe,
+  // die die Übersicht und der Kalender öffnen.
+  const source = readFileSync(new URL('../public/components/task-detail.js', import.meta.url), 'utf8');
   const fn = source.match(/function subtaskListNode\([\s\S]*?\n\}/);
   assert(fn, 'subtaskListNode muss existieren');
   const body = fn[0];

@@ -5,116 +5,63 @@
  */
 
 import { api } from '/api.js';
-import { renderRRuleFields, bindRRuleEvents, getRRuleValues, recurrenceRow } from '/rrule-ui.js';
+import { renderRRuleFields, bindRRuleEvents, getRRuleValues } from '/rrule-ui.js';
 import { openModal as openSharedModal, closeModal, wireBlurValidation, validateAll, btnSuccess, btnError, btnLoading, promptModal, confirmModal, advancedSection } from '/components/modal.js';
-import { openDetailView, closeDetailView, visibilityRow, assignedRow } from '/components/detail-view.js';
 import { stagger, vibrate, scheduleUndoableDelete, animationSettled } from '/utils/ux.js';
 import { wireSwipeRows, maybeShowSwipeHint } from '/utils/swipe-row.js';
-import { t, getLocale, formatDate, formatDayMonth, formatTime, formatDateInput, parseDateInput, isDateInputValid, formatTimeInput, parseTimeInput } from '/i18n.js';
-import { esc, renderMarkdownLight } from '/utils/html.js';
-import { splitKeepingLineEndings } from '/utils/markdown-checklist.js';
+import { t, getLocale, formatDate, formatTime, formatDateInput, parseDateInput, isDateInputValid, formatTimeInput, parseTimeInput } from '/i18n.js';
+import { esc } from '/utils/html.js';
 import { renderMarkdownToolbar, wireMarkdownToolbar } from '/utils/markdown-toolbar.js';
 import { refresh as refreshReminders } from '/reminders.js';
 import { renderUserMultiSelect, getSelectedUserIds, bindUserMultiSelect, renderAvatarStack } from '/components/user-multi-select.js';
-import { resolveReminderPreset, parseRemindAtAsUtc } from '/utils/reminder-offset.js';
+import { resolveReminderPreset } from '/utils/reminder-offset.js';
 import { renderPageSearch, wirePageSearch } from '/utils/page-search.js';
-import { isPreviewable } from '/utils/document-preview.js';
 import { renderDocumentAttachField, bindDocumentAttachField } from '/components/document-attach.js';
-import { splitMentions, applyMention } from '/utils/mentions.js';
 import { emptyStateHTML, mountLoadError } from '/utils/empty-state.js';
 import '/components/category-manager.js';
 import '/components/tag-manager.js';
 import { findPageFab } from '/utils/fab.js';
 import { isSoloHousehold } from '/utils/household.js';
-import { todayKey, parseLocalDateKey, addLocalDays } from '/utils/date.js';
-import { nowFields, zonedDateKey, zonedUTCProxy } from '/utils/timezone.js';
-import { isNavModuleReadOnly } from '/permissions.js';
+import { todayKey, parseLocalDateKey } from '/utils/date.js';
+import { zonedDateKey } from '/utils/timezone.js';
+import { historyDayLabel } from '/utils/day-label.js';
+import {
+  PRIORITIES, PRIO_ORDER, STATUSES, FILTER_STATUSES, PRIORITY_LABELS, STATUS_LABELS,
+  FALLBACK_CATEGORY, isArchived, formatDueDate, normalizeTagList,
+  catLabel as catLabelOf, catSortIndex as catSortIndexOf,
+  canEditTaskDefinition as canEditTaskDefinitionFor,
+} from '/utils/task-fields.js';
+import {
+  openTaskDetail, deleteTaskWithUndo, addSubtask,
+  setTaskArchived, toggleSubtaskStatus,
+} from '/components/task-detail.js';
 
 // --------------------------------------------------------
-// Konstanten
+// Die geteilten Regeln, mit dem Blickwinkel DIESER Seite
+//
+// Was ein Feld bedeutet, steht seit #918 in utils/task-fields.js, damit die
+// Leseansicht dieselbe Antwort gibt, egal wer sie oeffnet. Zwei dieser Regeln
+// brauchen Kontext, den nur eine Ansicht hat: wer gerade schaut und welche
+// Kategorien der Haushalt fuehrt. Die Wrapper hier setzen ihn ein, damit die
+// Aufrufe in dieser Datei so kurz bleiben wie zuvor.
 // --------------------------------------------------------
 
-const PRIORITIES = () => [
-  { value: 'urgent', label: t('tasks.priorityUrgent'), color: 'var(--color-priority-urgent)' },
-  { value: 'high',   label: t('tasks.priorityHigh'),   color: 'var(--color-priority-high)'   },
-  { value: 'medium', label: t('tasks.priorityMedium'), color: 'var(--color-priority-medium)' },
-  { value: 'low',    label: t('tasks.priorityLow'),    color: 'var(--color-priority-low)'    },
-  { value: 'none',   label: t('tasks.priorityNone'),   color: 'var(--color-priority-none)'   },
-];
-
-const PRIO_ORDER = { urgent: 0, high: 1, medium: 2, low: 3, none: 4 };
-
-// Die Zustände, die eine Aufgabe im Lauf durchläuft. Das Archiv steht seit #688
-// NICHT mehr darunter: Ablegen und Erledigen sind zwei Aussagen, und solange sie
-// sich ein Feld teilten, löschte das Ablegen das Erledigt-Sein.
-const STATUSES = () => [
-  { value: 'open',        label: t('tasks.statusOpen')       },
-  { value: 'in_progress', label: t('tasks.statusInProgress') },
-  { value: 'done',        label: t('tasks.statusDone')       },
-];
-
-// In der Filterleiste bleibt das Archiv ein Wert neben den Status - dort ist es
-// eine Frage („was zeige ich?"), keine Eigenschaft. Der Server nimmt
-// `status=archived` genau dafür entgegen.
-const FILTER_STATUSES = () => [...STATUSES(), { value: 'archived', label: t('tasks.statusArchived') }];
-
-/** Liegt die Aufgabe in der Ablage? Einzige Stelle, die das entscheidet. */
-function isArchived(task) {
-  return !!task?.archived_at;
+/** Wer schaut - fuer die Sperrregel aus #830. */
+function viewer() {
+  return { isAdmin: state.isAdmin, currentUserId: state.currentUserId };
 }
 
-/**
- * Darf ich die DEFINITION dieser Aufgabe ändern? (#830)
- *
- * Spiegelt die Serverregel Wort für Wort: gesperrt heißt, nur Ersteller:in und
- * Admins dürfen umschreiben, ablegen oder löschen - abhaken, kommentieren und
- * sich selbst eintragen bleibt für alle offen. Der Server entscheidet, hier
- * wird nur die Oberfläche danach gerichtet; laufen die beiden auseinander,
- * bietet das UI einen Knopf an, der in einem 403 endet.
- *
- * `parent` ist die Elternaufgabe einer Unteraufgabe: die erbt die Sperre, weil
- * sie ein Punkt derselben Anweisung ist.
- */
 function canEditTaskDefinition(task, parent = null) {
-  const lock = task?.locked ? task : (parent?.locked ? parent : null);
-  if (!lock) return true;
-  if (state.isAdmin) return true;
-  return Number(lock.created_by) === Number(state.currentUserId);
+  return canEditTaskDefinitionFor(task, parent, viewer());
 }
 
-// Fallback-Kategorie (kanonischer Key). Kategorien sind seit #494 benutzer-
-// verwaltbar und werden aus /tasks/meta/options in state.categories geladen.
-const FALLBACK_CATEGORY = 'misc';
-
-// Label einer Kategorie auflösen: Seed-Kategorien tragen label_key (i18n),
-// benutzerdefinierte tragen name. Unbekannte Keys (z. B. Due-Gruppen-Strings)
-// werden unverändert zurückgegeben.
 function catLabel(key, categories = state.categories) {
-  const c = categories.find((x) => x.key === key);
-  if (!c) return key;
-  return c.label_key ? t(c.label_key) : (c.name || c.key);
+  return catLabelOf(key, categories);
 }
 
-// DIE REIHENFOLGE DER KATEGORIEN STEHT IN DEN DATEN, NICHT IM ALPHABET (#845).
-//
-// Hier sortierte die Gruppierung `a.localeCompare(b, 'de')` - über den KEY, und
-// über eine fest verdrahtete Sprache. Das war gleich dreifach falsch: die im
-// Kategorie-Verwalter gezogene Reihenfolge (`sort_order`, seit #494 per
-// PATCH /tasks/categories/reorder gespeichert) blieb wirkungslos, sortiert
-// wurde der interne Schlüssel statt des sichtbaren Labels (`misc` steht unter
-// M, angezeigt wird „Sonstiges"), und eine französische Oberfläche bekam
-// deutsche Sortierregeln.
-//
-// `state.categories` kommt vom Server bereits nach `sort_order` sortiert -
-// die Position IN dieser Liste ist damit die einzige Wahrheit über die
-// Reihenfolge. Dieselbe Regel führt contacts.js seit #357.
 function catSortIndex(key, categories = state.categories) {
-  const i = categories.findIndex((c) => c.key === key);
-  return i === -1 ? Number.MAX_SAFE_INTEGER : i;
+  return catSortIndexOf(key, categories);
 }
-
-const PRIORITY_LABELS = () => Object.fromEntries(PRIORITIES().map((p) => [p.value, p.label]));
-const STATUS_LABELS   = () => Object.fromEntries(FILTER_STATUSES().map((s) => [s.value, s.label]));
 
 // --------------------------------------------------------
 // Verknüpfte Dokumente (#503, #733)
@@ -129,25 +76,6 @@ const STATUS_LABELS   = () => Object.fromEntries(FILTER_STATUSES().map((s) => [s
 // wartende Dateien hoch und liefert die vollständige ID-Liste, die
 // handleFormSubmit als Replace-Set an PUT /tasks/:id/documents gibt.
 let taskDocuments = null;
-
-function docMime(doc) {
-  return String(doc.mime_type || '').split(';')[0].trim().toLowerCase();
-}
-
-// Vorschaubar -> /preview (inline), sonst /download. Welche Typen das sind, steht
-// einmal in utils/document-preview.js, nicht hier.
-function docHref(doc) {
-  return isPreviewable(doc.mime_type)
-    ? `/api/v1/documents/${doc.id}/preview`
-    : `/api/v1/documents/${doc.id}/download`;
-}
-
-function docIcon(doc) {
-  const mime = docMime(doc);
-  if (mime.startsWith('image/')) return 'image';
-  if (mime === 'application/pdf') return 'file-text';
-  return 'file';
-}
 
 // --------------------------------------------------------
 // Hilfsfunktionen
@@ -168,70 +96,6 @@ function renderVisibilityBadge(visibility) {
   return `<span class="due-date task-card__visibility" title="${esc(label)}" aria-label="${esc(label)}">
             <i data-lucide="${icon}" class="icon-sm" aria-hidden="true"></i>
           </span>`;
-}
-
-function formatDueDate(dateStr, timeStr, isDone = false) {
-  if (!dateStr) return null;
-
-  // Zonenlose WANDUHRZEIT, nicht Zeitpunkt. `new Date(`${dateStr}T${timeStr}`)`
-  // machte aus "21:00" einen Zeitpunkt der BROWSER-Zone, den formatTime
-  // anschliessend in die Anzeigezone umrechnete - mit Haushalt auf Honolulu und
-  // Browser in Berlin stand an einer fuer 21:00 eingetragenen Aufgabe 9:00.
-  // Dieselbe Uhr entschied ueber "heute"/"morgen", und die Gruppierung nebenan
-  // folgt seit #829 laengst `todayKey()`: dieselbe Ansicht ging damit nach zwei
-  // Uhren, eine Aufgabe konnte unter "Morgen" stehen und "Heute faellig" heissen.
-  const dayKey = String(dateStr).slice(0, 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) return null;
-  const dueTime = timeStr ? String(timeStr).slice(0, 5) : null;
-  if (timeStr && !/^\d{2}:\d{2}$/.test(dueTime)) return null;
-  const dueStamp = `${dayKey}T${dueTime ?? '23:59'}`;
-
-  const now = nowFields();
-  if (!now) return null;
-  const p2 = (n) => String(n).padStart(2, '0');
-  const todayDay = `${now.year}-${p2(now.month)}-${p2(now.day)}`;
-  const nowStamp = `${todayDay}T${p2(now.hour)}:${p2(now.minute)}`;
-
-  // Kalendertage, nicht Millisekunden: ueber eine Sommerzeitgrenze liegen zwei
-  // Tage nicht 24h auseinander, ihre Keys aber immer genau einen.
-  const calDayDiff = Math.round(
-    (parseLocalDateKey(dayKey) - parseLocalDateKey(todayDay)) / (1000 * 60 * 60 * 24),
-  );
-
-  const timeLabel = dueTime ? ` – ${formatTime(dueStamp)}` : '';
-
-  /* DAS JAHR STEHT NUR DA, WO ES ETWAS UNTERSCHEIDET.
-   *
-   * Gemessen bei 390px: die Metazeile hat 228px, und „Überfällig – 11.08.2026"
-   * allein belegte 154px davon - mit dem Prioritäts-Chip davor lief die Zeile
-   * über und schnitt sich selbst an („11.08.202|6"). Das Jahr war dabei die
-   * einzige Angabe, die nichts beitrug: eine Aufgabe, die dieses Jahr fällig
-   * ist, sagt mit „11.08." dasselbe in 35px weniger.
-   *
-   * Über `formatDayMonth` und nicht per slice: die Reihenfolge und das
-   * Trennzeichen hängen an der Datumsformat-Präferenz (dmy, mdy, ymd), und ein
-   * abgeschnittener String hätte sie in drei von sieben Formaten verdreht. */
-  const dateLabel = dayKey.slice(0, 4) === todayDay.slice(0, 4)
-    ? formatDayMonth(dayKey)
-    : formatDate(dayKey);
-  const fullLabel = dueTime ? `${dateLabel}, ${formatTime(dueStamp)}` : dateLabel;
-
-  // Erledigte/archivierte Aufgaben können nicht überfällig sein - neutrales Datum.
-  if (isDone) {
-    return { label: fullLabel, cls: '' };
-  }
-
-  // Beide Seiten sind Wanduhrzeit DERSELBEN Zone und damit als Text vergleichbar.
-  if (dueStamp < nowStamp) {
-    return { label: `${t('tasks.overdue')} – ${fullLabel}`, cls: 'due-date--overdue' };
-  }
-  if (calDayDiff === 0) {
-    return { label: `${t('tasks.dueToday')}${timeLabel}`, cls: 'due-date--today' };
-  }
-  if (calDayDiff === 1) {
-    return { label: `${t('tasks.dueTomorrow')}${timeLabel}`, cls: '' };
-  }
-  return { label: fullLabel, cls: '' };
 }
 
 /**
@@ -724,32 +588,9 @@ function renderTaskGroups(tasks, groupMode) {
 // Kategorie: eine Aufgabe liegt in einer Schublade, trägt aber beliebig viele
 // Etiketten.
 // --------------------------------------------------------
-
-// Grenzen identisch zu server/utils/task-tags.js — die Oberfläche soll gar nicht
-// erst anbieten, was der Server anschließend kürzt.
-const MAX_TAGS = 32;
-const MAX_TAG_LEN = 64;
-
 // Working-Set des offenen Bearbeiten-Dialogs, analog zu den verknüpften
 // Dokumenten. Wird beim Öffnen aus der Aufgabe gefüllt und beim Speichern gelesen.
 let modalTags = [];
-
-/** Tag-Liste säubern; Groß-/Kleinschreibung eint (erste Schreibweise gewinnt). */
-function normalizeTagList(list) {
-  const out = [];
-  const seen = new Set();
-  for (const item of list ?? []) {
-    const tag = String(item ?? '').trim().slice(0, MAX_TAG_LEN).trim();
-    if (!tag) continue;
-    const key = tag.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(tag);
-    if (out.length >= MAX_TAGS) break;
-  }
-  return out;
-}
-
 /** Zeichnet die Chips des Tag-Editors neu. */
 function renderTagChips(container) {
   const wrap = container.querySelector('#task-tags-chips');
@@ -1265,6 +1106,10 @@ function taskQuery() {
 }
 
 async function loadTasks(container) {
+  // Ohne Container steht diese Seite gar nicht - die Aufgabe wurde von der
+  // Uebersicht oder aus dem Kalender geoeffnet (#918), und dort frischt der
+  // Aufrufer seine eigene Ansicht auf.
+  if (!container) return;
   persistAssignedToMe();
   const data  = await api.get(`/tasks${taskQuery()}`);
   state.tasks = data.data ?? [];
@@ -1285,16 +1130,6 @@ async function refreshTags() {
 }
 
 async function toggleTaskStatus(id, currentStatus) {
-  const next = currentStatus === 'done' ? 'open' : 'done';
-  await api.patch(`/tasks/${id}/status`, { status: next });
-}
-
-/** Ablegen bzw. zurückholen (#688) - der Status bleibt dabei, wie er war. */
-async function setTaskArchived(id, archived) {
-  await api.patch(`/tasks/${id}/archive`, { archived });
-}
-
-async function toggleSubtaskStatus(id, currentStatus) {
   const next = currentStatus === 'done' ? 'open' : 'done';
   await api.patch(`/tasks/${id}/status`, { status: next });
 }
@@ -1450,7 +1285,16 @@ function taskDocumentVisibility(panel) {
   return 'family';
 }
 
-function wireTaskForm(panel, { task = null, container }) {
+/**
+ * @param {HTMLElement} panel
+ * @param {{task?: object|null, container?: HTMLElement|null,
+ *          onChanged?: () => (void|Promise<void>)}} opts
+ *        `onChanged` frischt auf, was nach dem Speichern anders aussieht.
+ *        Voreingestellt ist die Liste dieser Seite; wer das Formular von
+ *        aussen mountet (#918, openTaskById), setzt seine eigene Ansicht ein -
+ *        die Uebersicht haelt keine Aufgabenliste, die sich neu zeichnen liesse.
+ */
+function wireTaskForm(panel, { task = null, container = null, onChanged = () => loadTasks(container) }) {
   panel.querySelector('.modal-panel__body')?.classList.add('modal-panel__body--tasks-fit');
   // RRULE-Events binden
   bindRRuleEvents(document, 'task');
@@ -1521,828 +1365,12 @@ function wireTaskForm(panel, { task = null, container }) {
   });
   // Form-Events
   panel.querySelector('#task-form')
-    ?.addEventListener('submit', (e) => handleFormSubmit(e, container));
+    ?.addEventListener('submit', (e) => handleFormSubmit(e, { container, onChanged }));
 
   panel.querySelector('[data-action="delete-task"]')
-    ?.addEventListener('click', (e) => handleDeleteTask(e.currentTarget.dataset.id, container));
-}
-
-// --------------------------------------------------------
-// Aufgaben-Detailansicht
-// --------------------------------------------------------
-
-// Was aus dem aktuellen Status als Nächstes kommt. Abgelegte Aufgaben führen
-// keine Weiterschaltung: sie sind aus dem Lauf genommen, nicht angehalten - ihr
-// Knopf holt zurück (siehe openTaskDetail).
-const NEXT_STATUS = {
-  open:        { status: 'in_progress', labelKey: 'tasks.detailStart',  icon: 'circle-dot' },
-  in_progress: { status: 'done',        labelKey: 'tasks.detailFinish', icon: 'check' },
-  done:        { status: 'open',        labelKey: 'tasks.detailReopen', icon: 'rotate-ccw' },
-};
-
-/** Prioritätsbadge als DOM - dieselbe Optik wie auf der Karte. */
-function priorityNode(priority) {
-  if (!priority || priority === 'none') return null;
-  const badge = document.createElement('span');
-  badge.className = 'priority-badge';
-  const dot = document.createElement('span');
-  dot.className = `priority-dot priority-dot--${priority}`;
-  badge.append(dot, document.createTextNode(PRIORITY_LABELS()[priority] ?? priority));
-  return badge;
-}
-
-/** Eine Chip-Reihe aus einer Liste. Beschriftung liefert der Aufrufer. */
-function chipListNode(items, toLabel) {
-  if (!items.length) return null;
-  const wrap = document.createElement('div');
-  wrap.className = 'detail-chips';
-  items.forEach((item) => {
-    const chip = document.createElement('span');
-    chip.className = 'task-tag';
-    chip.textContent = toLabel(item);
-    wrap.appendChild(chip);
-  });
-  return wrap;
-}
-
-/** Tags als Chips. In der Leseansicht benennen sie, sie filtern nicht. */
-function tagChipsNode(tags) {
-  return chipListNode(normalizeTagList(tags), (tag) => tag);
-}
-
-/** Teilaufgaben mit ihrem Stand - die Liste führt sie, also führt die Ansicht sie auch. */
-/**
- * Teilaufgaben in der Detailansicht - abhakbar, nicht nur lesbar (#671).
- *
- * Bis v1.78.0 waren die Zeilen hier reine Anzeige, während dieselbe Teilaufgabe
- * in der Listenkarte einen Schalter hatte. Wer eine Teilaufgabe anlegte und
- * danach die Aufgabe öffnete, sah sie also, kam aber nicht mehr an sie heran -
- * genau die Beobachtung aus der Meldung.
- *
- * Der Klick-Handler des Seiten-Containers greift hier nicht: Die Detailansicht
- * rendert in den Top-Layer, außerhalb von `container`. Deshalb hängt die
- * Delegation am Wrapper selbst.
- *
- * Der Abschnitt bleibt auch leer stehen, solange er etwas anzubieten hat -
- * dieselbe Regel wie bei der Unterhaltung ganz unten, und hier aus einem
- * gemessenen Grund: die Karte blendet ihre Inline-Aktionen unter 640px aus
- * (tasks.css, HIG-Dichte), und der erste Teilschritt hängt genau an dem Knopf,
- * den sie dabei mitnimmt. Der gedachte Ersatzweg war diese Ansicht - nur bot
- * sie den Einstieg nie an, weil sie ohne Teilaufgaben gar nicht erst erschien.
- * Auf dem iPhone gab es damit keinen Weg zur ERSTEN Teilaufgabe, während jede
- * weitere über die aufgeklappte Liste ging (#925).
- */
-function subtaskListNode(task, container) {
-  const mayAdd = canEditTaskDefinition(task) && !isArchived(task) && !task.parent_task_id;
-  if (!task.subtasks?.length && !mayAdd) return null;
-  const wrap = document.createElement('div');
-  wrap.className = 'detail-subtasks';
-
-  const paint = (row, status, title) => {
-    row.className = status === 'done' ? 'detail-subtask detail-subtask--done' : 'detail-subtask';
-    row.dataset.status = status;
-    row.setAttribute('aria-pressed', String(status === 'done'));
-    row.setAttribute('aria-label', t('tasks.subtaskMarkDone', { title }));
-    const icon = document.createElement('i');
-    icon.dataset.lucide = status === 'done' ? 'check-circle-2' : 'circle';
-    icon.className = 'icon-sm';
-    icon.setAttribute('aria-hidden', 'true');
-    const label = document.createElement('span');
-    label.textContent = title;
-    row.replaceChildren(icon, label);
-    if (window.lucide) window.lucide.createIcons({ el: row });
-  };
-
-  const appendRow = (s) => {
-    const row = document.createElement('button');
-    row.type = 'button';
-    row.dataset.subtaskId = String(s.id);
-    paint(row, s.status, s.title);
-
-    row.addEventListener('click', async () => {
-      const previous = row.dataset.status;
-      row.disabled = true;
-      // Optimistisch umschalten: ein Abhaken, das erst nach der Antwort
-      // reagiert, fühlt sich wie ein verschluckter Klick an.
-      paint(row, previous === 'done' ? 'open' : 'done', s.title);
-      try {
-        await toggleSubtaskStatus(s.id, previous);
-        // Die Liste im Hintergrund trägt den Fortschrittsbalken der Elternkarte.
-        if (container) await loadTasks(container);
-      } catch (err) {
-        paint(row, previous, s.title);
-        window.yuvomi.showToast(err.message, 'danger');
-      } finally {
-        row.disabled = false;
-      }
-    });
-
-    wrap.appendChild(row);
-    return row;
-  };
-
-  (task.subtasks ?? []).forEach(appendRow);
-
-  if (mayAdd) {
-    const add = document.createElement('button');
-    add.type = 'button';
-    add.className = 'detail-subtask detail-subtask--add';
-    const icon = document.createElement('i');
-    icon.dataset.lucide = 'plus';
-    icon.className = 'icon-sm';
-    icon.setAttribute('aria-hidden', 'true');
-    const label = document.createElement('span');
-    label.textContent = t('tasks.subtaskAdd');
-    add.replaceChildren(icon, label);
-    if (window.lucide) window.lucide.createIcons({ el: add });
-
-    add.addEventListener('click', async () => {
-      add.disabled = true;
-      try {
-        // Derselbe Weg wie in der Liste, nicht ein zweiter: handleAddSubtask
-        // stellt die Frage, legt an und lädt die Karten nach. Neu ist nur, dass
-        // sie die angelegte Teilaufgabe zurückgibt - ohne die müsste diese
-        // Ansicht sich schließen, um den neuen Schritt zu zeigen.
-        const created = await handleAddSubtask(task.id, container);
-        if (!created) return;
-        task.subtasks = [...(task.subtasks ?? []), created];
-        wrap.insertBefore(appendRow(created), add);
-      } finally {
-        add.disabled = false;
-      }
-    });
-
-    wrap.appendChild(add);
-  }
-  return wrap;
-}
-
-/**
- * Verknüpfte Dokumente in der Leseansicht (#733).
- *
- * Zwei Korrekturen an einer Stelle: Die alte Fassung las `doc.title` und
- * `doc.filename` - beides Felder, die ein Dokument nie hatte (es heißt `name`
- * bzw. `original_name`), und sie bekam ohnehin nie eine Liste, weil die API das
- * Feld gar nicht füllte. Die Zeile war also doppelt leer.
- *
- * Bilder stehen als Vorschau statt als Wort: an einer Aufgabe hängt meist ein
- * abfotografierter Zettel, und ein Dateiname beantwortet die Frage nicht, wegen
- * der man das Foto angehängt hat. Alles andere bleibt ein Chip mit Link.
- */
-function documentListNode(docs) {
-  const list = Array.isArray(docs) ? docs : [];
-  if (!list.length) return null;
-
-  const images = list.filter((doc) => docMime(doc).startsWith('image/'));
-  const rest = list.filter((doc) => !docMime(doc).startsWith('image/'));
-
-  const wrap = document.createElement('div');
-  wrap.className = 'task-detail__docs';
-
-  if (images.length) {
-    const grid = document.createElement('div');
-    grid.className = 'task-detail__doc-previews';
-    for (const doc of images) {
-      const link = document.createElement('a');
-      link.className = 'task-detail__doc-preview';
-      link.href = docHref(doc);
-      link.target = '_blank';
-      link.rel = 'noopener';
-      link.title = doc.name || '';
-      const img = document.createElement('img');
-      img.src = `/api/v1/documents/${doc.id}/preview`;
-      img.alt = doc.name || '';
-      img.loading = 'lazy';
-      link.appendChild(img);
-      grid.appendChild(link);
-    }
-    wrap.appendChild(grid);
-  }
-
-  for (const doc of rest) {
-    const chip = document.createElement('a');
-    chip.className = 'task-doc-chip';
-    chip.href = docHref(doc);
-    chip.target = '_blank';
-    chip.rel = 'noopener';
-    const icon = document.createElement('i');
-    icon.dataset.lucide = docIcon(doc);
-    icon.className = 'task-doc-chip__icon icon-sm';
-    icon.setAttribute('aria-hidden', 'true');
-    const label = document.createElement('span');
-    label.className = 'task-doc-chip__name';
-    label.textContent = doc.name || doc.original_name || String(doc.id);
-    chip.append(icon, label);
-    wrap.appendChild(chip);
-  }
-
-  if (window.lucide) window.lucide.createIcons({ el: wrap });
-  return wrap;
-}
-
-// --------------------------------------------------------
-// Kommentare an einer Aufgabe (#734)
-//
-// „Damit die Absprache dort steht, wo die Sache steht." Der Abschnitt lädt
-// selbst nach: die Detailansicht öffnet sofort, die Unterhaltung kommt in dem
-// Moment dazu, in dem sie da ist - das ist billiger als ein Ladebalken vor der
-// ganzen Ansicht.
-// --------------------------------------------------------
-
-/** Kommentartext als DOM, Erwähnungen hervorgehoben. Kein innerHTML nötig. */
-function commentTextNode(text) {
-  const box = document.createElement('div');
-  box.className = 'task-comment__text';
-  for (const segment of splitMentions(text, state.users)) {
-    if (segment.type !== 'mention') {
-      box.appendChild(document.createTextNode(segment.text));
-      continue;
-    }
-    const chip = document.createElement('span');
-    // Die eigene Erwähnung sticht heraus: „mich hat jemand gemeint" ist die
-    // Information, wegen der man den Kommentar überhaupt liest.
-    chip.className = segment.user.id === state.currentUserId
-      ? 'task-comment__mention task-comment__mention--me'
-      : 'task-comment__mention';
-    chip.textContent = segment.text;
-    box.appendChild(chip);
-  }
-  return box;
-}
-
-/** Eine Zeile der Unterhaltung. */
-function commentRowNode(comment, { onChanged }) {
-  const row = document.createElement('article');
-  row.className = 'task-comment';
-
-  const head = document.createElement('div');
-  head.className = 'task-comment__head';
-
-  const author = document.createElement('span');
-  author.className = 'task-comment__author';
-  author.textContent = comment.author_name || t('tasks.commentUnknownAuthor');
-
-  const when = document.createElement('span');
-  when.className = 'task-comment__when';
-  const at = new Date(comment.updated_at || comment.created_at);
-  when.textContent = comment.updated_at
-    ? t('tasks.commentEditedAt', { date: formatDate(at), time: formatTime(at) })
-    : `${formatDate(at)} ${formatTime(at)}`;
-
-  head.append(author, when);
-
-  const mine = comment.user_id === state.currentUserId;
-  if ((mine || state.isAdmin) && !isNavModuleReadOnly('tasks')) {
-    const actions = document.createElement('div');
-    actions.className = 'task-comment__actions';
-
-    // Ändern darf nur der Autor - ein Admin moderiert, er schreibt nicht um.
-    if (mine) {
-      const edit = document.createElement('button');
-      edit.type = 'button';
-      edit.className = 'task-comment__action';
-      edit.setAttribute('aria-label', t('tasks.commentEdit'));
-      edit.title = t('tasks.commentEdit');
-      const editIcon = document.createElement('i');
-      editIcon.dataset.lucide = 'pencil';
-      editIcon.className = 'icon-sm';
-      editIcon.setAttribute('aria-hidden', 'true');
-      edit.appendChild(editIcon);
-      edit.addEventListener('click', () => startCommentEdit(row, comment, { onChanged }));
-      actions.appendChild(edit);
-    }
-
-    const del = document.createElement('button');
-    del.type = 'button';
-    del.className = 'task-comment__action task-comment__action--danger';
-    del.setAttribute('aria-label', t('tasks.commentDelete'));
-    del.title = t('tasks.commentDelete');
-    const delIcon = document.createElement('i');
-    delIcon.dataset.lucide = 'trash-2';
-    delIcon.className = 'icon-sm';
-    delIcon.setAttribute('aria-hidden', 'true');
-    del.appendChild(delIcon);
-    // Kein Bestätigungsdialog, sondern der Rückgängig-Toast, den diese Seite
-    // schon fürs Löschen einer Aufgabe benutzt. Zwei Gründe: Eine Rückfrage
-    // wäre hier ein Modal über einem Modal - `confirmModal` verdrängt die
-    // Detailansicht, `confirmOverModal` schließt sie beim Bestätigen (beides
-    // gemessen, man stand danach wieder in der Liste). Und ein Kommentar ist
-    // kein Datensatz mit Anhängseln: Zurücknehmen ist die ehrlichere Antwort
-    // als Vorher-Fragen.
-    del.addEventListener('click', () => {
-      row.hidden = true;
-      scheduleUndoableDelete({
-        message: t('tasks.commentDeletedToast'),
-        commit: async ({ keepalive }) => {
-          await api.delete(`/tasks/${comment.task_id}/comments/${comment.id}`, { keepalive });
-          if (keepalive) return; // Seite verschwindet - kein Nachladen mehr
-          await onChanged();
-        },
-        restore: (err) => {
-          row.hidden = false;
-          if (err) window.yuvomi.showToast(err.message ?? t('common.errorGeneric'), 'danger');
-        },
-      });
-    });
-    actions.appendChild(del);
-    head.appendChild(actions);
-  }
-
-  row.append(head, commentTextNode(comment.comment));
-  return row;
-}
-
-/** Eine Zeile gegen ein Eingabefeld tauschen, ohne die Liste neu zu laden. */
-function startCommentEdit(row, comment, { onChanged }) {
-  const form = document.createElement('form');
-  form.className = 'task-comment__edit';
-
-  const field = document.createElement('textarea');
-  field.className = 'input task-comment__input';
-  field.rows = 3;
-  field.maxLength = 5000;
-  field.value = comment.comment;
-
-  const actions = document.createElement('div');
-  actions.className = 'task-comment__edit-actions';
-  const cancel = document.createElement('button');
-  cancel.type = 'button';
-  cancel.className = 'btn btn--ghost btn--sm';
-  cancel.textContent = t('common.cancel');
-  const save = document.createElement('button');
-  save.type = 'submit';
-  save.className = 'btn btn--primary btn--sm';
-  save.textContent = t('common.save');
-  actions.append(cancel, save);
-
-  cancel.addEventListener('click', () => {
-    // Die zurueckgeholte Zeile bringt ihre Icons als `data-lucide` mit, nicht
-    // als fertiges SVG - ohne diesen Aufruf stuenden Bearbeiten und Loeschen
-    // als leere Kaesten da, und zwar bis zum naechsten Nachladen.
-    const restored = commentRowNode(comment, { onChanged });
-    row.replaceWith(restored);
-    if (window.lucide) window.lucide.createIcons({ el: restored });
-  });
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const value = field.value.trim();
-    if (!value) return;
-    save.disabled = true;
-    try {
-      await api.patch(`/tasks/${comment.task_id}/comments/${comment.id}`, { comment: value });
-      await onChanged();
-    } catch (err) {
-      save.disabled = false;
-      window.yuvomi.showToast(err.message ?? t('common.errorGeneric'), 'danger');
-    }
-  });
-
-  form.append(field, actions);
-  row.replaceChildren(form);
-  wireMentionSuggest(field);
-  field.focus();
-}
-
-/**
- * Vorschläge beim Tippen eines @.
- *
- * Komfort, keine Bedingung: wer den Namen ausschreibt, wird genauso erwähnt -
- * gelesen wird am Ende der Text, nicht die Auswahl (utils/mentions.js).
- */
-function wireMentionSuggest(field) {
-  let box = null;
-  let matches = [];
-  let active = 0;
-
-  const close = () => { box?.remove(); box = null; matches = []; };
-
-  /** Das angefangene @-Wort links vom Cursor, oder null. */
-  const currentQuery = () => {
-    const upto = field.value.slice(0, field.selectionStart);
-    const at = upto.lastIndexOf('@');
-    if (at === -1) return null;
-    if (at > 0 && /[\p{L}\p{N}_]/u.test(upto[at - 1])) return null;
-    const typed = upto.slice(at + 1);
-    // Ein Zeilenumbruch beendet die Suche; ein Leerzeichen darf drin bleiben,
-    // weil Anzeigenamen zwei Wörter haben können.
-    if (/[\n\r]/.test(typed) || typed.length > 40) return null;
-    return { at, typed };
-  };
-
-  const apply = (user) => {
-    // Die Frage wird hier NOCH EINMAL gestellt, statt sich auf den Stand vom
-    // letzten Tastendruck zu verlassen: liegt der Cursor inzwischen woanders,
-    // gibt es nichts zu ersetzen, und ein blindes Einfuegen zerschnitte den
-    // Text an einer Stelle, die niemand gemeint hat.
-    const next = applyMention(field.value, field.selectionStart, user.display_name);
-    if (!next) { close(); return; }
-    field.value = next.text;
-    field.setSelectionRange(next.caret, next.caret);
-    close();
-    field.focus();
-  };
-
-  const render = () => {
-    if (!box) {
-      box = document.createElement('div');
-      box.className = 'task-comment__suggest';
-      box.setAttribute('role', 'listbox');
-      field.parentElement.appendChild(box);
-    }
-    box.replaceChildren();
-    matches.forEach((user, index) => {
-      const option = document.createElement('button');
-      option.type = 'button';
-      option.className = index === active
-        ? 'task-comment__suggest-item is-active'
-        : 'task-comment__suggest-item';
-      option.setAttribute('role', 'option');
-      option.setAttribute('aria-selected', String(index === active));
-      option.textContent = user.display_name;
-      // mousedown statt click: ein Klick käme erst nach dem blur, und das
-      // schließt die Liste, bevor der Treffer übernommen wäre.
-      option.addEventListener('mousedown', (e) => { e.preventDefault(); apply(user); });
-      box.appendChild(option);
-    });
-  };
-
-  /** Vorschlaege zur aktuellen Cursorposition neu bestimmen. */
-  const sync = () => {
-    const query = currentQuery();
-    if (!query) { close(); return; }
-    const needle = query.typed.toLowerCase();
-    matches = state.users
-      .filter((u) => u.display_name && u.display_name.toLowerCase().startsWith(needle))
-      .slice(0, 6);
-    active = 0;
-    if (!matches.length) { close(); return; }
-    render();
-  };
-
-  field.addEventListener('input', sync);
-
-  // Der Cursor wandert auch ohne Eingabe - mit Pfeiltasten, per Klick, per
-  // Auswahl. Ohne diese beiden Zeilen bliebe die Liste offen, waehrend sie sich
-  // laengst auf ein anderes Wort bezieht: Enter fuegte den Namen dann an der
-  // NEUEN Position ein (aus „@Ann" mit Cursor hinter dem zweiten Zeichen wurde
-  // „@Anna nn"), und am Textanfang verschluckte sie stumm den Zeilenumbruch.
-  field.addEventListener('keyup', (e) => {
-    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) sync();
-  });
-  field.addEventListener('click', sync);
-
-  field.addEventListener('keydown', (e) => {
-    if (!box || !matches.length) return;
-    if (e.key === 'ArrowDown')      { e.preventDefault(); active = (active + 1) % matches.length; render(); }
-    else if (e.key === 'ArrowUp')   { e.preventDefault(); active = (active - 1 + matches.length) % matches.length; render(); }
-    else if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); apply(matches[active]); }
-    else if (e.key === 'Escape')    { e.stopPropagation(); close(); }
-  });
-
-  field.addEventListener('blur', () => setTimeout(close, 0));
-}
-
-/** Der ganze Abschnitt: Liste, Eingabe, Nachladen. */
-function commentsNode(task) {
-  const wrap = document.createElement('div');
-  wrap.className = 'task-comments';
-
-  const list = document.createElement('div');
-  list.className = 'task-comments__list';
-  const status = document.createElement('p');
-  status.className = 'task-comments__status';
-  status.textContent = t('common.loading');
-  list.appendChild(status);
-
-  const load = async () => {
-    try {
-      const res = await api.get(`/tasks/${task.id}/comments`);
-      const comments = res.data ?? [];
-      list.replaceChildren();
-      if (!comments.length) {
-        const empty = document.createElement('p');
-        empty.className = 'task-comments__status';
-        empty.textContent = t('tasks.commentsEmpty');
-        list.appendChild(empty);
-      } else {
-        for (const comment of comments) list.appendChild(commentRowNode(comment, { onChanged: load }));
-      }
-      if (window.lucide) window.lucide.createIcons({ el: list });
-    } catch {
-      list.replaceChildren();
-      const failed = document.createElement('p');
-      failed.className = 'task-comments__status';
-      failed.textContent = t('tasks.commentsLoadError');
-      list.appendChild(failed);
-    }
-  };
-
-  // Wer die Aufgaben nur LESEN darf, bekommt die Unterhaltung zu sehen und kein
-  // Eingabefeld: die API weist seinen POST mit 403 ab, und ein Formular, das
-  // zum Schreiben einlaedt und dann nicht abschickt, ist dieselbe leere Zusage
-  // wie der fehlende Knopf, der #700 ausgeloest hat.
-  if (isNavModuleReadOnly('tasks')) {
-    wrap.append(list);
-    load();
-    return wrap;
-  }
-
-  const form = document.createElement('form');
-  form.className = 'task-comments__form';
-  const field = document.createElement('textarea');
-  field.className = 'input task-comment__input';
-  field.rows = 2;
-  field.maxLength = 5000;
-  field.placeholder = t('tasks.commentPlaceholder');
-  field.setAttribute('aria-label', t('tasks.commentsLabel'));
-  const submit = document.createElement('button');
-  submit.type = 'submit';
-  // Bewusst nicht `--primary`: der auffälligste Knopf im Panel gehört der
-  // Fußzeile („Starten", „Ablegen"). Ein leuchtendes „Kommentieren" mitten im
-  // Blatt zöge die Aufmerksamkeit auf die Nebensache.
-  submit.className = 'btn btn--secondary btn--sm task-comments__submit';
-  submit.textContent = t('tasks.commentSubmit');
-  const fieldBox = document.createElement('div');
-  // Eigener Träger: die Vorschlagsliste hängt relativ darin, nicht am Formular.
-  fieldBox.className = 'task-comments__field';
-  fieldBox.appendChild(field);
-  form.append(fieldBox, submit);
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const value = field.value.trim();
-    if (!value) return;
-    submit.disabled = true;
-    try {
-      await api.post(`/tasks/${task.id}/comments`, { comment: value });
-      field.value = '';
-      await load();
-    } catch (err) {
-      window.yuvomi.showToast(err.message ?? t('common.errorGeneric'), 'danger');
-    } finally {
-      submit.disabled = false;
-    }
-  });
-
-  wireMentionSuggest(field);
-  wrap.append(list, form);
-  load();
-  return wrap;
-}
-
-/** Erinnerung im Klartext, aus dem gespeicherten Zeitpunkt. */
-function taskReminderSummary(reminders) {
-  const list = Array.isArray(reminders) ? reminders : (reminders ? [reminders] : []);
-  return list
-    .map((r) => {
-      if (!r?.remind_at) return '';
-      const at = parseRemindAtAsUtc(r.remind_at);
-      return `${formatDate(at)} ${formatTime(at)}`.trim();
-    })
-    .filter(Boolean)
-    .join(', ');
-}
-
-function renderTaskDetail(task, reminders = [], container = null) {
-  const due = formatDueDate(task.due_date, task.due_time, task.status === 'done' || isArchived(task));
-
-  return [
-    { icon: 'circle-dot', label: t('tasks.statusLabel'), value: STATUS_LABELS()[task.status] ?? task.status },
-    // Eigene Zeile statt eines Ersatzes für den Status: die Ablage sagt etwas
-    // ANDERES als „offen/erledigt", nicht dasselbe anders (#688).
-    { icon: 'archive', label: t('tasks.archivedLabel'), value: isArchived(task) ? formatDate(task.archived_at) : '' },
-    { icon: 'flag', label: t('tasks.priorityLabel'), node: priorityNode(task.priority) },
-    // Nur wenn gesetzt - eine Zeile "nicht gesperrt" an jeder Aufgabe waere
-    // Rauschen. Die leere `value` blendet die Zeile aus (#830).
-    { icon: 'lock', label: t('tasks.lockedLabel'), value: task.locked ? t('tasks.lockedDetail') : '' },
-    { icon: 'clock', label: t('tasks.dueDateLabel'), value: due?.label ?? '' },
-    { icon: 'calendar-clock', label: t('tasks.startDateLabel'), value: task.start_date ? formatDate(task.start_date) : '' },
-    recurrenceRow(task.recurrence_rule, { fromCompletion: !!task.recurrence_from_completion }),
-    { icon: 'folder', label: t('tasks.categoryLabel'), value: task.category && task.category !== FALLBACK_CATEGORY ? catLabel(task.category) : '' },
-    assignedRow(task.assigned_users, t('tasks.assignedLabel')),
-    { icon: 'award', label: t('tasks.pointsLabel'), value: task.points ? String(task.points) : '' },
-    { icon: 'tag', label: t('tasks.tagsLabel'), node: tagChipsNode(task.tags) },
-    { icon: 'list-checks', label: t('tasks.subtasksLabel'), node: subtaskListNode(task, container) },
-    { icon: 'paperclip', label: t('tasks.documentsLabel'), node: documentListNode(task.documents) },
-    { icon: 'bell', label: t('reminders.sectionTitle'), value: taskReminderSummary(reminders) },
-    visibilityRow(task.visibility),
-    // Nur wenn markiert (#647) - eine Zeile „Countdown: nein" an jeder Aufgabe
-    // erklärte ein Feld, statt eine Frage zu beantworten.
-    //
-    // UND NUR MIT FÄLLIGKEIT, weil die Zeile sonst etwas Unwahres sagt. Sie hing
-    // allein an `task.countdown` und behauptete „Zählt auf der Übersicht
-    // herunter" auch dann, wenn es nichts gab, worauf gezählt werden konnte -
-    // eine Falschaussage in der Leseansicht wiegt schwerer als der fehlende
-    // Riegel im Formular, weil sie den Irrtum bestätigt statt ihn zu verhindern.
-    // Der Riegel steht jetzt trotzdem auch dort (`wireCountdownGate`).
-    { icon: 'hourglass', label: t('dashboard.countdownTitle'), value: task.countdown && task.due_date ? t('tasks.countdownDetail') : '' },
-    { icon: 'align-left', label: t('tasks.descriptionLabel'), node: descriptionNode(task), multiline: true },
-    // „Wann war das zuletzt dran" - nur bei wiederkehrenden Aufgaben (#791).
-    // Eine einmalige Aufgabe beantwortet die Frage schon mit ihrem Status: sie
-    // ist erledigt oder nicht, und ein Verlauf mit genau einer Zeile darin
-    // wiederholte nur, was zwei Zeilen weiter oben steht.
-    task.is_recurring
-      ? { icon: 'history', label: t('tasks.historySeriesTitle'), node: seriesHistoryNode(task), multiline: true }
-      : null,
-    // Ganz unten und immer sichtbar: die Unterhaltung ist der einzige Abschnitt,
-    // der auch dann etwas anbietet, wenn er leer ist - nämlich das Eingabefeld.
-    { icon: 'message-square', label: t('tasks.commentsLabel'), node: commentsNode(task), multiline: true },
-  ];
-}
-
-/**
- * Die Notiz als gerendertes Markdown (#731).
- *
- * `renderMarkdownLight` liegt seit Langem in utils/html.js und wird von den
- * Notizen und vom Dashboard benutzt - die Aufgaben waren die einzige Stelle, die
- * denselben Freitext als rohen String ausgab. Es ist also kein neuer Baustein,
- * sondern ein nicht angeschlossener; entsprechend teilen sich beide auch die
- * `note-md-*`-Klassen, damit eine Liste hier nicht anders aussieht als dort.
- *
- * Der Renderer maskiert selbst, deshalb ist insertAdjacentHTML hier zulaessig -
- * dieselbe Zusicherung, auf der notes.js und dashboard.js bereits stehen.
- */
-function descriptionNode(task) {
-  const text = (task.description ?? '').trim();
-  if (!text) return null;
-  const box = document.createElement('div');
-  box.className = 'task-detail__note';
-  // Interaktiv, weil diese Ansicht beides kann, was der Renderer dafür
-  // verlangt: sie zeigt den VOLLSTÄNDIGEN Text (die Zeilennummern am Kästchen
-  // sind also die der Aufgabe) und sie kennt die Aufgaben-Id. Das Dashboard und
-  // die Kalender-Chips bekommen diese Optionen deshalb ausdrücklich nicht.
-  box.insertAdjacentHTML('beforeend', renderMarkdownLight(text, {
-    checklist: { interactive: true, toggleLabel: t('tasks.checklistToggle') },
-  }));
-  box.addEventListener('click', (e) => {
-    const hit = e.target.closest('.note-md-box[data-md-line]');
-    if (hit) toggleDescriptionCheck(task, hit);
-  });
-  return box;
-}
-
-/**
- * Einen Haken in der Beschreibung setzen oder lösen (#917).
- *
- * Optimistisch wie bei den Notizen und bei den Teilaufgaben: ein Abhaken, das
- * erst nach der Antwort reagiert, fühlt sich wie ein verschluckter Tap an - und
- * genau auf dem Wandtablett ist das die ganze Interaktion.
- *
- * `expect` ist die Gegenprobe zum Zeilenindex: hat jemand den Text inzwischen
- * bearbeitet, zeigt der Index woanders hin, und ein Haken in der falschen Zeile
- * wäre schlimmer als eine Fehlermeldung. Der Server antwortet dann mit 409.
- *
- * Der lokale Stand wird aus der ANTWORT nachgezogen, nicht selbst gerechnet:
- * sonst liefe `expect` beim zweiten Tap gegen einen Text, den nur der Client
- * kennt.
- */
-async function toggleDescriptionCheck(task, box) {
-  const line    = parseInt(box.dataset.mdLine, 10);
-  const checked = box.dataset.mdChecked !== '1';
-  const expect  = splitKeepingLineEndings(task.description)[line * 2];
-
-  // Der eigene Stand kennt die angetippte Zeile gar nicht mehr - dasselbe
-  // Ergebnis wie ein 409, nur ohne den Umweg über den Server. Ausdrücklich
-  // nicht stilles Nichtstun, sonst täte ein Tap einfach nichts.
-  if (expect === undefined) {
-    window.yuvomi?.showToast(t('tasks.checkConflict'), 'danger');
-    return;
-  }
-
-  const paint = (on) => {
-    box.setAttribute('aria-checked', String(on));
-    box.dataset.mdChecked = on ? '1' : '0';
-    box.closest('.note-md-check')?.classList.toggle('is-checked', on);
-  };
-
-  paint(checked);
-  try {
-    const res = await api.patch(`/tasks/${task.id}/check`, { line, checked, expect });
-    task.description = res.data.description;
-  } catch (err) {
-    paint(!checked);
-    window.yuvomi?.showToast(
-      err.status === 409 ? t('tasks.checkConflict') : (err.data?.error ?? t('common.unknownError')),
-      'danger',
-    );
-  }
-}
-
-/**
- * Der einzige Einstieg in eine bestehende Aufgabe.
- *
- * Anders als beim Kalender wird hier bewusst kein Anker übergeben: Eine Aufgabe
- * trägt deutlich mehr Inhalt als ein Termin, und ein 320px-Popover neben der
- * Zeile wäre für Teilaufgaben, Tags und Dokumente zu eng.
- */
-function openTaskDetail({ task, users = [], reminder = null }, container) {
-  const archived = isArchived(task);
-  const next = archived ? null : NEXT_STATUS[task.status];
-  // Gesperrte Aufgabe (#830): der Weiterschalt-Knopf bleibt, Loeschen, Ablegen
-  // und Bearbeiten fallen weg. Die Detailansicht ist der zweite Einstieg neben
-  // der Zeile - blendete nur die Zeile aus, waere die Sperre hier zu umgehen.
-  const canEdit = canEditTaskDefinition(task);
-
-  const actions = canEdit ? [{
-    id: 'task-detail-delete',
-    label: t('common.delete'),
-    variant: 'danger-ghost',
-    icon: 'trash-2',
-    align: 'start',
-    // Siehe closeDetailView: nach dem Löschen gibt es nichts mehr zu verwerfen,
-    // und der await hält die optimistische Löschung zurück, bis der
-    // Overlay-Slot frei ist.
-    onClick: async ({ close }) => {
-      await close({ force: true });
-      handleDeleteTask(String(task.id), container);
-    },
-  }] : [];
-
-  // Der häufigste Grund, eine Aufgabe zu öffnen, ist sie abzuhaken. Bisher
-  // führte dieser Weg durch ein Formular mit sieben Auswahlfeldern.
-  if (next) {
-    actions.push({
-      id: 'task-detail-advance',
-      label: t(next.labelKey),
-      variant: 'secondary',
-      icon: next.icon,
-      onClick: ({ button }) => advanceTaskStatus(task, next.status, button, container),
-    });
-  }
-
-  // Ablegen und Zurückholen sind derselbe Schalter - was er tut, hängt daran, wo
-  // die Aufgabe gerade liegt.
-  if (canEdit) {
-    actions.push({
-      id: 'task-detail-archive',
-      label: archived ? t('tasks.unarchiveButton') : t('tasks.archiveButton'),
-      variant: 'ghost',
-      icon: archived ? 'archive-restore' : 'archive',
-      onClick: ({ button }) => toggleTaskArchive(task, button, container),
-    });
-  }
-
-  openDetailView({
-    title: task.title,
-    size: 'lg',
-    sections: renderTaskDetail(task, reminder, container),
-    actions,
-    edit: canEdit ? {
-      label: t('common.edit'),
-      title: t('tasks.editTask'),
-      mount: (panel, pane) => {
-        // Working-Set VOR dem Rendern setzen: renderTagChips in wireTaskForm
-        // liest ihn direkt danach.
-        modalTags = normalizeTagList(task.tags);
-        pane.insertAdjacentHTML('beforeend', renderModalContent({ task, users, reminder }));
-        wireTaskForm(panel, { task, container });
-      },
-    } : undefined,
-  });
-}
-
-/**
- * Status aus der Detailansicht weiterschalten. Optimistisch: Der Knopf zeigt
- * den neuen Stand sofort, weil das Abhaken sonst wie ein verschluckter Klick
- * wirkt. Scheitert der Aufruf, kommt die alte Beschriftung zurück.
- */
-async function advanceTaskStatus(task, status, button, container) {
-  const previous = task.status;
-  const stop = btnLoading(button);
-  try {
-    await api.patch(`/tasks/${task.id}/status`, { status });
-    task.status = status;
-    // Der Status steht bereits beim Server - eine Verwerfen-Frage danach böte
-    // an, etwas rückgängig zu machen, was gar nicht mehr aussteht (#625).
-    await closeDetailView({ force: true });
-    await loadTasks(container);
-  } catch (err) {
-    task.status = previous;
-    stop();
-    // Gescheitert ist ein Schreibvorgang, kein Laden - tasks.loadError („Aufgabe
-    // konnte nicht geladen werden") beschriebe den falschen Vorgang.
-    window.yuvomi.showToast(err.message ?? t('common.errorGeneric'), 'danger');
-  }
-}
-
-/**
- * Ablegen bzw. Zurückholen aus der Detailansicht. Wie advanceTaskStatus schließt
- * die Ansicht danach: die Aufgabe wechselt die Liste, und ein Panel, das über
- * einem verschwundenen Eintrag stehen bleibt, hat nichts mehr zu zeigen.
- */
-async function toggleTaskArchive(task, button, container) {
-  const stop = btnLoading(button);
-  const archived = isArchived(task);
-  try {
-    await setTaskArchived(task.id, !archived);
-    task.archived_at = archived ? null : new Date().toISOString();
-    await closeDetailView({ force: true });
-    window.yuvomi.showToast(archived ? t('tasks.unarchivedToast') : t('tasks.archivedToast'), 'success');
-    await loadTasks(container);
-  } catch (err) {
-    stop();
-    window.yuvomi.showToast(err.message ?? t('common.errorGeneric'), 'danger');
-  }
+    ?.addEventListener('click', (e) => deleteTaskWithUndo(e.currentTarget.dataset.id, {
+      container, onChanged,
+    }));
 }
 
 // --------------------------------------------------------
@@ -2482,7 +1510,7 @@ function openTaskCategoryManager(container) {
 // Formular-Handler
 // --------------------------------------------------------
 
-async function handleFormSubmit(e, container) {
+async function handleFormSubmit(e, { container = null, onChanged = () => loadTasks(container) } = {}) {
   e.preventDefault();
   const form      = e.target;
   const errorEl   = document.getElementById('task-form-error');
@@ -2636,7 +1664,7 @@ async function handleFormSubmit(e, container) {
           resetSubmit(t('tasks.documentsLinkFailed'));
           btnError(submitBtn);
           await refreshTags();
-          await loadTasks(container);
+          await onChanged();
           return;
         }
       }
@@ -2647,55 +1675,10 @@ async function handleFormSubmit(e, container) {
     // Erst die Tag-Liste, dann neu zeichnen: ein gerade vergebener Tag soll
     // sofort in Filterleiste und Vorschlägen stehen (#586).
     await refreshTags();
-    await loadTasks(container);
+    await onChanged();
   } catch (err) {
     resetSubmit(err.message);
     btnError(submitBtn);
-  }
-}
-
-async function handleDeleteTask(id, container) {
-  closeModal({ force: true });
-  const itemEl = container.querySelector(`[data-task-id="${id}"]`);
-  if (itemEl) itemEl.style.display = 'none';
-
-  scheduleUndoableDelete({
-    message: t('tasks.deletedToast'),
-    commit: async ({ keepalive }) => {
-      await api.delete(`/tasks/${id}`, { keepalive });
-      // Erinnerungen für diese Aufgabe ebenfalls entfernen
-      api.delete(`/reminders?entity_type=task&entity_id=${id}`, { keepalive }).catch(() => {});
-      if (keepalive) return; // Seite verschwindet — kein UI-Refresh mehr
-      refreshReminders();
-      await loadTasks(container);
-    },
-    restore: (err) => {
-      if (itemEl) itemEl.style.display = '';
-      if (err) window.yuvomi.showToast(err.message ?? t('common.unknownError'), 'danger');
-    },
-  });
-}
-
-/**
- * Teilaufgabe anlegen - der eine Weg für Liste und Leseansicht.
- *
- * Gibt die angelegte Teilaufgabe zurück (oder null bei Abbruch und Fehler):
- * die Leseansicht hängt sie sich damit selbst an, statt sich zum Nachladen
- * schließen zu müssen (#925). Die Liste ignoriert den Rückgabewert.
- */
-async function handleAddSubtask(parentId, container) {
-  const title = await promptModal(t('tasks.subtaskPrompt'));
-  if (!title) return null;
-  try {
-    const res = await api.post('/tasks', { title, parent_task_id: parentId });
-    // Wie beim Abhaken daneben: die Liste trägt den Fortschrittsbalken der
-    // Elternkarte, aber sie muss nicht dasein. Die Leseansicht kann ohne sie
-    // geöffnet worden sein.
-    if (container) await loadTasks(container);
-    return res.data ?? null;
-  } catch (err) {
-    window.yuvomi.showToast(err.message, 'danger');
-    return null;
   }
 }
 
@@ -2992,7 +1975,7 @@ function wireKanbanDrag(container) {
           loadTaskForEdit(card.dataset.taskId),
           loadReminderForTask(card.dataset.taskId),
         ]);
-        openTaskDetail({ task, users: state.users, reminder }, container);
+        openTaskView(task, reminder, container);
       } catch (err) {
         window.yuvomi.showToast(t('tasks.loadError'), 'danger');
       }
@@ -3116,36 +2099,6 @@ function wireKanbanTouch(container) {
 // „nichts erledigt" zu behaupten - das wäre für einen Haushalt, der seit Monaten
 // Aufgaben abhakt, schlicht gelogen.
 // --------------------------------------------------------
-
-/**
- * Die Tages-Überschrift zu einem Datums-Key der Anzeigezone.
- *
- * DREI FALLEN AUF ENGEM RAUM, jede davon hier einmal eingebaut gewesen:
- *
- * 1. „Gestern" kommt aus `addLocalDays(today, -1)`, also aus Arithmetik auf dem
- *    KEY. Ein `Date` minus 86400000 ms trifft an der Sommerzeitgrenze den
- *    vorletzten Tag - und sobald die Anzeigezone von der des Browsers abweicht,
- *    liegt es ohnehin daneben, weil `parseLocalDateKey` seine Mitternacht in
- *    der Browserzone baut.
- * 2. Der Key geht ROH an `formatDate`. Ein Umweg über ein `Date` macht aus dem
- *    zonenlosen Kalendertag einen Zeitpunkt, den die Anzeigezone anschließend
- *    wieder umrechnet - und die Überschrift kann auf dem Nachbartag landen,
- *    während die Zeilen darunter alle vom richtigen stammen.
- * 3. `formatDate` nimmt genau EIN Argument (public/i18n.js). Ein
- *    Optionsobjekt daneben wird stillschweigend verworfen, und die als
- *    „Montag, 24. August" gedachte Zeile stand als „24.08.2026" da. Der
- *    Wochentag kommt deshalb über den `zonedUTCProxy`-Weg, wie im Dashboard.
- */
-function historyDayLabel(dayKey) {
-  const today = todayKey();
-  if (dayKey === today) return t('common.today');
-  if (dayKey === addLocalDays(today, -1)) return t('common.yesterday');
-  const proxy = zonedUTCProxy(`${dayKey}T12:00:00`);
-  if (!proxy) return formatDate(dayKey);
-  return new Intl.DateTimeFormat(getLocale(), {
-    weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC',
-  }).format(proxy);
-}
 
 /**
  * Einträge nach dem Kalendertag der Anzeigezone bündeln.
@@ -3310,7 +2263,7 @@ function renderHistory(container) {
 async function openTaskFromHistory(id, container) {
   try {
     const [task, reminder] = await Promise.all([loadTaskForEdit(id), loadReminderForTask(id)]);
-    openTaskDetail({ task, users: state.users, reminder }, container);
+    openTaskView(task, reminder, container);
   } catch (err) {
     window.yuvomi.showToast(err.message ?? t('common.errorGeneric'), 'danger');
   }
@@ -3353,57 +2306,6 @@ async function loadHistory(container, { append = false } = {}) {
     release();
     renderHistory(container);
   }
-}
-
-/**
- * „Zuletzt erledigt" für die Detailansicht - über die ganze Wiederholungskette,
- * nicht nur für die Instanz, die gerade offen daliegt.
- *
- * Nachgeladen statt mitgeliefert: die Aufgabenliste holt Dutzende Zeilen, und
- * eine Historie an jeder davon wäre Ladearbeit für eine Zeile, die man erst
- * beim Öffnen sieht.
- */
-function seriesHistoryNode(task) {
-  // Ohne eigene Ueberschrift: die Detailzeile traegt ihr Label schon, und eine
-  // zweite daneben saehe aus wie ein zweiter Abschnitt.
-  const list = document.createElement('div');
-  list.className = 'detail-history';
-  const placeholder = document.createElement('p');
-  placeholder.className = 'detail-history__empty';
-  placeholder.textContent = t('common.loading');
-  list.appendChild(placeholder);
-
-  api.get(`/tasks/${task.id}/completions?limit=10`).then((res) => {
-    const entries = res.data ?? [];
-    list.replaceChildren();
-    if (!entries.length) {
-      const none = document.createElement('p');
-      none.className = 'detail-history__empty';
-      none.textContent = t('tasks.historySeriesEmpty');
-      list.appendChild(none);
-      return;
-    }
-    for (const entry of entries) {
-      const row = document.createElement('p');
-      row.className = 'detail-history__row';
-      const when = document.createElement('span');
-      when.className = 'detail-history__when';
-      when.textContent = `${historyDayLabel(zonedDateKey(entry.completed_at))}, ${formatTime(entry.completed_at)}`;
-      const who = document.createElement('span');
-      who.className = 'detail-history__who';
-      who.textContent = entry.user_name || t('tasks.historyUnknownMember');
-      row.append(when, who);
-      list.appendChild(row);
-    }
-  }).catch(() => {
-    list.replaceChildren();
-    const failed = document.createElement('p');
-    failed.className = 'detail-history__empty';
-    failed.textContent = t('tasks.historySeriesLoadError');
-    list.appendChild(failed);
-  });
-
-  return list;
 }
 
 // --------------------------------------------------------
@@ -3890,7 +2792,7 @@ function wireSwipeGestures(container) {
             loadTaskForEdit(taskId),
             loadReminderForTask(taskId),
           ]);
-          openTaskDetail({ task, users: state.users, reminder }, container);
+          openTaskView(task, reminder, container);
         } catch (err) {
           window.yuvomi.showToast(t('tasks.loadError'), 'danger');
         }
@@ -4291,7 +3193,7 @@ function wireTaskList(container) {
           loadTaskForEdit(id),
           loadReminderForTask(id),
         ]);
-        openTaskDetail({ task, users: state.users, reminder }, container);
+        openTaskView(task, reminder, container);
       } catch (err) {
         window.yuvomi.showToast(t('tasks.loadError'), 'danger');
       }
@@ -4309,7 +3211,7 @@ function wireTaskList(container) {
     }
 
     if (action === 'add-subtask') {
-      await handleAddSubtask(target.dataset.parent, container);
+      await addSubtask(target.dataset.parent, { onChanged: () => loadTasks(container) });
     }
 
     if (action === 'rename-subtask') {
@@ -4325,6 +3227,115 @@ function wireTaskList(container) {
 // --------------------------------------------------------
 // Haupt-Render
 // --------------------------------------------------------
+
+/**
+ * Die geteilte Leseansicht mit dem Kontext DIESER Seite.
+ *
+ * Das Bearbeiten-Formular wird hier eingehaengt und nicht in der Komponente:
+ * es gehoert dem Aufgabenmodul. Die Ansicht selbst kommt ohne aus (#918) - wer
+ * sie ohne Mounter oeffnet, bekommt eine ohne Bearbeiten-Knopf statt einen,
+ * der ins Leere fuehrt.
+ */
+function openTaskView(task, reminder, container) {
+  openTaskDetail({
+    task,
+    reminder,
+    users: state.users,
+    currentUserId: state.currentUserId,
+    isAdmin: state.isAdmin,
+    categories: state.categories,
+    container,
+    onChanged: () => loadTasks(container),
+    edit: {
+      mount: (panel, pane) => {
+        // Working-Set VOR dem Rendern setzen: renderTagChips in wireTaskForm
+        // liest ihn direkt danach.
+        modalTags = normalizeTagList(task.tags);
+        pane.insertAdjacentHTML('beforeend', renderModalContent({ task, users: state.users, reminder }));
+        wireTaskForm(panel, { task, container });
+      },
+    },
+  });
+}
+
+/**
+ * Eine Aufgabe oeffnen, ohne auf dieser Seite zu stehen (#918).
+ *
+ * Der Einstieg fuer die Uebersicht, die vier Kalenderansichten, das
+ * Dringend-Widget und das Cockpit. Sie zeigen alle dieselbe Aufgabe an und
+ * hatten bis dahin nur zwei Moeglichkeiten: ein eigenes, kleineres Kaertchen
+ * bauen oder den Nutzer hierher schicken. Beide waren im Einsatz.
+ *
+ * Geladen wird hier, nicht beim Aufrufer: was eine Aufgabe zum Anzeigen
+ * braucht - die vollstaendige Zeile, ihre Erinnerung, die Mitglieder und die
+ * Kategorien des Haushalts - weiss dieses Modul, und ein Widget, das sich das
+ * selbst zusammensucht, waere die naechste Fassung, die auseinanderlaeuft.
+ *
+ * `state` wird dabei nur gefuellt, soweit die Ansicht es liest; die Liste
+ * dieser Seite bleibt unberuehrt, weil sie in diesem Fall gar nicht steht.
+ *
+ * @param {number|string} taskId
+ * @param {{user?: object|null, container?: HTMLElement|null,
+ *          onChanged?: () => (void|Promise<void>)}} opts
+ *        `user` ist der angemeldete Mensch, so wie der Router ihn der
+ *        aufrufenden Seite gibt. Er steht im Aufruf und wird NICHT aus einem
+ *        Global geraten: an ihm haengt, wem seine eigenen Kommentare gehoeren
+ *        und wer eine gesperrte Aufgabe umschreiben darf (#830). Fehlt er,
+ *        bietet die Ansicht weniger an, als erlaubt waere - still und falsch.
+ *        `container` ist die Umgebung, aus der geoeffnet wurde - sie liefert
+ *        die Zeile fuers optimistische Ausblenden beim Loeschen. `onChanged`
+ *        frischt genau diese Umgebung auf.
+ */
+export async function openTaskById(taskId, { user = null, container = null, onChanged = () => {} } = {}) {
+  const [task, reminder] = await Promise.all([
+    loadTaskForEdit(taskId),
+    loadReminderForTask(taskId),
+  ]);
+  if (!task) throw new Error(t('tasks.loadError'));
+
+  // Mitglieder, Kategorien und Tags einmal holen, wenn diese Seite noch nie
+  // stand. Ohne sie blieben @-Erwaehnungen unaufgeloest, die Kategoriezeile
+  // zeigte ihren internen Schluessel und das Bearbeiten-Formular haette keine
+  // Auswahl anzubieten.
+  //
+  // `meta` kommt OHNE `data`-Huelle: /tasks/meta/options antwortet mit den
+  // Feldern direkt (server/routes/tasks.js), anders als die uebrigen Routen
+  // dieses Moduls. Ein `meta.data?.users` daneben laese still `undefined`.
+  if (!state.users.length || !state.categories.length) {
+    try {
+      const meta = await api.get('/tasks/meta/options');
+      state.users         = meta.users      ?? state.users;
+      state.categories    = meta.categories ?? state.categories;
+      state.allTags       = meta.tags       ?? state.allTags;
+      state.defaultPoints = Number(meta.default_points) || state.defaultPoints;
+    } catch { /* Ansicht steht auch ohne - nur weniger aufgeloest. */ }
+  }
+  if (user) {
+    state.currentUserId = user.id ?? null;
+    state.isAdmin       = user.role === 'admin';
+  }
+
+  openTaskDetail({
+    task,
+    reminder,
+    users: state.users,
+    currentUserId: state.currentUserId,
+    isAdmin: state.isAdmin,
+    categories: state.categories,
+    container,
+    onChanged,
+    edit: {
+      mount: (panel, pane) => {
+        modalTags = normalizeTagList(task.tags);
+        pane.insertAdjacentHTML('beforeend', renderModalContent({ task, users: state.users, reminder }));
+        // Ohne Seiten-Container: das Formular schreibt, die aufrufende Ansicht
+        // frischt auf. `container` waere hier die Uebersicht, und die haelt
+        // keine Aufgabenliste, die sich neu zeichnen liesse.
+        wireTaskForm(panel, { task, container: null, onChanged });
+      },
+    },
+  });
+}
 
 export async function render(container, { user }) {
   state.user = user ?? null;
@@ -4575,7 +3586,7 @@ export async function render(container, { user }) {
         loadTaskForEdit(openId),
         loadReminderForTask(openId),
       ]);
-      openTaskDetail({ task, users: state.users, reminder }, container);
+      openTaskView(task, reminder, container);
     } catch { /* Task existiert nicht oder kein Zugriff */ }
   }
 }

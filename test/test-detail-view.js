@@ -26,6 +26,8 @@ const detailCss  = () => read('public/styles/detail-view.css');
 const modalJs    = () => read('public/components/modal.js');
 const calendarJs = () => read('public/pages/calendar.js');
 const tasksJs    = () => read('public/pages/tasks.js');
+const taskDetailJs = () => read('public/components/task-detail.js');
+const dashboardJs  = () => read('public/pages/dashboard.js');
 const contactsJs = () => read('public/pages/contacts.js');
 const rruleJs    = () => read('public/rrule-ui.js');
 
@@ -318,13 +320,15 @@ test('die Weiterleitung für Haushaltshilfe-Besuche greift vor der Detailansicht
 
 test('jeder Weg zu einer bestehenden Aufgabe führt in die Detailansicht', async () => {
   const src = await tasksJs();
-  assert.match(src, /function openTaskDetail\(\{ task, users = \[\], reminder = null \}, container\)/);
+  // Die Ansicht selbst wohnt seit #918 in der geteilten Komponente, damit die
+  // Übersicht und der Kalender dieselbe öffnen können statt einer kleineren.
+  assert.match(await taskDetailJs(), /export function openTaskDetail\(\{/);
 
   // Nur Aufrufe zählen, nicht die Definition darüber.
   // Die Zahl steht hier als BUCHFÜHRUNG, nicht als Obergrenze: ein neuer
   // Einstieg soll diesen Test rot machen, damit jemand entscheidet, wohin er
   // führt. Beim Verlauf (#791) hat er genau das getan.
-  const detailCalls = [...src.matchAll(/openTaskDetail\(\{ task, users: state\.users, reminder \}, container\)/g)];
+  const detailCalls = [...src.matchAll(/^\s+openTaskView\(task, reminder, container\);$/gm)];
   assert.equal(detailCalls.length, 5, 'Listenzeile/Stift, Kanban, Wischen, Deep-Link und Verlauf');
 
   // Übrig bleibt genau ein openTaskModal-Aufruf: der FAB für neue Aufgaben.
@@ -342,10 +346,12 @@ test('die Wisch-Geste heißt Ansehen, nicht Bearbeiten', async () => {
 
 test('die Aufgaben-Verdrahtung ist zweigeteilt und behält die Tag-Reihenfolge', async () => {
   const src = await tasksJs();
-  assert.match(src, /function wireTaskForm\(panel, \{ task = null, container \}\)/);
+  assert.match(src, /function wireTaskForm\(panel, \{ task = null, container = null, onChanged = \(\) => loadTasks\(container\) \}\)/);
 
   // modalTags ist ein Working-Set, das renderTagChips direkt nach dem Rendern
-  // liest - es muss VOR renderModalContent gesetzt werden.
+  // liest - es muss VOR renderModalContent gesetzt werden. Der Mount-Block
+  // steht seit #918 in dieser Datei und nicht mehr in der Ansicht: das Formular
+  // gehört dem Modul, die Leseansicht bekommt es gereicht.
   const mountStart = src.indexOf('mount: (panel, pane) =>');
   const mount = src.slice(mountStart, src.indexOf('wireTaskForm(panel, { task, container });', mountStart));
   assert.ok(mount.length > 0, 'der Mount-Block muss auffindbar sein');
@@ -354,8 +360,42 @@ test('die Aufgaben-Verdrahtung ist zweigeteilt und behält die Tag-Reihenfolge',
   assert.ok(tags > -1 && render > -1 && tags < render, 'modalTags wird vor dem Rendern gesetzt');
 });
 
+
+test('die Leseansicht ist nicht an ihr Modul genagelt (#918)', async () => {
+  const detail = await taskDetailJs();
+  // Was nur eine Ansicht wissen kann, kommt im Aufruf und nicht aus einem
+  // Seiten-State: sonst kann sie nur oeffnen, wer diesen State haelt - und
+  // genau deshalb bot die Uebersicht ein eigenes Kaertchen mit zwei Knoepfen an.
+  assert.doesNotMatch(detail, /\bstate\.\w/, 'die Komponente liest keinen fremden Seiten-State');
+  assert.doesNotMatch(detail, /loadTasks\(/, 'sie laedt keine fremde Liste nach');
+  for (const field of ['users', 'currentUserId', 'isAdmin', 'categories', 'onChanged']) {
+    assert.match(detail, new RegExp('\\b' + field + '\\b'), field + ' kommt ueber den Aufruf');
+  }
+
+  // Und die zwei Ansichten, die vorher eine kleinere Fassung bauten oder
+  // wegnavigierten, oeffnen jetzt genau diese.
+  const dash = await dashboardJs();
+  assert.match(dash, /openTaskById\(taskId, \{ user, container, onChanged: rerender \}\)/,
+    'die Uebersicht oeffnet die geteilte Ansicht');
+  assert.doesNotMatch(dash, /openTaskQuickAction/,
+    'das Zwei-Knopf-Kaertchen ist ersetzt, nicht daneben stehen geblieben');
+
+  // DER BETRACHTER REIST MIT. Ohne ihn faellt `mine` bei jedem Kommentar auf
+  // false und eine gesperrte Aufgabe (#830) sieht fuer ihre eigene Autorin
+  // gesperrt aus: die Ansicht boete weniger an, als erlaubt ist, und zwar
+  // still. Er kommt aus dem Router-Argument der Seite, nicht aus einem Global.
+  assert.match(await taskDetailJs(), /currentUserId,\s*isAdmin,/,
+    'die Komponente nimmt den Betrachter entgegen');
+
+  const cal = await calendarJs();
+  assert.match(cal, /user: state\.user,/, 'der Kalender reicht den Betrachter durch');
+  assert.doesNotMatch(cal, /navigate\(`\/tasks\?open=/,
+    'ein Aufgaben-Chip wirft den Nutzer nicht mehr aus dem Kalender');
+  assert.match(cal, /openTaskFromCalendar\(taskChip\.dataset\.taskId\)/,
+    'er oeffnet die Aufgabe an Ort und Stelle');
+});
 test('der Status lässt sich aus der Detailansicht weiterschalten', async () => {
-  const src = await tasksJs();
+  const src = await taskDetailJs();
   assert.match(src, /const NEXT_STATUS = \{/, 'die Kette open → in_progress → done ist benannt');
   assert.match(src, /open:\s*\{ status: 'in_progress'/);
   assert.match(src, /in_progress:\s*\{ status: 'done'/);
@@ -369,8 +409,8 @@ test('der Status lässt sich aus der Detailansicht weiterschalten', async () => 
 });
 
 test('die Aufgaben-Detailansicht führt die Leseinformationen der Karte', async () => {
-  const src = await tasksJs();
-  const fn = src.slice(src.indexOf('function renderTaskDetail'), src.indexOf('function openTaskDetail'));
+  const src = await taskDetailJs();
+  const fn = src.slice(src.indexOf('function renderTaskDetail'), src.indexOf('export function openTaskDetail'));
   for (const key of ['tasks.statusLabel', 'tasks.priorityLabel', 'tasks.dueDateLabel', 'tasks.startDateLabel',
     'tasks.categoryLabel', 'tasks.pointsLabel', 'tasks.tagsLabel',
     'tasks.subtasksLabel', 'tasks.documentsLabel', 'tasks.descriptionLabel']) {

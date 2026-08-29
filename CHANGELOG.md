@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **A task opened from the Overview or the Calendar is now the same task you see in the Tasks
+  module.** Clicking one in the Overview used to bring up a card with two buttons - "Edit", which
+  navigated you into the Tasks module, and "Mark as done". Everything else a task carries -
+  subtasks, comments, attached documents, the tickable checkboxes in its description, its due date,
+  who it is assigned to, its history - was neither visible nor reachable from there. A task chip in
+  any of the four calendar views did not even offer that much: it navigated away, and the month you
+  were reading was gone. That mattered more than two missing buttons sound like, because the
+  Overview is where the app actually stands open during the day, while the Tasks module is where
+  tasks get created and groomed. The view with fewer capabilities was the one being used more
+  often. Every entry point now opens the full reading view, in place, and returns you to where you
+  were: check something off in the Calendar and the day updates around you.
+- **The reading view of a task lives in one place instead of two.** It sat inside the Tasks page and
+  could therefore only be opened from there; every other view had the choice of building a smaller
+  card of its own or sending the user away, and both were in use. Duplicating the markup would have
+  guaranteed the two drift apart at the next change, so the view moved into a shared component and
+  the surrounding view now tells it what it cannot know: who is looking, which members and
+  categories exist, and how to refresh itself. What a field of a task *means* - is it archived, may
+  I rewrite it, how does its due date read - moved alongside into a shared module, because those
+  same rules had already been copied into the Overview once.
+
 ## [2.52.1] - 2026-08-29
 
 ### Fixed

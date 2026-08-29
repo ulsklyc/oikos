@@ -255,14 +255,16 @@ test('ein folgenloser Tap merkt nichts vor', async () => {
 // --------------------------------------------------------------------------
 
 test('die Aufgaben-Detailansicht schaltet die Kaestchen frei', async () => {
-  const src = await readFile(new URL('../public/pages/tasks.js', import.meta.url), 'utf8');
+  // Die Ansicht wohnt seit #918 in der geteilten Komponente - und damit gelten
+  // die Kaestchen ueberall, wo eine Aufgabe geoeffnet wird, nicht nur im Modul.
+  const src = await readFile(new URL('../public/components/task-detail.js', import.meta.url), 'utf8');
   assert.match(src, /interactive:\s*true/, 'die Kaestchen sind Bedienelemente');
   assert.match(src, /tasks\/\$\{task\.id\}\/check/, 'sie schreiben ueber die schmale Route zurueck');
   assert.match(src, /note-md-box\[data-md-line\]/, 'ein Klick auf das Kaestchen wird erkannt');
 });
 
 test('der Zeilenindex wird gegen den GESEHENEN Text geprueft', async () => {
-  const src = await readFile(new URL('../public/pages/tasks.js', import.meta.url), 'utf8');
+  const src = await readFile(new URL('../public/components/task-detail.js', import.meta.url), 'utf8');
   assert.match(src, /splitKeepingLineEndings\(task\.description\)\[line \* 2\]/,
     'expect ist die Gegenprobe zum Index - ohne sie landet ein Haken in der falschen Zeile');
   assert.match(src, /task\.description = res\.data\.description/,

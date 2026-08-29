@@ -14444,8 +14444,9 @@ test('der schmale Zustand der Kueche steht hinter seinem Bauteil', () => {
  * Guard-Ebene: Struktur (aus Quelltext und Stylesheet gelesen).
  * ──────────────────────────────────────────────────────────────────────────── */
 test('jede auf Touch ausgeblendete Karten-Aktion hat einen Weg in der Leseansicht (#925)', () => {
-  const page = read('../public/pages/tasks.js');
-  const css  = read('../public/styles/tasks.css');
+  const page   = read('../public/pages/tasks.js');
+  const detail = read('../public/components/task-detail.js');
+  const css    = read('../public/styles/tasks.css');
 
   // 1. Blendet das Stylesheet die Inline-Aktionen ueberhaupt aus? Nur dann
   //    entsteht die Luecke - faellt die Regel weg, ist der Guard gegenstandslos
@@ -14477,7 +14478,7 @@ test('jede auf Touch ausgeblendete Karten-Aktion hat einen Weg in der Leseansich
   // 3. Und wo faengt die Leseansicht sie auf? Der Wert ist der Aufruf, der die
   //    Handlung im Detail-Pfad ausloest.
   const TOUCH_PATH = {
-    'add-subtask':     'handleAddSubtask(',
+    'add-subtask':     'addSubtask(',
     'edit-task':       'wireTaskForm(',
     'archive-task':    'toggleTaskArchive(',
     'unarchive-task':  'toggleTaskArchive(',
@@ -14485,12 +14486,20 @@ test('jede auf Touch ausgeblendete Karten-Aktion hat einen Weg in der Leseansich
 
   // Der Detail-Pfad: die Ansicht selbst und die Knoten, die sie baut. Ab
   // `function subtaskListNode` bis zum Ende von `openTaskDetail` liegen beide.
-  const detailStart = page.indexOf('function subtaskListNode(');
-  const detailEnd   = page.indexOf('async function advanceTaskStatus(');
+  // Sie wohnen seit #918 in der geteilten Komponente - genau darum greift der
+  // Ersatzweg jetzt auch dort, wo die Aufgabe aus der Uebersicht geoeffnet wird.
+  const detailStart = detail.indexOf('function subtaskListNode(');
+  const detailEnd   = detail.indexOf('async function advanceTaskStatus(');
   assert.ok(detailStart > -1 && detailEnd > detailStart,
     'der Detail-Pfad (subtaskListNode ... openTaskDetail) ist nicht mehr auffindbar - '
     + 'der Guard misst sonst die falsche Datei-Haelfte');
-  const detailPath = page.slice(detailStart, detailEnd);
+  // Das Bearbeiten-Formular gehoert dem Modul und wird der Ansicht gereicht
+  // (#918); der Mount-Block ist deshalb Teil desselben Wegs.
+  const mountStart = page.indexOf('function openTaskView(');
+  const mountEnd   = page.indexOf('export async function openTaskById(');
+  assert.ok(mountStart > -1 && mountEnd > mountStart,
+    'der Mount-Block des Bearbeiten-Formulars ist nicht mehr auffindbar');
+  const detailPath = detail.slice(detailStart, detailEnd) + page.slice(mountStart, mountEnd);
 
   for (const action of actions) {
     const call = TOUCH_PATH[action];
@@ -14512,9 +14521,9 @@ test('jede auf Touch ausgeblendete Karten-Aktion hat einen Weg in der Leseansich
   //    Messbar ist die Regel dahinter: ein Abschnitt darf nur wegfallen, wenn
   //    er auch nichts ANZUBIETEN hat. Die Bedingung, die den Add-Knopf gattert,
   //    muss deshalb im Frueh-Ausstieg mitgelesen werden.
-  const nodeFn = /function subtaskListNode\([\s\S]*?\n\}/.exec(page);
+  const nodeFn = /function subtaskListNode\([\s\S]*?\n\}/.exec(detail);
   assert.ok(nodeFn, 'subtaskListNode ist nicht mehr auffindbar');
-  const gate = /^\s*const (\w+) = [^\n]*canEditTaskDefinition\(task\)/m.exec(nodeFn[0]);
+  const gate = /^\s*const (\w+) = [^\n]*canEditTaskDefinition\(task[,)]/m.exec(nodeFn[0]);
   assert.ok(gate,
     'subtaskListNode gattert den Anlege-Weg nicht mehr an canEditTaskDefinition - '
     + 'entweder darf jetzt jeder anlegen, oder der Knopf ist weg (#925)');
