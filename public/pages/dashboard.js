@@ -2375,6 +2375,14 @@ async function openWidgetOptions(id, current = {}) {
           <input type="radio" name="cal-scope" value="mine" ${options.scope === 'mine' ? 'checked' : ''}>
           <span>${t('calendar.assignedToMe')}</span>
         </label>
+      </fieldset>
+      <fieldset class="form-group widget-options__group">
+        <legend class="form-label">${t('calendar.filtersLayers')}</legend>
+        <p class="widget-options__hint">${t('dashboard.optionCalendarBirthdaysHint')}</p>
+        <label class="widget-options__choice">
+          <input type="checkbox" name="cal-birthdays" ${options.birthdays === 'hide' ? '' : 'checked'}>
+          <span>${t('calendar.toggleBirthdays')}</span>
+        </label>
       </fieldset>`
     : `
       <fieldset class="form-group widget-options__group">
@@ -2418,6 +2426,9 @@ async function openWidgetOptions(id, current = {}) {
             // nicht gespeichert - sonst stuende in jedem Layout ein Feld, das
             // den Auslieferungszustand wiederholt.
             if (scope === 'mine') next.scope = 'mine';
+            // Dasselbe eine Zeile tiefer, nur andersherum notiert: gespeichert
+            // wird das ABWAEHLEN, nicht das Haekchen (#927).
+            if (!panel.querySelector('input[name="cal-birthdays"]')?.checked) next.birthdays = 'hide';
           } else {
             const picked = [...panel.querySelectorAll('input[name="task-category"]:checked')].map((el) => el.value);
             // Keine Auswahl heisst „alle" - eine leere Liste als Filter waere

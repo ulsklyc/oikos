@@ -328,3 +328,67 @@ test('Die Termin-Einschraenkung wirkt vor der Deckelung', async () => {
   const titles = (await dashboard('?events_scope=mine')).upcomingEvents.map((e) => e.title);
   assert.deepEqual(titles, ['Zahnarzt'], 'der eigene Termin ist hinter der Deckelung verschwunden');
 });
+
+// --------------------------------------------------------------------------
+// Geburtstage im Termin-Widget (#927): dieselbe Klasse wie „nur meine" - eine
+// Widget-Option, die als Query-Parameter reist und VOR der Deckelung wirkt.
+// --------------------------------------------------------------------------
+const insertAllDay = db.prepare(`
+  INSERT INTO calendar_events (title, start_datetime, end_datetime, all_day, visibility, created_by)
+  VALUES (?, ?, ?, 1, 'all', ?)
+`);
+const insertBirthday = db.prepare(`
+  INSERT INTO birthdays (name, birth_date, calendar_event_id, created_by) VALUES (?, ?, ?, ?)
+`);
+test('Vorbedingung: ohne Parameter fuellen die Geburtstage das Termin-Widget', async () => {
+  /* ANGELEGT WIRD ERST HIER, NICHT AUF MODULEBENE. Die Tests dieser Datei
+   * laufen der Reihe nach gegen EINEN wachsenden Bestand, und fuenf
+   * ganztaegige Termine ganz vorn haetten den Terminbestand der Abschnitte
+   * darueber aus den gedeckelten fuenf Plaetzen gedraengt - deren Zusicherung
+   * waere rot geworden, ohne dass an ihrer Regel etwas falsch ist.
+   *
+   * Fuenf Stueck und ganztaegig ist Absicht: sie beginnen um Mitternacht,
+   * stehen damit vor jedem anderen Termin und fuellen die fuenf Plaetze
+   * restlos aus. Genau daran faellt unten auf, ob nach der Deckelung
+   * gefiltert wird. */
+  for (const name of ['Hartmut', 'Lars', 'Mira', 'Ove', 'Rosa']) {
+    const eventId = insertAllDay.run(`Geburtstag: ${name}`, TOMORROW, TOMORROW, ALICE).lastInsertRowid;
+    insertBirthday.run(name, '1980-01-01', eventId, ALICE);
+  }
+  const events = (await dashboard()).upcomingEvents;
+  assert.equal(events.length, 5, 'die Route deckelt bei fuenf - sonst misst der Test unten nichts');
+  assert.ok(events.every((e) => e.birthday_name),
+    `es sollen ausschliesslich Geburtstage sein: ${events.map((e) => e.title).join(', ')}`);
+});
+
+test('events_birthdays=hide nimmt die Geburtstage heraus - VOR der Deckelung', async () => {
+  const events = (await dashboard('?events_birthdays=hide')).upcomingEvents;
+  assert.ok(events.every((e) => !e.birthday_name),
+    `Geburtstag durchgerutscht: ${events.map((e) => e.title).join(', ')}`);
+  // DIE EIGENTLICHE ZUSICHERUNG. Nachtraeglich gesiebt blieben von den fuenf
+  // Plaetzen, die oben komplett mit Geburtstagen belegt sind, null Termine
+  // uebrig - die Kachel waere leer statt gefiltert (dieselbe Lehre wie #647).
+  assert.equal(events.length, 5, 'die Geburtstage wurden erst nach der Deckelung entfernt');
+});
+
+test('Erkannt wird der Geburtstag am Modul-Eintrag, nicht an seinem Titel', async () => {
+  // Gegenprobe zur Regel: ein von Hand angelegter Termin, der zufaellig so
+  // heisst, gehoert niemandem im Geburtstagsmodul und bleibt deshalb stehen.
+  // Ein Vergleich auf den Titel haette ihn mitgenommen - und in einem
+  // englischsprachigen Haushalt umgekehrt keinen einzigen echten gefunden,
+  // weil der Titel in der Datensprache des Haushalts gespeichert ist (#524).
+  insertEvent.run('Geburtstag: Deko kaufen', `${TOMORROW}T00:05`, `${TOMORROW}T00:15`, ALICE);
+  const titles = (await dashboard('?events_birthdays=hide')).upcomingEvents.map((e) => e.title);
+  assert.ok(titles.includes('Geburtstag: Deko kaufen'),
+    `am Titel statt am Eintrag gefiltert: ${titles.join(', ')}`);
+});
+
+test('Ohne den Parameter bleibt alles, wie es war', async () => {
+  // Ein Filter wirkt nur, wo jemand ihn gesetzt hat: der Auslieferungszustand
+  // der Route ist „mit Geburtstagen", und ein unbekannter Wert aendert daran
+  // nichts (er koennte sonst als Abwahl durchgehen).
+  for (const query of ['', '?events_birthdays=show', '?events_birthdays=']) {
+    const events = (await dashboard(query)).upcomingEvents;
+    assert.ok(events.some((e) => e.birthday_name), `Geburtstage fehlen bei "${query}"`);
+  }
+});

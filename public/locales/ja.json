@@ -288,7 +288,8 @@
         "memberOpenTasks_one": "タスク{{count}}件",
         "manage": "管理",
         "todayNothingElseTomorrow": "今日はこの後予定はありません。明日: {{title}}",
-        "weatherHighLow": "最高 {{max}}°、最低 {{min}}°"
+        "weatherHighLow": "最高 {{max}}°、最低 {{min}}°",
+        "optionCalendarBirthdaysHint": "チェックを外すと、このタイルに誕生日は表示されません。カレンダーには残ります。"
     },
     "tasks": {
         "manageCategories": "カテゴリーを管理",

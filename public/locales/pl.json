@@ -300,7 +300,8 @@
         "memberOpenTasks_one": "{{count}} zadanie",
         "manage": "Zarządzaj",
         "todayNothingElseTomorrow": "Nic więcej na dziś - jutro: {{title}}",
-        "weatherHighLow": "Najwyższa {{max}}°, najniższa {{min}}°"
+        "weatherHighLow": "Najwyższa {{max}}°, najniższa {{min}}°",
+        "optionCalendarBirthdaysHint": "Bez zaznaczenia urodziny nie pojawiają się na tym kaflu - w kalendarzu zostają."
     },
     "tasks": {
         "manageCategories": "Zarządzaj kategoriami",

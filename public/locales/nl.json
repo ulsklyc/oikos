@@ -288,7 +288,8 @@
         "memberOpenTasks_one": "{{count}} taak",
         "manage": "Beheren",
         "todayNothingElseTomorrow": "Verder niets meer vandaag - morgen: {{title}}",
-        "weatherHighLow": "Maximum {{max}}°, minimum {{min}}°"
+        "weatherHighLow": "Maximum {{max}}°, minimum {{min}}°",
+        "optionCalendarBirthdaysHint": "Zonder vinkje blijven verjaardagen weg uit deze tegel - in de agenda staan ze nog."
     },
     "tasks": {
         "manageCategories": "Categorieën beheren",

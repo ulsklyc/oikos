@@ -278,6 +278,10 @@ export function dashboardQuery(config) {
   const params = new URLSearchParams();
   const optionsOf = (id) => (Array.isArray(config) ? config.find((w) => w.id === id)?.options : null) ?? {};
   if (optionsOf('calendar').scope === 'mine') params.set('events_scope', 'mine');
+  // Nur die Abwahl reist mit (#927): „mit Geburtstagen" ist der Auslieferungs-
+  // zustand der Route, und ein Parameter, der ihn wiederholt, stuende in jeder
+  // Anfrage - dieselbe Regel, nach der `scope: 'all'` nicht gespeichert wird.
+  if (optionsOf('calendar').birthdays === 'hide') params.set('events_birthdays', 'hide');
   for (const key of optionsOf('tasks').categories ?? []) params.append('tasks_category', key);
   const query = params.toString();
   return query ? `/dashboard?${query}` : '/dashboard';

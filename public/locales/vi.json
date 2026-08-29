@@ -288,7 +288,8 @@
         "memberOpenTasks_one": "{{count}} việc",
         "manage": "Quản lý",
         "todayNothingElseTomorrow": "Hôm nay không còn gì khác - ngày mai: {{title}}",
-        "weatherHighLow": "Cao nhất {{max}}°, thấp nhất {{min}}°"
+        "weatherHighLow": "Cao nhất {{max}}°, thấp nhất {{min}}°",
+        "optionCalendarBirthdaysHint": "Nếu bỏ chọn, sinh nhật sẽ không xuất hiện trong thẻ này - trên lịch vẫn còn."
     },
     "tasks": {
         "manageCategories": "Quản lý danh mục",

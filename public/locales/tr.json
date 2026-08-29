@@ -288,7 +288,8 @@
         "memberOpenTasks_one": "{{count}} görev",
         "manage": "Yönet",
         "todayNothingElseTomorrow": "Bugün başka bir şey yok - yarın: {{title}}",
-        "weatherHighLow": "En yüksek {{max}}°, en düşük {{min}}°"
+        "weatherHighLow": "En yüksek {{max}}°, en düşük {{min}}°",
+        "optionCalendarBirthdaysHint": "İşaret kaldırılınca doğum günleri bu kartta görünmez, takvimde kalmaya devam eder."
     },
     "tasks": {
         "manageCategories": "Kategorileri yönet",

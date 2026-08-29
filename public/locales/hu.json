@@ -288,7 +288,8 @@
         "memberOpenTasks_one": "{{count}} feladat",
         "manage": "Kezelés",
         "todayNothingElseTomorrow": "Mára nincs több teendő - holnap: {{title}}",
-        "weatherHighLow": "Legmagasabb: {{max}}°, legalacsonyabb: {{min}}°"
+        "weatherHighLow": "Legmagasabb: {{max}}°, legalacsonyabb: {{min}}°",
+        "optionCalendarBirthdaysHint": "Pipa nélkül a születésnapok kimaradnak ebből a csempéből, a naptárban továbbra is ott vannak."
     },
     "tasks": {
         "manageCategories": "Kategóriák kezelése",

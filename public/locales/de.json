@@ -300,7 +300,8 @@
         "memberOpenTasks_one": "{{count}} Aufgabe",
         "manage": "Verwalten",
         "todayNothingElseTomorrow": "Danach steht heute nichts mehr an - morgen: {{title}}",
-        "weatherHighLow": "Höchstwert {{max}}°, Tiefstwert {{min}}°"
+        "weatherHighLow": "Höchstwert {{max}}°, Tiefstwert {{min}}°",
+        "optionCalendarBirthdaysHint": "Ohne Haken bleiben Geburtstage aus dieser Kachel - im Kalender stehen sie weiter."
     },
     "tasks": {
         "manageCategories": "Kategorien verwalten",

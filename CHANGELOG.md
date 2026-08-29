@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The Calendar tile on the Overview can leave birthdays out.** A household that keeps the
+  Birthdays tile on the Overview read every birthday twice - once under Birthdays, once between the
+  next appointments - and the layer switch in the Calendar module did nothing about it. The tile's
+  options dialog (Customise, the sliders button) now carries the same "Birthdays" switch the
+  Calendar filter sheet has, worded identically. It is its own setting rather than a reading of the
+  Calendar module's: that switch lives in the browser's local storage and applies to the device,
+  while widget options live in your preferences and apply to the account, so one value serving both
+  would mean unchecking it on the phone silently decided what the wall tablet shows, or did not,
+  depending on which of the two you happened to read. Birthdays stay in unless you take them out.
+  Filtered before the five-item cap, not after, so taking them out fills the freed rows with the
+  next real appointments instead of leaving a shorter list; recognised by the birthday entry behind
+  the event, not by its title, which is stored in the household's data language.
+
 ## [2.53.0] - 2026-08-29
 
 ### Changed

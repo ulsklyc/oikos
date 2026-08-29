@@ -288,7 +288,8 @@
         "memberOpenTasks_one": "{{count}} úkol",
         "manage": "Spravovat",
         "todayNothingElseTomorrow": "Dnes už nic dalšího - zítra: {{title}}",
-        "weatherHighLow": "Nejvyšší {{max}}°, nejnižší {{min}}°"
+        "weatherHighLow": "Nejvyšší {{max}}°, nejnižší {{min}}°",
+        "optionCalendarBirthdaysHint": "Bez zaškrtnutí narozeniny z této dlaždice zmizí, v kalendáři zůstanou."
     },
     "tasks": {
         "manageCategories": "Spravovat kategorie",

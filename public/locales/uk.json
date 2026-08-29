@@ -288,7 +288,8 @@
         "memberOpenTasks_one": "{{count}} завдання",
         "manage": "Керувати",
         "todayNothingElseTomorrow": "Більше на сьогодні нічого немає - завтра: {{title}}",
-        "weatherHighLow": "Максимум {{max}}°, мінімум {{min}}°"
+        "weatherHighLow": "Максимум {{max}}°, мінімум {{min}}°",
+        "optionCalendarBirthdaysHint": "Без позначки дні народження не показуються в цій картці, у календарі вони залишаються."
     },
     "tasks": {
         "manageCategories": "Керування категоріями",

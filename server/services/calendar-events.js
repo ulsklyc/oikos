@@ -166,13 +166,15 @@ export function expandRecurringEvents(events, from, to, exceptionsByEvent = null
  * @param {number}  opts.windowDays  Vorausschau-Fenster in Tagen (default 90)
  * @param {boolean} opts.fromToday   true = ab Tagesbeginn (Dashboard); false = ab jetzt (default)
  * @param {number?} opts.assignedTo  Nur Termine, die dieser Person zugewiesen sind (#814)
+ * @param {boolean} opts.includeBirthdays  false = Geburtstagstermine aussortieren (#927)
  * @param {Date}    [opts.now]        Ersetzbar für Tests - die Tagesgrenze ist genau
  *        das, was hier schiefgehen kann, und ohne festen Zeitpunkt liesse sie sich
  *        nur an dem einen Abend im Jahr pruefen, an dem die Suite zufaellig laeuft.
  * @returns {object[]}  Rohe, expandierte Event-Zeilen (inkl. assigned_users_json)
  */
 export function getUpcomingEvents(d, {
-  userId = null, limit = 5, windowDays = 90, fromToday = false, assignedTo = null, now = new Date(),
+  userId = null, limit = 5, windowDays = 90, fromToday = false, assignedTo = null,
+  includeBirthdays = true, now = new Date(),
 } = {}) {
   const tz      = householdTimeZone(d);
   const nowDate = todayKey(d, now);
@@ -252,5 +254,17 @@ export function getUpcomingEvents(d, {
       const assigned = e.assigned_users_json ? JSON.parse(e.assigned_users_json) : [];
       return assigned.some((u) => Number(u.id) === Number(assignedTo));
     })
+    /* GEBURTSTAGE ABWAEHLEN (#927) - und zwar hier, VOR der Deckelung, aus
+     * demselben Grund wie „nur meine" eine Zeile darueber: gefiltert wuerde
+     * sonst innerhalb der fuenf, die ohnehin schon feststehen, und wer die
+     * Geburtstage abwaehlt, saehe im August drei Termine statt fuenf.
+     *
+     * ERKANNT WIRD DER GEBURTSTAG AM JOIN, NICHT AM TITEL: `birthday_name`
+     * kommt aus dem LEFT JOIN auf `birthdays` und ist genau dann gesetzt, wenn
+     * der Termin aus dem Geburtstagsmodul stammt. Der Titel ist in der
+     * Datensprache des Haushalts gespeichert (#524) - ein Vergleich auf
+     * „Geburtstag: " haette in jedem anderssprachigen Haushalt nichts
+     * gefunden. Dieselbe Bedingung wie `isVisibleLayer` im Kalendermodul. */
+    .filter((e) => includeBirthdays || !e.birthday_name)
     .slice(0, limit);
 }

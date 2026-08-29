@@ -288,7 +288,8 @@
         "memberOpenTasks_one": "{{count}} εργασία",
         "manage": "Διαχείριση",
         "todayNothingElseTomorrow": "Τίποτα άλλο για σήμερα - αύριο: {{title}}",
-        "weatherHighLow": "Μέγιστη {{max}}°, ελάχιστη {{min}}°"
+        "weatherHighLow": "Μέγιστη {{max}}°, ελάχιστη {{min}}°",
+        "optionCalendarBirthdaysHint": "Χωρίς επιλογή τα γενέθλια λείπουν από αυτό το πλακίδιο, στο ημερολόγιο παραμένουν."
     },
     "tasks": {
         "manageCategories": "Διαχείριση κατηγοριών",

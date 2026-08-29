@@ -1862,6 +1862,15 @@ test('dashboardQuery uebersetzt Optionen in Parameter, die die Route versteht (#
     `Kalender-Parameter falsch: ${widgets.dashboardQuery(mit('calendar', { scope: 'mine' }))}`);
   assert(widgets.dashboardQuery(mit('calendar', { scope: 'all' })) === '/dashboard',
     '„alle" ist die Abwesenheit einer Einschraenkung, kein Parameter');
+  // Die Geburtstags-Abwahl (#927) folgt derselben Regel, nur andersherum
+  // notiert: gespeichert und geschickt wird das Wegnehmen, nicht das Haekchen.
+  assert(widgets.dashboardQuery(mit('calendar', { birthdays: 'hide' })) === '/dashboard?events_birthdays=hide',
+    `Geburtstags-Parameter falsch: ${widgets.dashboardQuery(mit('calendar', { birthdays: 'hide' }))}`);
+  assert(widgets.dashboardQuery(mit('calendar', { birthdays: 'show' })) === '/dashboard',
+    'die Zustimmung ist der Auslieferungszustand und braucht keinen Parameter');
+  const beide = widgets.dashboardQuery(mit('calendar', { scope: 'mine', birthdays: 'hide' }));
+  assert(beide === '/dashboard?events_scope=mine&events_birthdays=hide',
+    `beide Kalender-Optionen zusammen falsch: ${beide}`);
   const zwei = widgets.dashboardQuery(mit('tasks', { categories: ['household', 'school'] }));
   assert(zwei === '/dashboard?tasks_category=household&tasks_category=school',
     `Kategorien falsch: ${zwei}`);

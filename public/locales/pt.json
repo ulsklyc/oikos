@@ -288,7 +288,8 @@
         "memberOpenTasks_one": "{{count}} tarefa",
         "manage": "Gerir",
         "todayNothingElseTomorrow": "Mais nada por hoje - amanhã: {{title}}",
-        "weatherHighLow": "Máxima {{max}}°, mínima {{min}}°"
+        "weatherHighLow": "Máxima {{max}}°, mínima {{min}}°",
+        "optionCalendarBirthdaysHint": "Sem seleção, os aniversários ficam fora deste cartão; no calendário continuam."
     },
     "tasks": {
         "manageCategories": "Gerir categorias",

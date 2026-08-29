@@ -300,7 +300,8 @@
         "memberOpenTasks_one": "{{count}} tugas",
         "manage": "Kelola",
         "todayNothingElseTomorrow": "Tidak ada lagi hari ini - besok: {{title}}",
-        "weatherHighLow": "Tertinggi {{max}}°, terendah {{min}}°"
+        "weatherHighLow": "Tertinggi {{max}}°, terendah {{min}}°",
+        "optionCalendarBirthdaysHint": "Tanpa centang, ulang tahun tidak muncul di kartu ini - di kalender tetap ada."
     },
     "tasks": {
         "manageCategories": "Kelola kategori",

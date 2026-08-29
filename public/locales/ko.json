@@ -300,7 +300,8 @@
         "memberOpenTasks_one": "할 일 {{count}}개",
         "manage": "관리",
         "todayNothingElseTomorrow": "오늘은 더 이상 일정이 없습니다. 내일: {{title}}",
-        "weatherHighLow": "최고 {{max}}°, 최저 {{min}}°"
+        "weatherHighLow": "최고 {{max}}°, 최저 {{min}}°",
+        "optionCalendarBirthdaysHint": "체크를 해제하면 이 타일에 생일이 표시되지 않습니다. 캘린더에는 그대로 남습니다."
     },
     "tasks": {
         "manageCategories": "카테고리 관리",

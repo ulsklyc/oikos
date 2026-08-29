@@ -157,6 +157,21 @@ router.get('/', (req, res) => {
   const taskCategoryBinds = categoryBindings(taskCategories, 'cat');
   // `mine` ist die Auslegung des Kalendermoduls: zugewiesen an mich.
   const eventsAssignedTo = req.query.events_scope === 'mine' ? userId : null;
+  /* GEBURTSTAGE IM TERMIN-WIDGET (#927). Wer sie auf der Uebersicht schon als
+   * eigene Kachel stehen hat, las sie zweimal - einmal bei den Geburtstagen,
+   * einmal zwischen den naechsten Terminen. Abwaehlbar ist deshalb der EINE
+   * Ort, an dem sie mitlaufen, statt dass die Kachel danebensteht.
+   *
+   * NICHT UEBERNOMMEN WIRD DER FILTER DES KALENDERMODULS, obwohl die Anfrage
+   * dorthin zeigte: der Ebenen-Schalter dort liegt im localStorage und gilt
+   * fuer das Geraet, die Widget-Optionen liegen in den Einstellungen und gelten
+   * fuer das Konto. Ein Wert an zwei Orten mit zwei Reichweiten waere die
+   * teurere Antwort - am Wandtablet haette das Abwaehlen am Telefon gewirkt
+   * oder eben nicht, je nachdem, welchen der beiden man liest.
+   *
+   * Der Standard bleibt „mit Geburtstagen": ein Filter wirkt nur, wo jemand ihn
+   * gesetzt hat. Der Parameter reist deshalb nur in seiner einen Richtung. */
+  const includeBirthdays = req.query.events_birthdays !== 'hide';
 
   const now = new Date();
 
@@ -201,7 +216,9 @@ router.get('/', (req, res) => {
   // Geteilte Logik mit /calendar/upcoming: expandiert wiederkehrende Serien,
   // sodass auch Termine erscheinen, deren Master-Start in der Vergangenheit liegt.
   if (allows('calendar')) try {
-    result.upcomingEvents = getUpcomingEvents(d, { userId, limit: 5, fromToday: true, assignedTo: eventsAssignedTo })
+    result.upcomingEvents = getUpcomingEvents(d, {
+      userId, limit: 5, fromToday: true, assignedTo: eventsAssignedTo, includeBirthdays,
+    })
       .map(({ assigned_users_json, ...event }) => {
         event.assigned_users = assigned_users_json ? JSON.parse(assigned_users_json) : [];
         return event;

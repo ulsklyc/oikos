@@ -288,7 +288,8 @@
         "memberOpenTasks_one": "{{count}} task",
         "manage": "Manage",
         "todayNothingElseTomorrow": "Nothing else today - tomorrow: {{title}}",
-        "weatherHighLow": "High {{max}}°, low {{min}}°"
+        "weatherHighLow": "High {{max}}°, low {{min}}°",
+        "optionCalendarBirthdaysHint": "Unchecked, birthdays stay out of this tile - the calendar still shows them."
     },
     "tasks": {
         "manageCategories": "Manage categories",

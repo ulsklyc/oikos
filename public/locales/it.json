@@ -288,7 +288,8 @@
         "memberOpenTasks_one": "{{count}} attività",
         "manage": "Gestisci",
         "todayNothingElseTomorrow": "Nient'altro per oggi - domani: {{title}}",
-        "weatherHighLow": "Massima {{max}}°, minima {{min}}°"
+        "weatherHighLow": "Massima {{max}}°, minima {{min}}°",
+        "optionCalendarBirthdaysHint": "Senza spunta i compleanni restano fuori da questa scheda; nel calendario ci sono ancora."
     },
     "tasks": {
         "manageCategories": "Gestisci categorie",

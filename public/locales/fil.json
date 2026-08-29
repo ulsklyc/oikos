@@ -300,7 +300,8 @@
         "memberOpenTasks_one": "{{count}} na mga gawain",
         "manage": "Pamahalaan",
         "todayNothingElseTomorrow": "Wala nang iba ngayon - bukas: {{title}}",
-        "weatherHighLow": "Pinakamataas {{max}}°, pinakamababa {{min}}°"
+        "weatherHighLow": "Pinakamataas {{max}}°, pinakamababa {{min}}°",
+        "optionCalendarBirthdaysHint": "Kapag hindi nakatsek, hindi lumalabas ang mga kaarawan sa tile na ito - nasa kalendaryo pa rin sila."
     },
     "tasks": {
         "manageCategories": "Pamahalaan ang mga kategorya",

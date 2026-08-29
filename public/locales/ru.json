@@ -288,7 +288,8 @@
         "memberOpenTasks_one": "{{count}} задача",
         "manage": "Управлять",
         "todayNothingElseTomorrow": "Больше на сегодня ничего нет - завтра: {{title}}",
-        "weatherHighLow": "Максимум {{max}}°, минимум {{min}}°"
+        "weatherHighLow": "Максимум {{max}}°, минимум {{min}}°",
+        "optionCalendarBirthdaysHint": "Без галочки дни рождения не показываются в этой карточке, в календаре они остаются."
     },
     "tasks": {
         "manageCategories": "Управление категориями",

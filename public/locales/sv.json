@@ -288,7 +288,8 @@
         "memberOpenTasks_one": "{{count}} uppgift",
         "manage": "Hantera",
         "todayNothingElseTomorrow": "Inget mer idag - imorgon: {{title}}",
-        "weatherHighLow": "Högsta {{max}}°, lägsta {{min}}°"
+        "weatherHighLow": "Högsta {{max}}°, lägsta {{min}}°",
+        "optionCalendarBirthdaysHint": "Utan bock hålls födelsedagar utanför den här rutan - i kalendern står de kvar."
     },
     "tasks": {
         "manageCategories": "Hantera kategorier",

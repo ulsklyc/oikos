@@ -288,7 +288,8 @@
         "memberOpenTasks_one": "{{count}} tâche",
         "manage": "Gérer",
         "todayNothingElseTomorrow": "Plus rien d'autre aujourd'hui - demain : {{title}}",
-        "weatherHighLow": "Maximale {{max}}°, minimale {{min}}°"
+        "weatherHighLow": "Maximale {{max}}°, minimale {{min}}°",
+        "optionCalendarBirthdaysHint": "Sans la coche, les anniversaires n'apparaissent pas dans cette carte - le calendrier les garde."
     },
     "tasks": {
         "manageCategories": "Gérer les catégories",

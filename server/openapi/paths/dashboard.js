@@ -22,6 +22,13 @@ export function dashboardPaths() {
             description: '`mine` limits appointments to those assigned to the calling user - among the assignees, so an unassigned event is not "mine" (same reading as the calendar module). Anything else means all appointments.',
             schema: { type: 'string', enum: ['all', 'mine'] },
           },
+          {
+            name: 'events_birthdays',
+            in: 'query',
+            required: false,
+            description: '`hide` drops appointments that belong to a birthday entry from `upcomingEvents`, so a household that already shows the Birthdays tile does not read them twice. Applied before the five-item cap, so the freed rows are filled with the next real appointments. Anything else keeps them - birthdays are in by default.',
+            schema: { type: 'string', enum: ['show', 'hide'] },
+          },
         ],
       }),
     },

@@ -288,7 +288,8 @@
         "memberOpenTasks_one": "{{count}} مهمة",
         "manage": "إدارة",
         "todayNothingElseTomorrow": "لا شيء آخر اليوم - غدًا: {{title}}",
-        "weatherHighLow": "العظمى {{max}}°، الصغرى {{min}}°"
+        "weatherHighLow": "العظمى {{max}}°، الصغرى {{min}}°",
+        "optionCalendarBirthdaysHint": "بدون تحديد تختفي أعياد الميلاد من هذه البطاقة، وتبقى في التقويم."
     },
     "tasks": {
         "manageCategories": "إدارة الفئات",
