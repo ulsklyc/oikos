@@ -448,43 +448,42 @@ test('der Rueckgaengig-Streifen blendet JEDE Darstellung der Aufgabe aus (#918)'
   assert.match(dash, /class="task-item" data-task-id=/, 'die Widget-Zeile nennt ihre Aufgabe');
 });
 
-test('die geteilte Leseansicht bringt ihr Aussehen mit (#918)', async () => {
+test('wer die Aufgabe von aussen oeffnet, bekommt ihr Blatt (#918)', async () => {
   // DER ROUTER HAELT GENAU EIN SEITEN-BLATT (loadPageStyle in router.js). Auf
   // der Uebersicht ist das dashboard.css, im Kalender calendar.css - tasks.css
-  // ist dort NICHT geladen. Seit die Leseansicht von dort geoeffnet werden kann,
-  // waeren ihre Kommentare, Dokument-Chips, Bildvorschauen, Etiketten und ihr
-  // Verlauf ohne Regeln erschienen: der Code war geteilt, sein Aussehen nicht.
-  const html = await read('public/index.html');
-  assert.match(html, /href="\/styles\/task-detail\.css"/,
-    'das Blatt der geteilten Ansicht wird eager geladen, nicht als Seiten-Blatt');
+  // ist dort NICHT geladen, und von dort kommt das Aussehen der Leseansicht
+  // UND des Formulars. Gemessen ohne dieses Blatt: ein Etikett mit
+  // `border-radius: 0px` statt `9999px`, eine Autorenzeile mit Gewicht 400.
+  const src = await tasksJs();
+  assert.match(src, /function ensureTaskStyles\(\)/, 'der Einstieg von aussen stellt das Blatt sicher');
+  const fn = src.slice(src.indexOf('function ensureTaskStyles()'),
+                       src.indexOf('export async function openTaskById('));
+  assert.match(fn, /link\.onload/, 'und WARTET darauf - sonst steht der Inhalt einmal roh da');
+  assert.match(fn, /link\.onerror/, 'ein fehlendes Blatt darf die Aufgabe nicht verschlucken');
+  assert.match(src, /ensureTaskStyles\(\),/,
+    'der Aufruf haengt im selben await wie das Laden der Aufgabe');
 
-  // Die eager geladene Menge wird aus index.html ABGELEITET, nicht abgetippt:
-  // eine getippte Liste veraltet still und macht den Guard entweder blind oder
-  // grundlos rot.
-  const eagerHrefs = [...html.matchAll(/<link rel="stylesheet" href="([^"]+)"/g)].map((m) => m[1]);
-  assert.ok(eagerHrefs.length >= 10, `unerwartet wenige eager Stylesheets: ${eagerHrefs.length}`);
-  const eager = (await Promise.all(
-    eagerHrefs.map((href) => read('public' + href)),
-  )).join('\n');
-
-  // Die Regel, nicht eine Allowlist: JEDE Klasse, die die Komponente selbst
-  // vergibt, muss aus einem immer geladenen Blatt kommen.
+  // Und die Gegenprobe zur Regel: die Klassen, die Ansicht und Formular
+  // vergeben, muessen wirklich aus einem Blatt kommen, das sonst fehlte -
+  // sonst liefe der Guard ueber eine leere Menge und sicherte nichts.
+  const { eachRule } = await import('./css-rules.js');
+  const selektoren = [...eachRule(await read('public/styles/tasks.css'))]
+    .map((r) => r.selector).join('\n');
   const detail = await taskDetailJs();
-  const classes = new Set();
+  const klassen = new Set();
   for (const m of detail.matchAll(/className = '([^']+)'/g)) {
-    for (const c of m[1].split(/\s+/)) if (c) classes.add(c);
+    for (const c of m[1].split(/\s+/)) if (c) klassen.add(c);
   }
-  assert.ok(classes.size >= 15,
-    `nur ${classes.size} Klassen gefunden - das Muster passt nicht mehr auf die Komponente`);
-
-  const page = await read('public/styles/tasks.css');
-  const nurImSeitenblatt = [...classes].filter((c) => {
-    const re = new RegExp('\\.' + reLiteral(c) + '(?![\\w-])');
-    return re.test(page) && !re.test(eager);
-  });
-  assert.deepEqual(nurImSeitenblatt, [],
-    'diese Klassen der geteilten Ansicht stehen NUR in tasks.css - aus der '
-    + 'Uebersicht und dem Kalender waeren sie ohne Regeln: ' + nurImSeitenblatt.join(', '));
+  assert.ok(klassen.size >= 15,
+    `nur ${klassen.size} Klassen gefunden - das Muster passt nicht mehr auf die Komponente`);
+  // UEBER DIE SELEKTOREN, nicht ueber den Dateitext: eine Klasse, die nur in
+  // einem KOMMENTAR steht, ist keine Regel. Genau daran war die erste Fassung
+  // dieses Guards blind und liess `.priority-badge` durch.
+  const ausTasksCss = [...klassen].filter((c) =>
+    new RegExp('\\.' + reLiteral(c) + '(?![\\w-])').test(selektoren));
+  assert.ok(ausTasksCss.length >= 5,
+    'die Leseansicht bezieht kaum noch etwas aus tasks.css - dann sichert dieser Guard nichts: '
+    + ausTasksCss.join(', '));
 });
 test('derselbe Loeschbefehl verhaelt sich auf beiden Wegen gleich (#918)', async () => {
   const src = await tasksJs();

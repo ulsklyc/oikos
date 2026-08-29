@@ -20,13 +20,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tasks get created and groomed. The view with fewer capabilities was the one being used more
   often. Every entry point now opens the full reading view, in place, and returns you to where you
   were: check something off in the Calendar and the day updates around you.
-- **The shared reading view now brings its own stylesheet.** The router keeps exactly one page
-  stylesheet loaded - `dashboard.css` on the Overview, `calendar.css` in the Calendar - and the
-  rules for comments, document chips, image previews, tags and the series history all lived in
-  `tasks.css`. Opening a task from anywhere but the Tasks module would have drawn it almost
-  unstyled: measured, a tag chip came out with `border-radius: 0` and an author line at weight 400.
-  Those rules moved into `task-detail.css`, loaded eagerly next to `detail-view.css` - the code was
-  shared, its appearance was not.
+- **Opening a task from outside the Tasks module brings its stylesheet along.** The router keeps
+  exactly one page stylesheet loaded - `dashboard.css` on the Overview, `calendar.css` in the
+  Calendar - and both the reading view and the edit form take their appearance from `tasks.css`.
+  Measured without it: a tag chip came out at `border-radius: 0` instead of fully rounded, a
+  comment's author line at weight 400 instead of 600. The sheet is now ensured and waited for
+  before the view opens, so nothing is shown raw first. One sheet rather than two halves, on
+  purpose: splitting the rules between a shared and a page stylesheet would mean filing each new
+  rule correctly forever, and that filing quietly went wrong twice while this was being built.
 - **The reading view of a task lives in one place instead of two.** It sat inside the Tasks page and
   could therefore only be opened from there; every other view had the choice of building a smaller
   card of its own or sending the user away, and both were in use. Duplicating the markup would have

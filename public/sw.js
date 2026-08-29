@@ -82,7 +82,6 @@ const APP_SHELL = [
   '/styles/pantry.css',
   '/styles/inventory.css',
   '/styles/detail-view.css',
-  '/styles/task-detail.css',
   '/styles/screensaver.css',
   '/components/yuvomi-install-prompt.js',
   // Geteilte Module. Sie werden von Shell UND Seitenmodulen importiert und

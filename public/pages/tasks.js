@@ -3259,6 +3259,51 @@ function openTaskView(task, reminder, container) {
 }
 
 /**
+ * Das Blatt dieses Moduls sicherstellen, wenn es von aussen geoeffnet wird.
+ *
+ * DER ROUTER HAELT GENAU EIN SEITEN-BLATT (loadPageStyle in router.js). Auf der
+ * Uebersicht ist das dashboard.css, im Kalender calendar.css - tasks.css ist
+ * dort nicht geladen. Die Leseansicht einer Aufgabe UND das Bearbeiten-Formular
+ * holen ihr Aussehen aber von dort: Kommentare, Dokument-Chips,
+ * Bildvorschauen, Etiketten, Prioritaets-Abzeichen, der Serienverlauf, und im
+ * Formular die Tag-Zeile und die Feldhinweise. Ohne dieses Blatt erscheint das
+ * alles fast ungestaltet - gemessen kam ein Etikett mit `border-radius: 0`
+ * heraus und die Autorenzeile eines Kommentars mit Gewicht 400.
+ *
+ * EIN Blatt statt zweier Haelften, und das ist die eigentliche Entscheidung:
+ * Die Regeln zwischen einem geteilten und einem Seiten-Blatt aufzuteilen hiesse,
+ * bei jeder neuen Regel richtig einzusortieren - eine Sortierarbeit, die still
+ * schiefgeht und zweimal schiefgegangen ist (`.priority-badge` blieb zurueck,
+ * die Formularregeln alle). Wer das Modul von aussen oeffnet, bekommt sein
+ * Blatt; das ist eine Regel statt einer Liste.
+ *
+ * GEWARTET WIRD DARAUF, sonst zeigt die Ansicht ihren Inhalt einmal roh.
+ * Dasselbe Muster wie `loadReminderStyles` im Router, nur mit dem `onload`
+ * davor. Der Fehlerfall loest ebenfalls auf: ein fehlendes Blatt ist ein
+ * Schoenheitsfehler, kein Grund, die Aufgabe nicht zu zeigen.
+ */
+function ensureTaskStyles() {
+  const href = '/styles/tasks.css';
+  // Auch das Seiten-Blatt des Routers zaehlt: steht man auf /tasks, ist es da.
+  if ([...document.styleSheets].some((sheet) => (sheet.href ?? '').endsWith(href))) return Promise.resolve();
+  const vorhanden = document.querySelector(`link[data-task-styles][href="${href}"]`);
+  if (vorhanden) return vorhanden.dataset.ready === '1'
+    ? Promise.resolve()
+    : new Promise((resolve) => vorhanden.addEventListener('load', resolve, { once: true }));
+
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = href;
+  link.dataset.taskStyles = '';
+  const ready = new Promise((resolve) => {
+    link.onload = () => { link.dataset.ready = '1'; resolve(); };
+    link.onerror = () => { link.dataset.ready = '1'; resolve(); };
+  });
+  document.head.appendChild(link);
+  return ready;
+}
+
+/**
  * Eine Aufgabe oeffnen, ohne auf dieser Seite zu stehen (#918).
  *
  * Der Einstieg fuer die Uebersicht, die vier Kalenderansichten, das
@@ -3290,6 +3335,7 @@ export async function openTaskById(taskId, { user = null, container = null, onCh
   const [task, reminder] = await Promise.all([
     loadTaskForEdit(taskId),
     loadReminderForTask(taskId),
+    ensureTaskStyles(),
   ]);
   if (!task) throw new Error(t('tasks.loadError'));
 
