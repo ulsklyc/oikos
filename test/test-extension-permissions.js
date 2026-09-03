@@ -208,3 +208,83 @@ test('a colliding api.prefix never reaches PREFIX_TO_MODULE', async () => {
   assert.ok(!catalog.scopeModuleKeys.includes('ext:taskextras'));
   assert.equal(moduleForPath('/tasks/5'), 'tasks');
 });
+
+// ---------------------------------------------------------------------------
+// #1009: der Gruppenschluessel der Rechtematrix
+//
+// Gemeldet als Serverfehler ("Unknown module: ext"), und der Server hatte
+// recht: moduleKeySet() mischt die Extension-Module ein, die Menge KENNT den
+// Schluessel. Abgeschnitten wurde er in der Oberflaeche, weil
+// `const [type, key] = String(group).split(':')` bei `module:ext:<id>` nach
+// zwei Feldern aufhoert. Die Regel steht jetzt in einer eigenen Datei; hier
+// wird sie geprueft, und darunter, dass die Aufrufstelle sie auch benutzt.
+// ---------------------------------------------------------------------------
+
+test('parsePermissionGroup trennt am ersten Doppelpunkt, nicht an allen (#1009)', async () => {
+  const { parsePermissionGroup } = await import('../public/utils/permission-group.js');
+
+  // Kernmodule und Kern-Widgets: ein Paar, unveraendertes Verhalten.
+  assert.deepEqual(parsePermissionGroup('module:tasks'), { type: 'module', key: 'tasks' });
+  assert.deepEqual(parsePermissionGroup('widget:countdown'), { type: 'widget', key: 'countdown' });
+
+  // DER GEMELDETE FALL. Der Schluessel eines Fremdmoduls ist `ext:<modulId>`
+  // (extensionPermissionKey), das Markup schreibt `module:${key}`.
+  assert.deepEqual(
+    parsePermissionGroup('module:ext:mein-modul'),
+    { type: 'module', key: 'ext:mein-modul' },
+    'der Schluessel eines Fremdmoduls behaelt sein ext:-Praefix',
+  );
+
+  // Dieselbe Falle eine Ebene tiefer: eine Fremd-Widget-Id ist
+  // `<modulId>:<widgetId>`, der Gruppenschluessel also dreiteilig.
+  assert.deepEqual(
+    parsePermissionGroup('widget:mein-modul:kachel'),
+    { type: 'widget', key: 'mein-modul:kachel' },
+    'die Widget-Id bleibt vollstaendig',
+  );
+
+  // Modul-Ids duerfen Bindestriche und Ziffern tragen; mehr als drei
+  // Komponenten sind damit nicht ausgeschlossen.
+  assert.deepEqual(
+    parsePermissionGroup('widget:a:b:c'),
+    { type: 'widget', key: 'a:b:c' },
+    'nur der erste Doppelpunkt trennt - alles danach gehoert dem Schluessel',
+  );
+
+  // Kein Doppelpunkt und leerer Rest liefern einen leeren Schluessel, damit der
+  // Aufrufer abbrechen kann. Vorher stand hier `undefined` und landete als
+  // Objektschluessel im Entwurf.
+  assert.deepEqual(parsePermissionGroup('module'), { type: 'module', key: '' });
+  assert.deepEqual(parsePermissionGroup('module:'), { type: 'module', key: '' });
+  assert.deepEqual(parsePermissionGroup(''), { type: '', key: '' });
+  assert.deepEqual(parsePermissionGroup(null), { type: '', key: '' });
+});
+
+test('die Rechtematrix zerlegt dataset.group nicht mehr selbst (#1009)', () => {
+  const src = fs.readFileSync(
+    new URL('../public/settings/pages/admin-permissions.js', import.meta.url),
+    'utf8',
+  );
+
+  // Die Gegenprobe zur Zeile oben: der Helfer kann richtig sein und die Seite
+  // ihn trotzdem nicht benutzen. Geprueft wird deshalb die Aufrufstelle selbst.
+  assert.doesNotMatch(
+    src,
+    /dataset\.group\s*\)?\s*\.split\s*\(/,
+    'dataset.group darf nicht mehr per split zerlegt werden - das schneidet ext:<id> ab',
+  );
+  assert.match(
+    src,
+    /import\s*\{\s*parsePermissionGroup\s*\}\s*from\s*'\/utils\/permission-group\.js'/,
+    'die Seite muss den gemeinsamen Helfer importieren',
+  );
+  assert.match(
+    src,
+    /parsePermissionGroup\s*\(\s*opt\.dataset\.group\s*\)/,
+    'und ihn auf dataset.group anwenden',
+  );
+
+  // Die Widget-Id-Zerlegung an anderer Stelle ist KORREKT und bleibt: dort ist
+  // die erste Komponente gesucht (die Modul-Id), nicht die letzte.
+  assert.match(src, /id\.split\(':'\)\[0\]/, 'widgetLabel darf weiterhin die Modul-Id abschneiden');
+});

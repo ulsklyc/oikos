@@ -154,6 +154,7 @@ const APP_SHELL = [
   '/utils/pantry-locations.js',
   '/utils/pantry-status.js',
   '/utils/pantry-units.js',
+  '/utils/permission-group.js',
   '/utils/phone.js',
   '/utils/popover-menu.js',
   '/utils/quick-link-url.js',

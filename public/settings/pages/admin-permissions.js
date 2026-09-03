@@ -17,6 +17,7 @@ import { prefersInkText } from '/utils/contrast.js';
 import { confirmModal } from '/components/modal.js';
 import { createRetryState } from '/settings/components.js';
 import { resolveExtensionLabel } from '/utils/extension-i18n.js';
+import { parsePermissionGroup } from '/utils/permission-group.js';
 
 // ── Statik ───────────────────────────────────────────────────────────────────
 
@@ -524,7 +525,12 @@ function bindEvents(container) {
 }
 
 function applySegment(container, opt) {
-  const [type, key] = String(opt.dataset.group).split(':');
+  // Am ERSTEN Doppelpunkt trennen, nicht an allen (#1009): der Schluessel eines
+  // Fremdmoduls ist selbst `ext:<modulId>` und eine Fremd-Widget-Id
+  // `<modulId>:<widgetId>`. Ein destrukturierendes split(':') behielt davon nur
+  // `ext` bzw. die Modul-Id, und der Server wies das zu Recht ab.
+  const { type, key } = parsePermissionGroup(opt.dataset.group);
+  if (!key) return;
   const value = opt.dataset.value;
   if (type === 'module') state.draft.modules[key] = value;
   else state.draft.widgets[key] = value;

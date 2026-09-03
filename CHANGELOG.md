@@ -41,6 +41,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   hung off it, so the household kept getting notified for an event that no longer existed. The
   orphan is now removed with the event.
 
+- **An extension module's access level can be saved again** (#1009). Changing the access level for
+  a third-party module under Settings → Administration → Roles & permissions failed with
+  `Unknown module: ext`, and extension widget permissions failed the same way. The server was
+  right to refuse: the permissions page labels each control with `module:<key>`, and because a
+  third-party module's key is itself `ext:<moduleId>`, splitting that label on every colon kept
+  only `ext`. It now splits at the first colon, so the rest of the key survives - which also
+  repairs the second, silent consequence, where the widget list of an extension module was rebuilt
+  under a key that matched nothing. A shared helper carries the rule, and a guard keeps the call
+  site from parsing the label itself again.
+
 ## [2.64.0] - 2026-09-02
 
 ### Added
