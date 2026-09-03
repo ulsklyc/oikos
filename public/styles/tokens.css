@@ -522,6 +522,7 @@
   --module-tasks:     var(--_family-work);
   --module-calendar:  var(--_family-time);
   --module-schedule:  var(--_family-time);
+  --module-timetables: var(--_family-time);
   --module-meals:     var(--_family-kitchen);
   --module-recipes:   var(--_family-kitchen);
   --module-shopping:  var(--_family-kitchen);

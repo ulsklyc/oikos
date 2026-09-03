@@ -60,6 +60,7 @@ export const PERMISSION_MODULES = Object.freeze([
   { key: 'rewards',      labelKey: 'nav.rewards',      icon: 'award',         navIds: ['rewards'] },
   { key: 'health',       labelKey: 'nav.health',       icon: 'heart-pulse',   navIds: ['health'] },
   { key: 'schedule',     labelKey: 'nav.schedule',     icon: 'calendar-clock', navIds: ['schedule'] },
+  { key: 'timetables',   labelKey: 'nav.timetables',   icon: 'graduation-cap', navIds: ['timetables'] },
 ]);
 
 // Dashboard-Widgets mit ihrem Trägermodul (aus dashboard.js MODULE_FOR_WIDGET).

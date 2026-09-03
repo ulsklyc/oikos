@@ -3216,6 +3216,17 @@ Off by default. Four tabs (shift types, patterns, overrides, statistics) plus a 
   `POST /api/v1/schedule/overrides/fill`, `DELETE /api/v1/schedule/overrides` (a date range, for a
   grouped row), `PUT/DELETE /api/v1/schedule/overrides/:dateKey`.
 
+### Timetables (`/timetables`)
+
+School timetables, lectures, work hours and study schedules per family member.
+
+- **Per-member organization:** schedules are organized per family member with day, week grid, and list views.
+- **Recurring weekly slots:** Monday–Sunday slots with start/end time, subject title, optional period number, room/location, instructor/teacher, category (`school`, `work`, `activity`, `other`), color and notes.
+- **Alternating weeks:** slots can apply to all weeks, Week A only, or Week B only for bi-weekly / rotating schedules.
+- **Copy schedule:** copy all timetable entries from one family member to another in one step.
+- **Preferences:** toggleable weekend display (Mon–Fri vs Mon–Sun) and default week type per member.
+- **API:** `GET/POST /api/v1/timetables`, `GET/PUT/DELETE /api/v1/timetables/:id`, `GET /api/v1/timetables/today`, `GET/PUT /api/v1/timetables/settings`, `POST /api/v1/timetables/copy`.
+
 ### Rewards (`/rewards`)
 
 Points-and-rewards module for households that want task completion to pay into something. Toggleable

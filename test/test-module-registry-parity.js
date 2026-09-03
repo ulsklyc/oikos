@@ -185,6 +185,7 @@ const README_HEADINGS = {
   notes: 'Notes &amp; Contacts',
   contacts: 'Notes &amp; Contacts',
   schedule: 'Schedule',
+  timetables: 'Timetables',
   budget: 'Budget',
   documents: 'Documents',
   health: 'Health',

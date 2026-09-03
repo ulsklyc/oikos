@@ -240,6 +240,11 @@ const ICON_SHAPES = {
     ['path', { d: 'M12 18.3c-1.6-1.1-3.3-2.5-3.3-4.2a1.95 1.95 0 0 1 3.3-1.4 1.95 1.95 0 0 1 3.3 1.4c0 1.7-1.7 3.1-3.3 4.2z' }],
   ],
 
+  'graduation-cap': [
+    ['path', { d: 'M22 10v6M2 10l10-5 10 5-10 5z' }],
+    ['path', { d: 'M6 12v5c3 3 9 3 12 0v-5' }],
+  ],
+
   'cloud-sun': [
     ['path', { d: 'M8.8 3v1.7M4.3 4.8l1.2 1.2M2.5 9.3h1.7M13.3 4.8l-1.2 1.2' }],
     ['path', { d: 'M6.2 12.6a3.6 3.6 0 0 1 4.9-4.9' }],
@@ -318,6 +323,7 @@ export const MODULE_ICON = {
   dashboard:        'layout-dashboard',
   calendar:         'calendar',
   schedule:         'calendar-clock',
+  timetables:       'graduation-cap',
   tasks:            'check-square',
   notes:            'sticky-note',
   meals:            'utensils',

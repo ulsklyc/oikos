@@ -74,6 +74,7 @@ import permissionsRouter from './routes/permissions.js';
 import changelogRouter from './routes/changelog.js';
 import mcpRouter from './mcp/server.js';
 import scheduleRouter from './routes/schedule.js';
+import timetablesRouter from './routes/timetables.js';
 import { moduleForPath, requiredAccess, tokenAllows } from './scopes.js';
 import { moduleAccessVerdict, MODULE_ACCESS_DENIED, MODULE_ACCESS_READ_ONLY } from './permissions.js';
 import { BODY_LIMIT, MAX_UPLOAD_BYTES, MAX_UPLOAD_MB } from './utils/upload-limit.js';
@@ -497,6 +498,7 @@ app.use('/api/v1/notifications', notificationsRouter);
 app.use('/api/v1/health', healthRouter);
 app.use('/api/v1/rewards', rewardsRouter);
 app.use('/api/v1/schedule', scheduleRouter);
+app.use('/api/v1/timetables', timetablesRouter);
 app.use('/api/v1/permissions', permissionsRouter);
 
 // --------------------------------------------------------

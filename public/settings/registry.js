@@ -82,6 +82,17 @@ export const SETTINGS_LEAVES = freezeEntries([
     loader: () => import('/settings/pages/personal-tasks.js'),
   },
   {
+    id: 'personal-timetables',
+    domainId: 'personal',
+    path: '/settings/personal/timetables',
+    labelKey: 'settings.pageTimetablesPersonal',
+    descriptionKey: 'settings.pageTimetablesPersonalDescription',
+    icon: 'graduation-cap',
+    module: 'timetables',
+    adminOnly: false,
+    loader: () => import('/settings/pages/personal-timetables.js'),
+  },
+  {
     // Der Zyklus-Tab hat zwei Schalter: ob der Haushalt ihn führt, entscheidet
     // der Admin in `modules-options`; ob ich ihn sehen will, entscheide ich -
     // nicht jede Person im Haushalt hat einen Zyklus (#760). Deshalb personal

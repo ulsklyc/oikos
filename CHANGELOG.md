@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Work hours and school timetables per family member (Timetables module).**
+  A dedicated core module for weekly recurring schedules, lessons, school periods, study hours, extracurricular activities, and work shifts per family member.
+  Features day, week grid, and list views, configurable start/end times with optional period numbers, room/location, instructor/teacher, notes, category tags (School, Work, Activity, Other), custom color presets, alternating A/B week cycles, schedule duplication across members, and complete integration with household settings, permissions, navigation, API tokens, and offline PWA caching.
+
 - **The Schedule module gained a quick-start for shift types, a range fill for overrides, grouped
   range display and editing, and a "who's working today" dashboard widget.** A household with no
   shift types yet can create seven common presets (Early/Late/Night/Day/24-hour, plus Vacation and

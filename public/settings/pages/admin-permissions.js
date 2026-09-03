@@ -24,6 +24,7 @@ import { parsePermissionGroup } from '/utils/permission-group.js';
 const MODULE_ACCENT = {
   calendar: 'var(--module-calendar)',
   schedule: 'var(--module-schedule)',
+  timetables: 'var(--module-timetables)',
   tasks: 'var(--module-tasks)',
   notes: 'var(--module-notes)',
   contacts: 'var(--module-contacts)',
