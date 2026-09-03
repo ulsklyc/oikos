@@ -9,7 +9,7 @@ import path from 'node:path';
 import * as db from '../db.js';
 import { createLogger } from '../logger.js';
 import { getSupportedLocales } from '../utils/i18n.js';
-import { normalizeCapabilities, buildExtensionCatalog } from './module-capabilities.js';
+import { normalizeCapabilities, buildExtensionCatalog, MODULE_ID_RE as ID_RE } from './module-capabilities.js';
 import { setExtensionScopeModules } from '../scopes.js';
 import { setExtensionPermissionCatalog } from '../permissions.js';
 
@@ -23,7 +23,6 @@ const DISABLED_KEY = 'third_party_disabled_modules';
 // Anhebung: ein aelteres Modul laesst sie weg und verhaelt sich wie zuvor.
 export const SUPPORTED_MANIFEST_VERSION = 1;
 
-const ID_RE = /^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$/;
 const SAFE_RELATIVE_RE = /^[a-zA-Z0-9][a-zA-Z0-9._/-]*$/;
 const MENU_LABEL_KEY_RE = /^[a-z][a-z0-9._-]{0,79}$/;
 const MODULE_LOCALE_FILE_RE = /^([a-z]{2,3})\.json$/;

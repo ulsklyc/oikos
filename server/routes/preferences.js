@@ -12,6 +12,7 @@ import { str, MAX_SHORT } from '../middleware/validate.js';
 import { getSupportedLocales, isSupportedLocale, resolveHouseholdLocale } from '../utils/i18n.js';
 import { householdTimeZone, isValidTimeZone } from '../utils/timezone.js';
 import { retitleBirthdayEvents } from '../services/birthdays.js';
+import { isWidgetId } from '../services/module-capabilities.js';
 // Geteilte isomorphe Util (#620, Allowlist in test/test-layer-boundary.js):
 // dasselbe Kennungsformat, das Event-Modal und Einstellungen verwenden.
 import { parseSyncTargetValue } from '../../public/utils/sync-target.js';
@@ -147,8 +148,10 @@ const COUNTRY_ISO_RE = /^[A-Z]{2}$/;
 const SUBDIVISION_RE = /^[A-Z]{2}-[A-Z0-9-]{1,10}$/;
 
 // Widget identifiers are client-owned. The server validates only a safe storage shape,
-// so adding or removing dashboard widgets never requires a matching backend registry change.
-const WIDGET_ID_RE = /^[a-z][a-z0-9-]{0,63}$/;
+// so adding or removing dashboard widgets never requires a matching backend registry
+// change. Die Schreibweise selbst steht in services/module-capabilities.js - dort, wo
+// `fullWidgetId()` sie zusammensetzt. Eine zweite Fassung hier hat #1013 verursacht:
+// sie kannte den Doppelpunkt der Fremdmodul-Ids nicht.
 const MAX_DASHBOARD_WIDGETS = 64;
 const VALID_WIDGET_SIZES = ['1x1', '1x2', '1x3', '1x4', '2x1', '2x2', '2x3', '2x4', '3x1', '3x2', '3x3', '3x4', '4x1', '4x2', '4x3', '4x4'];
 const DEFAULT_WIDGET_CONFIG = '[]';
@@ -423,7 +426,7 @@ function normalizeWidgetConfig(input) {
   const normalized = [];
   for (const [index, widget] of input.entries()) {
     if (!widget || typeof widget !== 'object' || Array.isArray(widget)) return null;
-    if (typeof widget.id !== 'string' || !WIDGET_ID_RE.test(widget.id) || seenIds.has(widget.id)) return null;
+    if (!isWidgetId(widget.id) || seenIds.has(widget.id)) return null;
     if (widget.visible !== undefined && typeof widget.visible !== 'boolean') return null;
     if (widget.order !== undefined && !Number.isFinite(Number(widget.order))) return null;
     if (widget.size !== undefined && !VALID_WIDGET_SIZES.includes(widget.size)) return null;

@@ -41,6 +41,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   hung off it, so the household kept getting notified for an event that no longer existed. The
   orphan is now removed with the event.
 
+- **A dashboard layout containing a third-party widget can be saved again** (#1013). With an
+  extension module that declares a dashboard widget, moving a tile, hiding one or resizing one
+  failed with `400`, and so did publishing the household default - it was not the extension widget
+  that got dropped, the whole request was refused. The storage check for a widget id lived in the
+  preferences route and knew nothing of the colon that `<module-id>:<widget-id>` carries, the form
+  this project documents for third-party widgets and builds itself. The check now lives beside the
+  function that composes those ids, so that widening one without the other is no longer possible,
+  and a guard asserts the round trip at the maximum lengths a module id and a widget id may reach.
+  Reported after the fix above had already closed its thread.
+
 - **An extension module's access level can be saved again** (#1009). Changing the access level for
   a third-party module under Settings → Administration → Roles & permissions failed with
   `Unknown module: ext`, and extension widget permissions failed the same way. The server was

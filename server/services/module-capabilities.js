@@ -5,7 +5,23 @@
 
 import path from 'node:path';
 
-const WIDGET_SHORT_ID_RE = /^[a-z][a-z0-9-]{0,31}$/;
+// DIE SCHREIBWEISE DER EXTENSION-IDS WOHNT HIER, WEIL HIER ZUSAMMENGESETZT WIRD.
+//
+// Bis #1013 lagen die Teile und die Zusammensetzung an vier Stellen, die
+// einander nicht kannten: `ID_RE` in modules.js (Modul-Id), das
+// WIDGET_SHORT_ID_RE hier (Kurz-Id), `fullWidgetId()` setzte beide zusammen -
+// und `WIDGET_ID_RE` in routes/preferences.js pruefte das Ergebnis, ohne die
+// Zusammensetzung je gesehen zu haben. Deshalb kannte es keinen Doppelpunkt und
+// wies jedes Layout mit einem Fremdmodul-Widget ab; nicht das Widget fiel weg,
+// der ganze Speichervorgang scheiterte.
+//
+// Wer eine der drei Formen aendert, aendert sie hier - und `isWidgetId()` faellt
+// mit, weil es aus ihnen gebaut ist statt sie nachzuahmen. Der Guard in
+// test/test-modules.js prueft genau diese Zusicherung an den Laengengrenzen:
+// was `fullWidgetId()` baut, muss die Speicherform annehmen.
+export const MODULE_ID_RE = /^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$/;
+export const WIDGET_SHORT_ID_RE = /^[a-z][a-z0-9-]{0,31}$/;
+export const CORE_WIDGET_ID_RE = /^[a-z][a-z0-9-]{0,63}$/;
 const OPTION_KEY_RE = /^[a-z][a-z0-9_]{0,31}$/;
 const LABEL_KEY_RE = /^[a-z][a-z0-9._-]{0,79}$/;
 const VALID_WIDGET_SIZES = new Set([
@@ -20,6 +36,31 @@ export function extensionPermissionKey(moduleId) {
 
 export function fullWidgetId(moduleId, widgetId) {
   return `${moduleId}:${widgetId}`;
+}
+
+/**
+ * Traegt `id` die Namensraum-Form `<modulId>:<widgetId>` aus MODULES.md?
+ *
+ * Getrennt wird am ERSTEN Doppelpunkt - dieselbe Regel wie
+ * `parsePermissionGroup()` aus #1009. Eine Modul-Id darf keinen Doppelpunkt
+ * enthalten, ein zweiter bedeutet also nicht Verschachtelung, sondern eine
+ * kaputte Id: `a:b:c` faellt hier durch, weil `b:c` keine Kurz-Id ist.
+ */
+export function isNamespacedWidgetId(id) {
+  if (typeof id !== 'string') return false;
+  const sep = id.indexOf(':');
+  if (sep < 0) return false;
+  return MODULE_ID_RE.test(id.slice(0, sep)) && WIDGET_SHORT_ID_RE.test(id.slice(sep + 1));
+}
+
+/**
+ * Die Speicherform einer Dashboard-Widget-Id: eine Kern-Id oder die
+ * dokumentierte Namensraum-Form. Bewusst eine SCHREIBWEISEN-Pruefung und keine
+ * Registry-Abfrage - welche Widgets es gibt, weiss weiterhin allein das
+ * Frontend, und ein neues Kern-Widget braucht deshalb keine Server-Aenderung.
+ */
+export function isWidgetId(id) {
+  return typeof id === 'string' && (CORE_WIDGET_ID_RE.test(id) || isNamespacedWidgetId(id));
 }
 
 function parseWidgetShortId(value, label) {

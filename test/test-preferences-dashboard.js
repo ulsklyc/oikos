@@ -21,6 +21,9 @@ import test from 'node:test';
 
 const { get } = await import('../server/db.js');
 const { default: preferencesRouter } = await import('../server/routes/preferences.js');
+// Die Id wird gebaut statt getippt: der Test prueft die ZUSAGE aus MODULES.md,
+// nicht eine Zeichenkette, die zufaellig heute passt (#1013).
+const { fullWidgetId } = await import('../server/services/module-capabilities.js');
 
 let currentUserId = 1;
 let currentRole = 'admin';
@@ -309,6 +312,63 @@ test('die Prüfung gilt auch für die Vorgabe', async () => {
     assert.equal((await write(baseUrl, { dashboard_today_glance_default: '0' })).status, 400);
     assert.equal(householdValue('dashboard_widgets_default'), null,
       'eine abgewiesene Vorgabe darf nichts hinterlassen');
+  } finally {
+    await close();
+  }
+});
+
+// ── Fremdmodul-Widgets in der Anordnung (#1013) ──────────────────────────────
+//
+// Die Speicherform kannte den Doppelpunkt nicht, den `fullWidgetId()` baut. Der
+// Preis war nicht "das fremde Widget faellt weg", sondern 400 fuer das GANZE
+// Array: wer ein Extension-Widget auf der Uebersicht hatte, konnte keine Kachel
+// mehr verschieben, ausblenden oder in der Groesse aendern.
+//
+// WARUM DIESER TEST NEBEN DEM UNIT-TEST STEHT: `isWidgetId()` in
+// test/test-modules.js zu pruefen beweist nur, dass der Helfer richtig ist. Ein
+// richtiger Helfer, den die Route nicht aufruft, waere gruen - dieselbe Trennung
+// wie bei #1009. Dieser Test haengt an der Route.
+
+test('ein Fremdmodul-Widget ueberlebt Speichern und Lesen (#1013)', async () => {
+  const { baseUrl, close } = await startApp();
+  try {
+    const withExtension = [
+      { id: 'tasks', visible: true, order: 0, size: '2x2' },
+      { id: fullWidgetId('my-addon', 'chart'), visible: true, order: 1, size: '1x2' },
+    ];
+    const written = await write(baseUrl, { dashboard_widgets: withExtension });
+    assert.equal(written.status, 200);
+    assert.deepEqual(written.data.dashboard_widgets.map((w) => w.id), ['tasks', 'my-addon:chart']);
+    assert.deepEqual((await read(baseUrl)).dashboard_widgets.map((w) => w.id), ['tasks', 'my-addon:chart']);
+  } finally {
+    await close();
+  }
+});
+
+test('die Vorgabe des Haushalts nimmt dieselbe Form an (#1013)', async () => {
+  const { baseUrl, close } = await startApp();
+  try {
+    const written = await write(baseUrl, {
+      dashboard_widgets_default: [{ id: fullWidgetId('my-addon', 'chart'), visible: true, order: 0, size: '1x2' }],
+    });
+    assert.equal(written.status, 200);
+    assert.deepEqual(written.data.dashboard_widgets_default.map((w) => w.id), ['my-addon:chart']);
+  } finally {
+    await close();
+  }
+});
+
+test('eine kaputte Namensraum-Id bleibt abgewiesen (#1013)', async () => {
+  const { baseUrl, close } = await startApp();
+  try {
+    // Zwei Doppelpunkte heissen nicht Verschachtelung, sondern kaputte Id, und
+    // eine Modul-Id unter drei Zeichen gibt es nicht. Der Fix weitet die
+    // Schreibweise, er schaltet sie nicht ab.
+    assert.equal((await write(baseUrl, { dashboard_widgets: [{ id: 'a:b:c', size: '1x1' }] })).status, 400);
+    assert.equal((await write(baseUrl, { dashboard_widgets: [{ id: 'my-addon:', size: '1x1' }] })).status, 400);
+    assert.equal((await write(baseUrl, { dashboard_widgets: [{ id: 'mo:chart', size: '1x1' }] })).status, 400);
+    assert.equal(householdValue('dashboard_widgets:user:1'), null,
+      'eine abgewiesene Anordnung darf nichts hinterlassen');
   } finally {
     await close();
   }
