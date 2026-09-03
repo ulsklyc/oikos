@@ -263,6 +263,80 @@
   width: 100%;
 }
 
+.timetable-day-view-container--all-members {
+  max-width: none;
+}
+
+.timetable-member-day-grid {
+  display: grid;
+  grid-template-columns: minmax(58px, 0.35fr) repeat(auto-fit, minmax(180px, 1fr));
+  min-width: max-content;
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  overflow-x: auto;
+}
+
+.timetable-member-day-time-column,
+.timetable-member-day-column {
+  min-width: 0;
+}
+
+.timetable-member-day-column + .timetable-member-day-column,
+.timetable-member-day-time-column + .timetable-member-day-column {
+  border-left: 1px solid var(--color-border-subtle);
+}
+
+.timetable-member-day-header {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface-raised, rgba(0, 0, 0, 0.03));
+  border-bottom: 1px solid var(--color-border-subtle);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-align: center;
+}
+
+.timetable-member-day-times,
+.timetable-member-day-slots {
+  display: flex;
+  flex-direction: column;
+}
+
+.timetable-member-day-time,
+.timetable-member-day-cell {
+  min-height: 92px;
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.timetable-member-day-time {
+  display: flex;
+  justify-content: center;
+  padding-top: var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.timetable-member-day-cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.timetable-member-day-cell .timetable-slot-card {
+  flex: 1;
+}
+
+.timetable-member-day-empty {
+  display: block;
+  min-height: 1px;
+}
+
 .timetable-day-tabs {
   display: flex;
   gap: var(--space-1);

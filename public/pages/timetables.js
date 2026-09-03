@@ -262,12 +262,14 @@ function renderUI() {
         `).join('')}</div>`
       : '';
 
-    const slotsHTML = dayEntries.length > 0
-      ? dayEntries.map((e) => renderSlotCard(e, true)).join('')
-      : `<div class="timetable-empty-day" style="padding: var(--space-8);">${esc(t('timetables.noEntriesForDay'))}</div>`;
+    const slotsHTML = state.selectedUserId === 'all'
+      ? renderAllMembersDayGrid(dayEntries)
+      : dayEntries.length > 0
+        ? dayEntries.map((e) => renderSlotCard(e, true)).join('')
+        : `<div class="timetable-empty-day" style="padding: var(--space-8);">${esc(t('timetables.noEntriesForDay'))}</div>`;
 
     contentHTML = `
-      <div class="timetable-day-view-container">
+      <div class="timetable-day-view-container ${state.selectedUserId === 'all' ? 'timetable-day-view-container--all-members' : ''}">
         <div class="timetable-day-tabs">${dayTabs}</div>
         <div class="timetable-day-col is-today">
           <div class="timetable-day-header">
@@ -289,6 +291,7 @@ function renderUI() {
       if (dayEntries.length === 0 && dayHols.length === 0) return '';
 
       const isToday = d.day === todayIso;
+
       const holsHTML = dayHols.length > 0
         ? `<div class="timetable-holidays-list">${dayHols.map((h) => `
             <div class="timetable-holiday-chip" style="background-color: ${esc(h.color || (h.type === 'school' ? '#34C759' : '#FF3B30'))};" title="${esc(h.name)}">
@@ -336,6 +339,41 @@ function renderUI() {
   }
 
   attachEvents();
+}
+
+function renderAllMembersDayGrid(dayEntries) {
+  const timeSlots = [...new Set(dayEntries.map((entry) => entry.start_time))].sort();
+  if (timeSlots.length === 0) {
+    return `<div class="timetable-empty-day" style="padding: var(--space-8);">${esc(t('timetables.noEntriesForDay'))}</div>`;
+  }
+
+  const memberColumns = state.users.map((member) => `
+    <div class="timetable-member-day-column">
+      <div class="timetable-member-day-header">${esc(member.display_name || member.username)}</div>
+      <div class="timetable-member-day-slots">
+        ${timeSlots.map((startTime) => {
+          const entries = dayEntries.filter((entry) => Number(entry.user_id) === Number(member.id) && entry.start_time === startTime);
+          return `<div class="timetable-member-day-cell">
+            ${entries.length > 0
+              ? entries.map((entry) => renderSlotCard(entry, true)).join('')
+              : `<span class="timetable-member-day-empty">&nbsp;</span>`}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+  `).join('');
+
+  return `
+    <div class="timetable-member-day-grid">
+      <div class="timetable-member-day-time-column">
+        <div class="timetable-member-day-header">${esc(t('timetables.time'))}</div>
+        <div class="timetable-member-day-times">
+          ${timeSlots.map((startTime) => `<div class="timetable-member-day-time">${esc(startTime)}</div>`).join('')}
+        </div>
+      </div>
+      ${memberColumns}
+    </div>
+  `;
 }
 
 function renderSlotCard(entry, detailed = false) {
