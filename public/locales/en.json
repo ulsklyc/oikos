@@ -3045,7 +3045,12 @@
         "folderExpand": "Expand \"{{name}}\"",
         "folderCollapse": "Collapse \"{{name}}\"",
         "deleteFolderSubtreeDetail": "The {{count}} subfolders inside will be deleted too. The documents remain and stay reachable through the filter for documents without a folder.",
-        "deleteFolderSubtreeDetail_one": "The subfolder inside will be deleted too. The documents remain and stay reachable through the filter for documents without a folder."
+        "deleteFolderSubtreeDetail_one": "The subfolder inside will be deleted too. The documents remain and stay reachable through the filter for documents without a folder.",
+        "shareAction": "Share",
+        "sharePreparing": "Preparing …",
+        "shareUnsupportedType": "This file type cannot be shared through the device's share sheet. Download the file instead.",
+        "shareUnavailable": "The device's share sheet is not available in this browser, or it needs a secure connection (HTTPS). Download the file instead.",
+        "shareFailed": "Sharing did not work. Download the file instead."
     },
     "housekeeping": {
         "title": "Housekeeping",

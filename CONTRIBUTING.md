@@ -284,6 +284,13 @@ own earlier comment and will not repeat itself on a later push - but it means a 
 on a PR that was already reviewed stays green. The assertion covers "this PR was never
 reviewed", not "every run reviewed it".
 
+**If the maintainer stops.** There is one maintainer and no succession arrangement: nobody
+acquires rights to this repository automatically, and none are needed, because the MIT
+licence already allows any fork at any time. What this paragraph adds is the name. If this
+repository goes a full year without a release, a commit or a reply from the maintainer,
+treat it as unmaintained, fork it, and carry the Yuvomi name with you. Your own installation
+is not affected either way; the README's "Before you commit" says why.
+
 ---
 
 ## Code Conventions
@@ -463,7 +470,7 @@ What is expected of the contribution itself does not change: you understand what
 
 Describe the **use case** before proposing a solution. There might be a simpler approach that fits the existing architecture.
 
-Features that conflict with the project's [hard constraints](#hard-constraints) or significantly expand scope will likely be declined. Some of those boundaries come up often enough to be written down rather than re-argued - read [what Yuvomi will not become](docs/SCOPE.md) before proposing an integration with an external service. When in doubt, ask first.
+Features that conflict with the project's [hard constraints](#hard-constraints) or significantly expand scope will likely be declined. Some of those boundaries come up often enough to be written down rather than re-argued - read [what Yuvomi will not become](docs/SCOPE.md) before proposing an integration with an external service, and [the decisions made once](docs/DECISIONS.md) before proposing a change to how privacy or permissions work. When in doubt, ask first.
 
 ### Security vulnerabilities
 

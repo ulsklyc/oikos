@@ -48,6 +48,12 @@ ENV BACKUP_DIR=/backups
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+# Die Build-Revision kommt aus dem unveränderlichen Git-Commit des Build-Jobs.
+# Sie ist kein Installationswert und wird deshalb nicht über .env gesetzt. Erst
+# nach den Dateisystem-Layern setzen, damit ein neuer Commit deren Cache behält.
+ARG APP_BUILD_REVISION
+ENV APP_BUILD_REVISION=${APP_BUILD_REVISION}
+
 EXPOSE 3000
 
 ENTRYPOINT ["/entrypoint.sh"]

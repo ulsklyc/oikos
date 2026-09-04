@@ -10,6 +10,7 @@ process.env.SESSION_SECRET = 'test-setup-secret-minimum-32-chars-x';
 process.env.DB_PATH = join(tmpDir, 'test.db');
 process.env.SESSION_SECURE = 'false';
 process.env.PORT = '13099';
+process.env.APP_BUILD_REVISION = 'acceptance-route-test';
 
 // Dynamic import so env vars are set before module initialization
 const { default: app } = await import('../server/index.js');
@@ -74,6 +75,16 @@ test('GET /api/v1/version: setup_required is true when no users exist', async ()
   const data = await res.json();
   assert.equal(data.setup_required, true);
   assert.equal(data.version, undefined);
+});
+
+test('GET /sw.js injects the build revision and forbids intermediary caching', async () => {
+  const res = await fetch(`${BASE}/sw.js`);
+  const body = await res.text();
+
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('cache-control'), 'no-store, max-age=0');
+  assert.match(body, /const APP_BUILD_REVISION\s*=\s*'acceptance-route-test'/);
+  assert.doesNotMatch(body, /__YUVOMI_BUILD_REVISION__/);
 });
 
 test('GET /openapi.json: 401 without authentication', async () => {

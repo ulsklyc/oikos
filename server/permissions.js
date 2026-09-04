@@ -407,9 +407,10 @@ export function normalizePermissionInput({ modules = {}, widgets = {} } = {}) {
 }
 
 /**
- * Ersetzt die komplette Rechte-Zeile eines Subjekts atomar (delete + insert der
- * abweichenden Einträge). Transaktion vom Aufrufer bereitgestellt oder hier
- * gekapselt.
+ * Ersetzt die gespeicherten Modul- und Widget-Rechte eines Subjekts atomar
+ * (delete + insert der abweichenden Einträge). Andere Ressourcen, etwa
+ * Capabilities, bleiben unverändert. Transaktion vom Aufrufer bereitgestellt
+ * oder hier gekapselt.
  * @param {import('better-sqlite3-multiple-ciphers').Database} database
  */
 export function replaceSubjectPermissions(database, subjectType, subjectId, input) {
@@ -429,7 +430,8 @@ export function replaceSubjectPermissions(database, subjectType, subjectId, inpu
 
 /**
  * Wie `replaceSubjectPermissions()`, aber OHNE eigene Transaktionsklammer -
- * fuer Aufrufer, die schon in einer stecken.
+ * fuer Aufrufer, die schon in einer stecken. Ersetzt nur Modul- und
+ * Widget-Zeilen; andere Ressourcen bleiben erhalten.
  *
  * Es gibt sie, weil das Annehmen einer Einladung Nutzer, Kontakt-Artefakte und
  * Startrechte in EINER Transaktion schreibt (#869). Ein `BEGIN` darin waere
@@ -439,7 +441,11 @@ export function replaceSubjectPermissions(database, subjectType, subjectId, inpu
  */
 export function writeSubjectPermissions(database, subjectType, subjectId, input) {
   const rows = normalizePermissionInput(input);
-  const del = database.prepare('DELETE FROM access_permissions WHERE subject_type = ? AND subject_id = ?');
+  const del = database.prepare(`
+    DELETE FROM access_permissions
+    WHERE subject_type = ? AND subject_id = ?
+      AND resource_type IN ('module', 'widget')
+  `);
   const ins = database.prepare(`
     INSERT INTO access_permissions (subject_type, subject_id, resource_type, resource_key, access)
     VALUES (?, ?, ?, ?, ?)

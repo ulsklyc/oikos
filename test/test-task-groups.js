@@ -227,3 +227,33 @@ test('die Wanduhrzeit geht als Stempel an die Formatierer, nicht als Date', () =
     tzModule.setDisplayTimeZone(null);
   }
 });
+
+// --------------------------------------------------------
+// Filterachse Kategorie (D#1017): der Server kannte `?category=` seit #825,
+// das Panel bot die Achse nie an. Der Filterzustand muss sie tragen, der
+// Query-String muss sie senden - in BEIDEN Ansichten, weil die Liste nach
+// Kategorie gruppieren kann und das Board nicht.
+test('normalizeFilterSet traegt die Kategorie-Achse als Liste', () => {
+  const set = tasks.normalizeFilterSet({ status: 'open', category: 'garden' });
+  assert.deepEqual(set.category, ['garden']);
+  assert.deepEqual(tasks.normalizeFilterSet({}).category, []);
+  assert.deepEqual(tasks.normalizeFilterSet({ category: ['a', 'b'] }).category, ['a', 'b']);
+});
+
+test('taskQuery sendet jede gewaehlte Kategorie als eigenen Parameter, auch im Kanban', () => {
+  const before = { filters: tasks.state.filters, viewMode: tasks.state.viewMode, showFuture: tasks.state.showFuture };
+  try {
+    tasks.state.showFuture = false;
+    tasks.state.filters = tasks.normalizeFilterSet({ status: ['open'], category: ['garden', 'household'] });
+    tasks.state.viewMode = 'list';
+    const list = new URLSearchParams(tasks.taskQuery().slice(1));
+    assert.deepEqual(list.getAll('category'), ['garden', 'household']);
+    assert.deepEqual(list.getAll('status'), ['open']);
+    tasks.state.viewMode = 'kanban';
+    const board = new URLSearchParams(tasks.taskQuery().slice(1));
+    assert.deepEqual(board.getAll('category'), ['garden', 'household']);
+    assert.deepEqual(board.getAll('status'), [], 'im Kanban sind die Spalten der Status');
+  } finally {
+    Object.assign(tasks.state, before);
+  }
+});

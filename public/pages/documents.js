@@ -12,6 +12,7 @@ import { stagger, wireScrollFade, scheduleUndoableDelete } from '/utils/ux.js';
 import { renderSkeletonList } from '/utils/skeleton.js';
 import { renderPageSearch, wirePageSearch } from '/utils/page-search.js';
 import { previewKind } from '/utils/document-preview.js';
+import { fileShareSupport } from '/utils/web-share.js';
 import { attachOverlay } from '/utils/overlay-history.js';
 import { findPageFab } from '/utils/fab.js';
 // Im Solo-Haushalt hat „Wer darf das sehen" genau eine Antwort - gefragt wird
@@ -2171,6 +2172,21 @@ function openDocumentViewer(doc) {
   // pdf.js-Viewer hält Worker + Dokument im Speicher; beim Schließen freigeben.
   let pdfTeardown = null;
 
+  // Teilen über das Teilen-Menü des Geräts (D#1014). Ob es geht, steht beim
+  // Öffnen fest - utils/web-share.js beantwortet Typ und Browser in einer
+  // Probe, ohne ein Byte zu laden. Nur dann wird die Datei geholt, und zwar
+  // im Hintergrund: der spätere Klick muss DIREKT in navigator.share() münden,
+  // ein await zwischen Klick und share() verbraucht auf iOS die transiente
+  // Nutzeraktivierung und das Teilen-Menü öffnet sich nicht. Wo Teilen nicht
+  // geht, steht kein toter Knopf (#962), sondern eine Zeile, die sagt warum;
+  // Download bleibt der Weg, der überall funktioniert. Die Zeile bekommt kein
+  // Teilen: dort zählt der Klick sofort, und die Datei erst zu holen hieße
+  // jede Zeile in den Speicher zu laden. Das ist die Form, die der Melder
+  // selbst vorgeschlagen hat.
+  const shareSupport = fileShareSupport(doc);
+  const shareAbort = new AbortController();
+  let shareFile = null;
+
   openSharedModal({
     title: doc.name,
     size: 'xl',
@@ -2191,11 +2207,17 @@ function openDocumentViewer(doc) {
                title="${t('documents.viewerOpenInTab')}" aria-label="${t('documents.viewerOpenInTab')}">
               <i data-lucide="external-link" class="icon-md" aria-hidden="true"></i>
             </a>` : ''}
+            ${shareSupport === 'ok' ? `
+            <button type="button" class="btn btn--ghost btn--icon btn--icon-sm" data-action="share" disabled aria-busy="true"
+               title="${t('documents.sharePreparing')}" aria-label="${t('documents.sharePreparing')}">
+              <i data-lucide="share-2" class="icon-md" aria-hidden="true"></i>
+            </button>` : ''}
             <a class="btn btn--primary btn--icon btn--icon-sm" href="${downloadUrl}" download
                title="${t('documents.downloadAction')}" aria-label="${t('documents.downloadAction')}">
               <i data-lucide="download" class="icon-md" aria-hidden="true"></i>
             </a>
           </span>
+          ${shareSupport !== 'ok' ? `<p class="document-viewer__note">${t(shareSupport === 'type' ? 'documents.shareUnsupportedType' : 'documents.shareUnavailable')}</p>` : ''}
         </div>
         <div class="document-viewer__body" id="document-viewer-body">
           ${renderViewerContent(doc, previewUrl, downloadUrl)}
@@ -2204,9 +2226,12 @@ function openDocumentViewer(doc) {
     `,
     onClose() {
       if (typeof pdfTeardown === 'function') pdfTeardown();
+      shareAbort.abort();
+      shareFile = null;
     },
     onSave(panel) {
       if (window.lucide) window.lucide.createIcons({ el: panel });
+      if (shareSupport === 'ok') prepareShare(panel);
       // PDFs ohne nativen Inline-Viewer (mobile Browser): mit pdf.js auf Canvas rendern
       if (previewKind(doc.mime_type) === 'pdf' && !canRenderPdfNatively()) {
         const container = panel.querySelector('[data-pdf-pages]');
@@ -2231,6 +2256,44 @@ function openDocumentViewer(doc) {
       }
     },
   });
+
+  // Datei im Hintergrund holen; der Knopf wird erst frei, wenn sie da ist.
+  function prepareShare(panel) {
+    const btn = panel.querySelector('[data-action="share"]');
+    if (!btn) return;
+    fetch(downloadUrl, { credentials: 'same-origin', signal: shareAbort.signal })
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.blob();
+      })
+      .then((blob) => {
+        shareFile = new File([blob], doc.original_name || doc.name, { type: doc.mime_type });
+        btn.disabled = false;
+        btn.removeAttribute('aria-busy');
+        btn.title = t('documents.shareAction');
+        btn.setAttribute('aria-label', t('documents.shareAction'));
+      })
+      .catch((err) => {
+        if (err?.name === 'AbortError') return;
+        btn.remove();
+        panel.querySelector('.document-viewer__meta')
+          ?.insertAdjacentHTML('beforeend', `<p class="document-viewer__note">${t('documents.shareFailed')}</p>`);
+      });
+    // Kein await vor navigator.share(): canShare() ist synchron, die Datei
+    // liegt schon vor - der Aufruf gehört noch zur Nutzeraktivierung.
+    btn.addEventListener('click', () => {
+      if (!shareFile) return;
+      if (!navigator.canShare({ files: [shareFile] })) {
+        window.yuvomi?.showToast(t('documents.shareFailed'), 'danger');
+        return;
+      }
+      navigator.share({ files: [shareFile], title: doc.name }).catch((err) => {
+        // AbortError: das Teilen-Menü wurde ohne Auswahl geschlossen - kein Fehler.
+        if (err?.name === 'AbortError') return;
+        window.yuvomi?.showToast(t('documents.shareFailed'), 'danger');
+      });
+    });
+  }
 }
 
 function renderViewerContent(doc, previewUrl, downloadUrl) {

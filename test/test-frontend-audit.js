@@ -400,14 +400,17 @@ test('service worker precaches every supported locale file', () => {
   assert.deepEqual(precachedLocales, supportedLocales.sort(), 'Service worker APP_LOCALES must precache every supported locale');
 });
 
-test('service worker release caches track package version and include the early locale bootstrap', () => {
+test('service worker release caches track package and deployment revisions and include the early locale bootstrap', () => {
   const pkg = JSON.parse(read('../package.json'));
   const sw = read('../public/sw.js');
   const release = sw.match(/const APP_RELEASE\s*=\s*['"]([^'"]+)['"]/)?.[1];
 
   assert.equal(release, pkg.version, 'Service worker APP_RELEASE must match package.json');
-  assert.match(sw, /const SHELL_CACHE\s*=\s*`yuvomi-shell-\$\{APP_RELEASE\}`/);
-  assert.match(sw, /const PAGES_CACHE\s*=\s*`yuvomi-pages-\$\{APP_RELEASE\}`/);
+  assert.match(sw, /const APP_BUILD_REVISION\s*=\s*['"]__YUVOMI_BUILD_REVISION__['"]/);
+  assert.match(sw, /const CACHE_RELEASE\s*=\s*`\$\{APP_RELEASE\}-\$\{APP_BUILD_REVISION\}`/);
+  for (const cache of ['shell', 'pages', 'locales', 'assets', 'api']) {
+    assert.match(sw, new RegExp(`yuvomi-${cache}-\\$\\{CACHE_RELEASE\\}`));
+  }
   assert.match(sw, /['"]\/lang-init\.js['"]/, 'early lang/dir bootstrap must be available offline');
 });
 

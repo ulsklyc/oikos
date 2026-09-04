@@ -43,6 +43,47 @@ function addUser(db, { id, role = 'member', family_role = 'other', name = 'U' })
   return db.prepare('SELECT id, role, family_role FROM users WHERE id = ?').get(id);
 }
 
+test('migration 175 preserves overrides and permits capability resources', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(MIGRATIONS_SQL[74]);
+  db.prepare(`
+    INSERT INTO access_permissions
+      (subject_type, subject_id, resource_type, resource_key, access, updated_at)
+    VALUES ('role', 'child', 'module', 'notes', 'read', '2024-01-02T03:04:05Z')
+  `).run();
+
+  db.exec(MIGRATIONS_SQL[175]);
+
+  assert.deepEqual(
+    { ...db.prepare(`
+      SELECT subject_type, subject_id, resource_type, resource_key, access, updated_at
+      FROM access_permissions
+    `).get() },
+    {
+      subject_type: 'role',
+      subject_id: 'child',
+      resource_type: 'module',
+      resource_key: 'notes',
+      access: 'read',
+      updated_at: '2024-01-02T03:04:05Z',
+    },
+  );
+  assert.doesNotThrow(() => db.prepare(`
+    INSERT INTO access_permissions
+      (subject_type, subject_id, resource_type, resource_key, access)
+    VALUES ('user', '42', 'capability', 'example', 'allow')
+  `).run());
+  assert.equal(
+    db.prepare("SELECT COUNT(*) AS count FROM access_permissions WHERE resource_type = 'capability'").get().count,
+    1,
+  );
+  assert.equal(
+    db.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'index' AND name = 'idx_access_permissions_subject'").get().count,
+    1,
+  );
+  db.close();
+});
+
 // ── Auflösung ────────────────────────────────────────────────────────────────
 
 test('Admin: Vollzugriff, admin-Flag, kein Scoping', () => {
@@ -171,6 +212,30 @@ test('replaceSubjectPermissions ersetzt atomar (kein Merge)', () => {
   replaceSubjectPermissions(db, 'role', 'relative', { modules: { health: 'read' } });
   const stored = getSubjectPermissions(db, 'role', 'relative');
   assert.deepEqual(stored.modules, { health: 'read' }); // budget-Sperre ist weg
+});
+
+test('replaceSubjectPermissions erhält Capability-Zeilen beim Speichern von Modulen', () => {
+  const db = freshDb();
+  db.exec(MIGRATIONS_SQL[175]);
+  db.prepare(`
+    INSERT INTO access_permissions (subject_type, subject_id, resource_type, resource_key, access)
+    VALUES ('role', 'child', 'capability', 'notes.categories', 'allow')
+  `).run();
+
+  replaceSubjectPermissions(db, 'role', 'child', { modules: { budget: 'none' } });
+
+  assert.deepEqual(
+    db.prepare(`
+      SELECT resource_type, resource_key, access
+      FROM access_permissions
+      WHERE subject_type = 'role' AND subject_id = 'child'
+      ORDER BY resource_type, resource_key
+    `).all().map((row) => ({ ...row })),
+    [
+      { resource_type: 'capability', resource_key: 'notes.categories', access: 'allow' },
+      { resource_type: 'module', resource_key: 'budget', access: 'none' },
+    ],
+  );
 });
 
 test('Leere Eingabe = „von Rolle erben" (alle Overrides entfernt)', () => {

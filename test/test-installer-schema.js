@@ -161,6 +161,10 @@ const INTENTIONALLY_NOT_IN_INSTALLER = {
   BACKUP_UPLOAD_LIMIT:
     'Betriebs-Feinjustage: Body-Limit fuer den Restore-Upload im Admin-UI, nur beim '
     + 'Zurueckspielen einer ueberdimensionierten Datenbank relevant.',
+  DB_ALLOW_NEWER_SCHEMA:
+    'Notfallschalter, keine Installationsentscheidung: laesst eine aeltere App auf einer '
+    + 'neueren Datenbank starten, obwohl das dabei Geschriebene beim naechsten Update verloren '
+    + 'gehen kann. Im Wizard waere er eine Einladung, ihn vorsorglich zu setzen.',
 };
 
 /** Alle in .env.example dokumentierten Variablennamen, auch die auskommentierten. */
@@ -964,6 +968,8 @@ test('der Dokument-Mount zielt auf DOCUMENT_STORAGE_LOCAL_PATH, nie auf einen fe
 // ihre Schlüssel aus den Services selbst holen.
 
 const INTENTIONALLY_UNDOCUMENTED = {
+  APP_BUILD_REVISION:
+    'Internal build revision injected by deployment infrastructure; not an installer or household setting.',
   OIKOS_INSTALLER_ROOT:
     'Interner Pfad des Installer-Prozesses (tools/installer/install-server.js), kein '
     + 'Deployment-Wert. Er beschreibt, wo der Installer selbst liegt, waehrend .env.example '

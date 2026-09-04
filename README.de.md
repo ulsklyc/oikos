@@ -213,7 +213,7 @@ kein Abo, keinen Upsell und keine Bezahlstufe.
 
 ## Dokumentation
 
-[Installation](docs/installation.md) &nbsp;·&nbsp; [Spezifikation &amp; Datenmodell](docs/SPEC.md) &nbsp;·&nbsp; [Fremdmodule](MODULES.md) &nbsp;·&nbsp; [Benachrichtigungs-Webhooks](docs/notification-webhooks.md) &nbsp;·&nbsp; [Immich-Bildschirmschoner](docs/immich-screensaver.md) &nbsp;·&nbsp; [Mitwirken](CONTRIBUTING.md) &nbsp;·&nbsp; [Sicherheit](SECURITY.md) &nbsp;·&nbsp; [Changelog](CHANGELOG.md) &nbsp;·&nbsp; [Backlog](BACKLOG.md) &nbsp;·&nbsp; [Rahmen](docs/SCOPE.md)
+[Installation](docs/installation.md) &nbsp;·&nbsp; [Spezifikation &amp; Datenmodell](docs/SPEC.md) &nbsp;·&nbsp; [Fremdmodule](MODULES.md) &nbsp;·&nbsp; [Benachrichtigungs-Webhooks](docs/notification-webhooks.md) &nbsp;·&nbsp; [Immich-Bildschirmschoner](docs/immich-screensaver.md) &nbsp;·&nbsp; [Mitwirken](CONTRIBUTING.md) &nbsp;·&nbsp; [Sicherheit](SECURITY.md) &nbsp;·&nbsp; [Changelog](CHANGELOG.md) &nbsp;·&nbsp; [Backlog](BACKLOG.md) &nbsp;·&nbsp; [Rahmen](docs/SCOPE.md) &nbsp;·&nbsp; [Entscheidungen](docs/DECISIONS.md)
 
 **Nutzerhandbuch (aus der Community):** @Kyrodan schreibt eine [Nutzerdokumentation](https://kyrodan.github.io/yuvomi-docs/)
 in seinem eigenen Repository. Sie gehört nicht zu diesem Projekt und kann hinter einem Release

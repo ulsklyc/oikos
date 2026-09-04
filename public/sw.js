@@ -17,14 +17,16 @@
  *   → bypassCacheUntil (in-memory + Cache API für SW-Restart-Robustheit)
  */
 
-const APP_RELEASE   = '2.64.0';
-const SHELL_CACHE   = `yuvomi-shell-${APP_RELEASE}`;
-const PAGES_CACHE   = `yuvomi-pages-${APP_RELEASE}`;
-const LOCALES_CACHE = `yuvomi-locales-${APP_RELEASE}`;
-const ASSETS_CACHE  = `yuvomi-assets-${APP_RELEASE}`;
+const APP_RELEASE        = '2.64.0';
+const APP_BUILD_REVISION = '__YUVOMI_BUILD_REVISION__';
+const CACHE_RELEASE      = `${APP_RELEASE}-${APP_BUILD_REVISION}`;
+const SHELL_CACHE        = `yuvomi-shell-${CACHE_RELEASE}`;
+const PAGES_CACHE        = `yuvomi-pages-${CACHE_RELEASE}`;
+const LOCALES_CACHE      = `yuvomi-locales-${CACHE_RELEASE}`;
+const ASSETS_CACHE       = `yuvomi-assets-${CACHE_RELEASE}`;
 // API-Cache bewusst NICHT in ALL_CACHES: er wird bei jedem SW-Update neu benannt
 // (Version im Namen) und bei Logout/Session-Ende gezielt geleert.
-const API_CACHE     = `yuvomi-api-${APP_RELEASE}`;
+const API_CACHE     = `yuvomi-api-${CACHE_RELEASE}`;
 const BYPASS_CACHE  = 'yuvomi-bypass-flag';
 const ALL_CACHES    = [SHELL_CACHE, PAGES_CACHE, LOCALES_CACHE, ASSETS_CACHE];
 
@@ -179,6 +181,7 @@ const APP_SHELL = [
   '/utils/version.js',
   '/utils/upload-limit.js',
   '/utils/wall-mode.js',
+  '/utils/web-share.js',
   '/offline.html',
   // offline.html laedt theme-init.js, damit die Huelle dieselbe Farbwelt
   // trifft wie die App (gespeicherter Wunsch schlaegt Systemeinstellung).

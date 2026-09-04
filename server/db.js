@@ -204,6 +204,35 @@ function init({ plaintextBackup = true } = {}) {
   migrate();
   reconcileCriticalSchema();
 
+  // Ältere App auf neuerer Datenbank: nicht starten. Die Gefahr ist nicht,
+  // dass diese Version scheitert, sondern was sie zwischendurch schreibt -
+  // Daten in einer Form, die eine schon angewendete Migration verlassen hat
+  // und die nach dem erneuten Update nie nachgezogen werden, weil die
+  // Migration als erledigt gilt. Der Rückweg ist das Backup vor dem Update
+  // (docs/installation.md, "Going back"). DB_ALLOW_NEWER_SCHEMA=1 ist der
+  // ausdrückliche Notfallschalter und wird bei jedem Start als Warnung
+  // genannt, damit er kein Dauerzustand wird.
+  const unknown = unknownMigrationVersions(db);
+  if (unknown.length > 0) {
+    const detail =
+      `This database was written by a newer Yuvomi: it carries migration ${unknown.join(', ')} ` +
+      `and this build knows up to v${latestKnownVersion()}.`;
+    if (!allowNewerSchema()) {
+      db.close();
+      db = null;
+      throw new Error(
+        `[DB] ${detail} Running an older version on a newer database is not supported: what it ` +
+        'writes in the meantime can be lost on the next update. Update Yuvomi to the version ' +
+        'that wrote this database, or restore the backup taken before that update. To start ' +
+        'anyway, at your own risk, set DB_ALLOW_NEWER_SCHEMA=1.'
+      );
+    }
+    log.warn(
+      `${detail} Started anyway because DB_ALLOW_NEWER_SCHEMA is set. What this version writes ` +
+      'can be lost on the next update: take a backup now and update as soon as you can.'
+    );
+  }
+
   // Erst hier steht garantiert eine beschriebene Datei auf der Platte. Der
   // Header ist der einzige Beleg, der nicht auf einer API-Zusage beruht.
   if (DB_KEY) assertStoredEncrypted();
@@ -5990,6 +6019,33 @@ const MIGRATIONS = [
           "共享支出", // zh
         ]],
         ['inventory', [
+          // Bis 5bd02b26 hiess der Ordner in 21 Sprachen "Inventory", weil das
+          // Modul mit englischen Texten ausgeliefert wurde. Seit der
+          // Uebersetzung traegt er den Modulnamen der Sprache - beide
+          // Schreibweisen stehen hier, nach derselben Regel wie bei der
+          // Haushaltshilfe unten: die alte fuer Bestandsordner, die neue fuer
+          // einen von Hand so benannten Ordner in einer nie migrierten Datenbank.
+          "المقتنيات", // ar, seit der Uebersetzung des Moduls (5bd02b26)
+          "Inventář", // cs, seit der Uebersetzung des Moduls (5bd02b26)
+          "Απογραφή", // el, seit der Uebersetzung des Moduls (5bd02b26)
+          "Inventario", // es, seit der Uebersetzung des Moduls (5bd02b26)
+          "اموال", // fa, seit der Uebersetzung des Moduls (5bd02b26)
+          "Inventaire", // fr, seit der Uebersetzung des Moduls (5bd02b26)
+          "इन्वेंटरी", // hi, seit der Uebersetzung des Moduls (5bd02b26)
+          "Leltár", // hu, seit der Uebersetzung des Moduls (5bd02b26)
+          "Inventaris", // id, seit der Uebersetzung des Moduls (5bd02b26)
+          "Inventario", // it, seit der Uebersetzung des Moduls (5bd02b26)
+          "持ち物", // ja, seit der Uebersetzung des Moduls (5bd02b26)
+          "소지품", // ko, seit der Uebersetzung des Moduls (5bd02b26)
+          "Inventaris", // nl, seit der Uebersetzung des Moduls (5bd02b26)
+          "Inwentarz", // pl, seit der Uebersetzung des Moduls (5bd02b26)
+          "Inventário", // pt, seit der Uebersetzung des Moduls (5bd02b26)
+          "Инвентарь", // ru, seit der Uebersetzung des Moduls (5bd02b26)
+          "Inventarier", // sv, seit der Uebersetzung des Moduls (5bd02b26)
+          "Envanter", // tr, seit der Uebersetzung des Moduls (5bd02b26)
+          "Інвентар", // uk, seit der Uebersetzung des Moduls (5bd02b26)
+          "Tài sản", // vi, seit der Uebersetzung des Moduls (5bd02b26)
+          "物品", // zh, seit der Uebersetzung des Moduls (5bd02b26)
           "Inventory", // ar, cs, el, en, es, fa, fil, fr, hi, hu, id, it, ja, ko, nl, pl, pt, ru, sv, tr, uk, vi, zh
           "Imbentaryo", // fil
           "Inventar", // de
@@ -6956,6 +7012,34 @@ const MIGRATIONS = [
   },
   {
     version: 175,
+    description: 'Permissions: allow fine-grained capability resources',
+    // `access_permissions.resource_type` is protected by a CHECK constraint.
+    // SQLite cannot extend that constraint in place, so the table is rebuilt
+    // while preserving every existing module and widget override verbatim.
+    // No concrete capability is registered here; features can add one without
+    // having to change this core table again.
+    up: `
+      CREATE TABLE access_permissions_new (
+        subject_type  TEXT NOT NULL CHECK(subject_type IN ('role', 'user')),
+        subject_id    TEXT NOT NULL,
+        resource_type TEXT NOT NULL CHECK(resource_type IN ('module', 'widget', 'capability')),
+        resource_key  TEXT NOT NULL,
+        access        TEXT NOT NULL CHECK(access IN ('none', 'read', 'write', 'allow')),
+        updated_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+        PRIMARY KEY (subject_type, subject_id, resource_type, resource_key)
+      );
+      INSERT INTO access_permissions_new
+        (subject_type, subject_id, resource_type, resource_key, access, updated_at)
+      SELECT subject_type, subject_id, resource_type, resource_key, access, updated_at
+      FROM access_permissions;
+      DROP TABLE access_permissions;
+      ALTER TABLE access_permissions_new RENAME TO access_permissions;
+      CREATE INDEX IF NOT EXISTS idx_access_permissions_subject
+        ON access_permissions(subject_type, subject_id);
+    `,
+  },
+  {
+    version: 176,
     description: 'Schedule: timetable blocks per cycle position',
     foreignKeysOff: true,
     up: `
@@ -6980,7 +7064,7 @@ const MIGRATIONS = [
     `,
   },
   {
-    version: 176,
+    version: 177,
     description: 'Schedule: timetable block times',
     up: `
       ALTER TABLE schedule_pattern_days ADD COLUMN start_time TEXT;
@@ -7052,6 +7136,37 @@ function migrate() {
       }
     }
   }
+}
+
+/**
+ * Migrationsnummern, die diese Datenbank trägt und dieser Build nicht kennt.
+ *
+ * Das ist die Signatur einer NEUEREN Yuvomi-Version auf dieser Datei - nach
+ * einem Rollback des Images (Umbrel, Unraid) oder mit einem Backup aus einer
+ * neueren Installation. `migrate()` sieht nur die Gegenrichtung: es führt
+ * nach, was fehlt, und übergeht stumm, was es nicht kennt. Eine ältere App
+ * liefe damit gegen Tabellen und Spalten, die sie nicht kennt, und fiele erst
+ * dort auf, wo sie schreibt. Migrationen sind einbahnig
+ * (test:migrations-append-only); der Rückweg ist das Backup vor dem Update.
+ * @param {import('better-sqlite3-multiple-ciphers').Database} database
+ * @returns {number[]} aufsteigend, leer wenn alles bekannt ist
+ */
+function unknownMigrationVersions(database) {
+  const known = new Set(MIGRATIONS.map((m) => m.version));
+  return database
+    .prepare('SELECT version FROM schema_migrations ORDER BY version')
+    .all()
+    .map((row) => row.version)
+    .filter((version) => !known.has(version));
+}
+
+function latestKnownVersion() {
+  return Math.max(0, ...MIGRATIONS.map((m) => m.version));
+}
+
+/** Notfallschalter: nur ein ausdrückliches 1/true/yes zählt, ein leerer Wert nicht. */
+function allowNewerSchema() {
+  return /^(1|true|yes)$/i.test(String(process.env.DB_ALLOW_NEWER_SCHEMA || '').trim());
 }
 
 /**
@@ -7160,6 +7275,16 @@ function validateBackupFile(sourcePath) {
     `).get();
     if (!row) {
       throw new Error('Backup file is not a valid Yuvomi database.');
+    }
+    // Backup aus einer neueren Yuvomi-Version: ablehnen, bevor irgendetwas
+    // kopiert wird. Eingespielt liefe diese App stumm gegen ein Schema, das
+    // sie nicht kennt; der richtige erste Schritt ist das Update.
+    const unknown = unknownMigrationVersions(candidate);
+    if (unknown.length > 0) {
+      throw new Error(
+        `Backup was written by a newer Yuvomi (schema v${unknown[unknown.length - 1]}; this ` +
+        `version knows up to v${latestKnownVersion()}). Update Yuvomi first, then restore.`
+      );
     }
     return candidate.prepare('SELECT MAX(version) AS version FROM schema_migrations').get()?.version ?? 0;
   } finally {
@@ -7280,4 +7405,4 @@ function _resetTestDatabase() {
 
 init();   // auto-initialise when module is first imported
 
-export { init, get, transaction, currentVersion, getPath, backupToFile, restoreFromFile, MIGRATIONS, reconcileCriticalSchema, _setTestDatabase, _resetTestDatabase };
+export { init, get, transaction, currentVersion, getPath, backupToFile, restoreFromFile, unknownMigrationVersions, MIGRATIONS, reconcileCriticalSchema, _setTestDatabase, _resetTestDatabase };

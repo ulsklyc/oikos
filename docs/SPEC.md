@@ -1698,6 +1698,19 @@ worker and standard fonts ship self-hosted under `public/vendor/pdfjs/` (no CDN,
 frontend-dependencies constraint); `isEvalSupported` is disabled so the app CSP (`script-src 'self'`)
 is unchanged. (v1.31.0)
 
+**Share from the viewer (D#1014):** the document viewer offers Share through the device's native
+share sheet (Web Share API), and only there - a row action would have to fetch the file after the
+click, which is exactly where iOS drops the transient user activation. Whether Share is possible is
+decided once, in `public/utils/web-share.js`, before a byte is loaded: the type must be on the Web
+Share API's file list (PDF, PNG, JPEG, WebP, plain text, CSV - no Office formats), the context must
+be secure (HTTPS or localhost), and `navigator.canShare({ files })` must accept an empty probe file
+of that type; `'share' in navigator` is deliberately not the gate, since it is true wherever links
+are shareable. When the answer is yes, the viewer fetches the file from the authenticated download
+endpoint in the background, shows the Share button busy until it is there, and the click goes
+straight into `navigator.share()`; closing the viewer aborts the fetch and drops the file. When the
+answer is no, no dead control is shown: a line under the metadata says why (type, or browser and
+context) and Download stays the path that works everywhere.
+
 ### Family Document Access
 Allowlist for `visibility = 'restricted'` documents — only listed users can see the document.
 
@@ -2593,12 +2606,17 @@ never see express — therefore had no module check at all (#823).
 |--------|------|-----------|
 | subject_type | TEXT | NOT NULL — `role` (a family_role) \| `user` (a specific member) |
 | subject_id | TEXT | NOT NULL — the family_role value or the user id |
-| resource_type | TEXT | NOT NULL — `module` \| `widget` |
-| resource_key | TEXT | NOT NULL — module key or dashboard widget id |
-| access | TEXT | NOT NULL — module: `none` \| `read` \| `write`; widget: `none` \| `allow` |
+| resource_type | TEXT | NOT NULL — `module` \| `widget` \| `capability` (v175, #996) |
+| resource_key | TEXT | NOT NULL — module key, dashboard widget id, or capability key |
+| access | TEXT | NOT NULL — module: `none` \| `read` \| `write`; widget and capability: `none` \| `allow` |
 | updated_at | TEXT | ISO 8601, default now |
 
-Primary key: `(subject_type, subject_id, resource_type, resource_key)`.
+Primary key: `(subject_type, subject_id, resource_type, resource_key)`. **`capability` is a schema-level
+allowance only (migration v175, #996):** the CHECK admits the value, `resolvePermissions()` and
+`getSubjectPermissions()` still read `module` and `widget` rows alone, and an ordinary save of the
+permission matrix deletes and rewrites only those two kinds, so a capability row written by a later
+feature survives it. No capability is registered by the core; the first one arrives with the feature
+that needs it.
 
 ### Quick Links (migration v160, #469)
 | Column | Type | Constraint |

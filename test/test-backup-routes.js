@@ -322,3 +322,44 @@ test('POST /restore: valides Backup wird wiederhergestellt (Roundtrip)', async (
   // DB nach Re-Init weiter nutzbar.
   assert.doesNotThrow(() => database().prepare('SELECT MAX(version) FROM schema_migrations').get());
 });
+
+// ── Downgrade-Schutz (Leitlinien-Audit 03.09.2026, Nebenbefund N1) ──────────────
+// Ein Backup aus einer NEUEREN Yuvomi-Version traegt Migrationsnummern, die
+// dieser Build nicht kennt. Bis hierher pruefte der Restore nur, ob
+// schema_migrations existiert: das Backup waere eingespielt worden, und die
+// App liefe stumm gegen ein Schema, das sie nicht kennt.
+test('POST /restore: Backup aus einer neueren Yuvomi-Version → 400, Live-DB unangetastet', async () => {
+  const versionBefore = dbmod.currentVersion();
+  const dl = await call('GET', '/database', { actor: ADM });
+  assert.equal(dl.status, 200);
+  // Das echte Backup um eine Migration "aus der Zukunft" ergaenzen.
+  const futurePath = path.join(TMP_ROOT, 'future.db');
+  fs.writeFileSync(futurePath, dl.buf);
+  const { default: Database } = await import('better-sqlite3-multiple-ciphers');
+  const future = new Database(futurePath);
+  future.prepare('INSERT INTO schema_migrations (version, description) VALUES (?, ?)')
+    .run(999999, 'aus einer neueren Version');
+  future.close();
+
+  const r = await call('POST', '/restore', { actor: ADM, raw: fs.readFileSync(futurePath) });
+  assert.equal(r.status, 400);
+  assert.match(r.body.error, /newer Yuvomi/i);
+  assert.match(r.body.error, /999999/);
+  // Nichts kopiert: Version und Nutzbarkeit der Live-DB unveraendert.
+  assert.equal(dbmod.currentVersion(), versionBefore);
+  assert.deepEqual(dbmod.unknownMigrationVersions(database()), []);
+  assert.doesNotThrow(() => database().prepare('SELECT 1').get());
+});
+
+test('unknownMigrationVersions: sieht genau die Nummern, die dieser Build nicht kennt', () => {
+  const live = database();
+  assert.deepEqual(dbmod.unknownMigrationVersions(live), []);
+  live.prepare('INSERT INTO schema_migrations (version, description) VALUES (?, ?)')
+    .run(999999, 'aus einer neueren Version');
+  try {
+    assert.deepEqual(dbmod.unknownMigrationVersions(live), [999999]);
+  } finally {
+    live.prepare('DELETE FROM schema_migrations WHERE version = ?').run(999999);
+  }
+  assert.deepEqual(dbmod.unknownMigrationVersions(live), []);
+});

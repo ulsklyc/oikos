@@ -19,8 +19,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createContext, runInContext } from 'node:vm';
+import { renderServiceWorkerSource } from '../server/utils/service-worker.js';
 
-const SRC = readFileSync(new URL('../public/sw.js', import.meta.url), 'utf8');
+const TEST_BUILD_REVISION = 'sw-api-cache-test';
+const SRC = renderServiceWorkerSource(
+  readFileSync(new URL('../public/sw.js', import.meta.url), 'utf8'),
+  TEST_BUILD_REVISION,
+);
 const ORIGIN = 'https://app.test';
 
 // --------------------------------------------------------
@@ -256,15 +261,16 @@ test('activate entfernt alte Vorversions- und Legacy-oikos-Caches, behält aktue
   const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
   await env.caches.open('yuvomi-api-0.0.1');                 // Vorversion → löschen
   await env.caches.open('oikos-shell-0.0.1');               // Legacy-Rename → löschen
-  await env.caches.open(`yuvomi-shell-${pkg.version}`);     // aktuell → behalten
-  await env.caches.open(`yuvomi-api-${pkg.version}`);       // aktuell → behalten
+  const currentRelease = `${pkg.version}-${TEST_BUILD_REVISION}`;
+  await env.caches.open(`yuvomi-shell-${currentRelease}`);  // aktuell → behalten
+  await env.caches.open(`yuvomi-api-${currentRelease}`);    // aktuell → behalten
 
   await dispatchActivate(env);
 
   assert.equal(await env.caches.has('yuvomi-api-0.0.1'), false, 'alter API-Cache muss weg sein');
   assert.equal(await env.caches.has('oikos-shell-0.0.1'), false, 'Legacy-oikos-Cache muss weg sein');
-  assert.equal(await env.caches.has(`yuvomi-shell-${pkg.version}`), true, 'aktueller Shell-Cache bleibt');
-  assert.equal(await env.caches.has(`yuvomi-api-${pkg.version}`), true, 'aktueller API-Cache bleibt');
+  assert.equal(await env.caches.has(`yuvomi-shell-${currentRelease}`), true, 'aktueller Shell-Cache bleibt');
+  assert.equal(await env.caches.has(`yuvomi-api-${currentRelease}`), true, 'aktueller API-Cache bleibt');
 });
 
 test('im Bypass-Fenster (nach SW-Update) wird die API nicht gecacht', async () => {

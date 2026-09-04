@@ -317,3 +317,83 @@ test('das Speichern referenziert den Submit-Button am Panel, nicht am Formular (
   // Der Submit-Handler reicht das Panel an saveDocument durch.
   assert.match(page, /saveDocument\(event, doc, panel\)/);
 });
+
+// --------------------------------------------------------
+// Teilen ueber das Teilen-Menue des Geraets (D#1014)
+// --------------------------------------------------------
+import { SHAREABLE_MIME, isShareableMime, fileShareSupport } from '../public/utils/web-share.js';
+
+test('die Teilbarkeit eines Typs wohnt in web-share.js und ist eine Teilmenge der Upload-Typen', () => {
+  // Die Web Share API kennt keine Office-Formate. Wer die Liste im Viewer ein
+  // zweites Mal ausschriebe, haette beim naechsten Upload-Typ zwei Wahrheiten.
+  const server = read('../server/routes/documents.js');
+  const allowed = server.slice(server.indexOf('const ALLOWED_MIME'), server.indexOf(']);', server.indexOf('const ALLOWED_MIME')));
+  for (const mime of SHAREABLE_MIME) {
+    assert.ok(allowed.includes(`'${mime}'`), `${mime} ist teilbar, aber kein Upload-Typ - die Liste ist keine Teilmenge mehr`);
+  }
+  assert.equal(isShareableMime('application/pdf'), true);
+  assert.equal(isShareableMime('image/jpeg; charset=binary'), true, 'MIME-Parameter duerfen die Antwort nicht kippen');
+  for (const office of [
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ]) {
+    assert.equal(isShareableMime(office), false, `${office} steht nicht auf der Liste der Web Share API`);
+  }
+});
+
+test('fileShareSupport unterscheidet Typ, Kontext und Browser - und fragt canShare mit einer leeren Probe', () => {
+  const seen = [];
+  const nav = { share() {}, canShare(data) { seen.push(data); return true; } };
+  class FakeFile {
+    constructor(parts, name, opts) { this.parts = parts; this.name = name; this.type = opts?.type; }
+  }
+  const pdf = { name: 'pass.pdf', mime_type: 'application/pdf' };
+  assert.equal(fileShareSupport({ name: 'x.docx', mime_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }, { navigator: nav, secure: true, FileCtor: FakeFile }), 'type');
+  assert.equal(fileShareSupport(pdf, { navigator: nav, secure: false, FileCtor: FakeFile }), 'unavailable', 'ohne sicheren Kontext gibt es navigator.share() nicht');
+  assert.equal(fileShareSupport(pdf, { navigator: { share() {} }, secure: true, FileCtor: FakeFile }), 'unavailable', 'share ohne canShare reicht nicht');
+  assert.equal(fileShareSupport(pdf, { navigator: { canShare: () => true }, secure: true, FileCtor: FakeFile }), 'unavailable', "'share' in navigator ist nicht die Frage");
+  assert.equal(fileShareSupport(pdf, { navigator: { share() {}, canShare: () => false }, secure: true, FileCtor: FakeFile }), 'unavailable', 'der Browser hat das letzte Wort');
+  assert.equal(fileShareSupport(pdf, { navigator: nav, secure: true, FileCtor: FakeFile }), 'ok');
+  // Die Probe traegt den Typ und keinen Inhalt: gefragt wird, BEVOR geladen ist.
+  const probe = seen.at(-1).files[0];
+  assert.equal(probe.type, 'application/pdf');
+  assert.deepEqual(probe.parts, []);
+  assert.equal(fileShareSupport(pdf, { navigator: { share() {}, canShare() { throw new TypeError('nope'); } }, secure: true, FileCtor: FakeFile }), 'unavailable', 'ein werfendes canShare ist ein Nein, kein Absturz');
+});
+
+test('Teilen gibt es nur im Viewer, gated ueber die eine Probe, nie ueber "share in navigator"', () => {
+  assert.match(page, /import \{ fileShareSupport \} from '\/utils\/web-share\.js'/);
+  assert.match(page, /const shareSupport = fileShareSupport\(doc\)/);
+  assert.doesNotMatch(page, /'share' in navigator/, 'das ist auch dort wahr, wo nur Links teilbar sind');
+  assert.doesNotMatch(page, /navigator\.share\b[^(]/, 'navigator.share wird aufgerufen, nicht abgefragt');
+  // Der Knopf existiert nur bei 'ok'; sonst steht die Erklaerung, kein toter Knopf.
+  assert.match(page, /\$\{shareSupport === 'ok' \? `\s*<button type="button"[^>]*data-action="share"/);
+  assert.match(page, /shareSupport !== 'ok' \? `<p class="document-viewer__note">\$\{t\(shareSupport === 'type' \? 'documents\.shareUnsupportedType' : 'documents\.shareUnavailable'\)\}<\/p>`/);
+  // Die Zeile bleibt bei Ansehen/Download/Kebab.
+  const actions = page.slice(page.indexOf('function renderActions(doc)'), page.indexOf('function renderSelectBox'));
+  assert.doesNotMatch(actions, /share/i, 'kein Teilen in der Zeile - dort zaehlt der Klick sofort und die Datei ist noch nicht da');
+});
+
+test('die Datei wird beim Oeffnen geholt, der Klick muendet ohne await in navigator.share()', () => {
+  const prep = page.slice(page.indexOf('function prepareShare(panel)'), page.indexOf('function renderViewerContent'));
+  assert.match(prep, /fetch\(downloadUrl, \{ credentials: 'same-origin', signal: shareAbort\.signal \}\)/, 'derselbe authentifizierte Endpunkt, abbrechbar');
+  assert.match(prep, /new File\(\[blob\], doc\.original_name \|\| doc\.name, \{ type: doc\.mime_type \}\)/);
+  const click = prep.slice(prep.indexOf("btn.addEventListener('click'"));
+  assert.doesNotMatch(click, /await|fetch\(/, 'zwischen Klick und share() darf nichts warten - iOS verbraucht sonst die Nutzeraktivierung');
+  assert.match(click, /navigator\.canShare\(\{ files: \[shareFile\] \}\)/, 'der Browser entscheidet zuletzt, mit der echten Datei');
+  assert.match(click, /navigator\.share\(\{ files: \[shareFile\], title: doc\.name \}\)/);
+  assert.match(click, /err\?\.name === 'AbortError'\) return/, 'ein geschlossenes Teilen-Menue ist kein Fehler');
+  // Beim Schliessen: Fetch abbrechen, Datei freigeben - der Viewer war bisher
+  // die einzige Stelle, die nie ein Dokument in den Speicher holte.
+  const close = page.slice(page.indexOf('onClose() {', page.indexOf('function openDocumentViewer')), page.indexOf('onSave(panel)', page.indexOf('function openDocumentViewer')));
+  assert.match(close, /shareAbort\.abort\(\)/);
+  assert.match(close, /shareFile = null/);
+  // Der Knopf startet gesperrt und beschaeftigt, bis die Datei da ist.
+  assert.match(page, /data-action="share" disabled aria-busy="true"/);
+  assert.match(prep, /btn\.disabled = false;\s*btn\.removeAttribute\('aria-busy'\)/);
+  for (const key of ['shareAction', 'sharePreparing', 'shareUnsupportedType', 'shareUnavailable', 'shareFailed']) {
+    assert.equal(typeof de.documents[key], 'string', `de.json: documents.${key} fehlt`);
+  }
+});

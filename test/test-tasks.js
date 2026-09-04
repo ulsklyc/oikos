@@ -232,13 +232,13 @@ test('Teilaufgaben der Detailansicht sind abhakbar, nicht nur lesbar', () => {
 // liefe beim ersten .includes/.forEach in einen TypeError.
 test('Filter-Achsen halten Listen, nicht einzelne Werte', () => {
   const source = readFileSync(new URL('../public/pages/tasks.js', import.meta.url), 'utf8');
-  assert(/filters:\s*\{ status: \['open'\], priority: \[\], assigned_to: \[\], tags: \[\] \}/.test(source),
+  assert(/filters:\s*\{ status: \['open'\], priority: \[\], assigned_to: \[\], category: \[\], tags: \[\] \}/.test(source),
     'der Anfangszustand muss je Achse eine Liste sein');
-  for (const axis of ['status', 'priority', 'assigned_to']) {
+  for (const axis of ['status', 'priority', 'assigned_to', 'category']) {
     assert(new RegExp(`state\\.filters\\.${axis}\\.forEach\\(\\(v\\) => params\\.append\\('${axis}', v\\)\\)`).test(source),
       `${axis} muss jeden Wert einzeln an die Query hängen`);
   }
-  assert(/state\.filters = \{ status: \[\], priority: \[\], assigned_to: \[\], tags: \[\] \}/.test(source),
+  assert(/state\.filters = \{ status: \[\], priority: \[\], assigned_to: \[\], category: \[\], tags: \[\] \}/.test(source),
     '"Alle Filter löschen" muss Listen hinterlassen, keine leeren Strings');
 });
 

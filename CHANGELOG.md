@@ -29,7 +29,91 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   remains one row per person. Name-day labels, validation and calendar text are included in all 24
   supported interface languages.
 
+- **Documents can be shared through the device's share sheet, straight from the viewer** (D#1014,
+  requested by @gdanthy). A passport scan used to take three steps to send: download, find the file,
+  share it. The viewer now carries a Share button that opens the operating system's share sheet with
+  the file - WhatsApp, Mail, AirDrop, Files, whatever is installed. It is built the way the reporter
+  proposed: the file is fetched in the background when the viewer opens, the button stays busy until
+  it is there, and the tap then goes straight into the share sheet, because a fetch between tap and
+  share is exactly where iOS drops the gesture. Whether sharing is possible is decided once, before
+  anything is loaded: the type has to be one the Web Share API accepts as a file (PDF, images, text,
+  CSV - not Word or Excel), the connection has to be secure, and the browser has to say yes to a probe.
+  Where the answer is no, there is no dead button; a line under the metadata says why, and Download
+  remains the path that works everywhere. Rows are unchanged on purpose.
+
+- **Decisions made once now have a page of their own.** [`docs/DECISIONS.md`](docs/DECISIONS.md)
+  is the counterpart to the scope page: not what Yuvomi will not become, but how something it
+  does build was decided, so that the next thread reaching the same point gets the answer instead
+  of the argument. The first entry is the one that was reached three times from three modules -
+  privacy beats admin convenience: a member's private data is never opened by a role or by an
+  update, only per person and on purpose (#584, #869, #989). The second is the pattern behind
+  three findings of the same two days: a rule lives in one place, not at a call site (#989,
+  #1013, #1007). The third is the head rule the calendar settled on 27 August and Tasks reached
+  again in #1012: one head, one width. Each entry names the rule, the reason, the code path that enforces it and
+  what would reopen or undo it, and points to the thread and the release rather than restating
+  them. Linked from the README, the scope page and the
+  contributing guide.
+
+- **An older Yuvomi on a newer database now says so, and a backup from a newer version is
+  refused.** Migrations only run forward, but nothing checked the other direction: after an image
+  rollback on Umbrel or Unraid the older version started silently on a database carrying
+  migrations it did not know, and a restore accepted any file that had a `schema_migrations`
+  table. Now an older version refuses to start on such a database and says which migration numbers
+  it does not know, which version it knows, and the way out; `DB_ALLOW_NEWER_SCHEMA=1` starts it
+  anyway for the emergency case, with a warning on every start, because what an older version
+  writes in the meantime can be lost on the next update. A restore of a newer backup is refused
+  before anything is copied, with the message to update first. The three sentences operators asked for stand in the installation guide under Updates:
+  migrations are one-way, any older backup restores into any newer version, and the way back is
+  the backup from before the update, not an older image.
+
+- **Tasks can be filtered by category, on the Board as well as in the List** (D#1017, asked by
+  @radicchiodev). The filter panel offered status, priority, person and tags, and the List could
+  group by category, but nothing filtered by it - and the Board cannot group at all, because its
+  columns are already the status. The server had accepted `?category=` since #825; the panel simply
+  never got the group. It has it now, in both views, with the same label the task form uses, and a
+  chosen category shows in the chip row and in the remembered filter sets like every other axis.
+
+### Changed
+
+- **Two promises that existed only in threads are written where people look.** The contributing
+  guide says what happens if the maintainer stops: nobody inherits repository rights, MIT allows
+  any fork at any time, and after a year without a release, a commit or a reply the fork may carry
+  the name. MODULES.md says how long `/api/v1` holds: an operation is named as deprecated in the
+  CHANGELOG and keeps working for at least 90 days after that release, and a `/api/v2` would keep
+  `/api/v1` served for twelve months.
+
 ### Fixed
+
+- **A same-version deployment now invalidates the installed PWA shell.** The served service worker
+  receives a build-specific revision, so acceptance builds and rebuilt images no longer reuse an
+  older cache merely because the application version has not changed.
+
+- **Inventory and Schedule speak all 24 languages, and a guard now notices when a module does
+  not.** Inventory shipped on 15 August and Schedule on 27 August with their texts copied from
+  English into the other 22 locales - navigation labels, forms, presets, the deadline feed settings,
+  everything - and the locale test stayed green, because it checks that every key exists, not that
+  any value was ever translated. All 222 of those texts are translated now, with one vocabulary per
+  language for each module: the shift presets say early, late and night shift the way that language
+  says it, and the module has a name of its own in every navigation. To keep it from happening to the
+  next module, a new suite counts, per locale, the texts that are still word-for-word English while
+  German is not, and holds that number against a baseline that may only fall.
+
+- **The add-subtask button stays on the task card after the first subtask** (D#1017). It used to
+  disappear as soon as a task had one, and the only other entry sat at the bottom of the subtask
+  list, which is collapsed until the progress bar is clicked - so the module read as "one subtask
+  per task" to someone who had just added one. There was never a limit; the way in was hidden. The
+  button on the card now stays, and the one at the end of the open list remains as well.
+
+- **The Tasks header holds one width across List, Board and History** (#1012). It used to jump on
+  every view switch: List and History narrowed the head to the 720px reading measure, the Board let it
+  run the full content column, and the actions on the right moved 354px back and forth (measured at
+  1358px). That was the coupling the calendar dropped on 27 August, and Tasks had not followed. Now
+  the page is built the calendar's way - the root carries no measure, List and History take the
+  reading lane back for their rows and filter row, the Board stays uncapped - and the head keeps the
+  edge of its widest body in all three views. The bodies are unchanged: the task rows still end at
+  720px, exactly as the reporter asked. The one-line version of this fix does not exist, because a
+  page that caps something at a measure has to show that measure in its head; the page had to stop
+  being a reading page first.
 
 - **The shift-type colour picker no longer spans the full row on a phone.** `width: 100%` stretched
   the native colour input to fill its grid cell; on the mobile layout, where the two-column form

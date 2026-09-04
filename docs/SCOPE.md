@@ -16,7 +16,8 @@ Three kinds of answer live here:
   tracking (#378).
 
 Anything not listed here is simply not built yet. That is not the same as declined, and
-the [backlog](../BACKLOG.md) is where those live.
+the [backlog](../BACKLOG.md) is where those live. Decisions about *how* something inside the
+scope is built, made once so they are not argued again, live in [DECISIONS.md](DECISIONS.md).
 
 ---
 

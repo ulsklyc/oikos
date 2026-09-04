@@ -3045,7 +3045,12 @@
         "folderExpand": "„{{name}}\" aufklappen",
         "folderCollapse": "„{{name}}\" zuklappen",
         "deleteFolderSubtreeDetail": "Die {{count}} Unterordner darin werden ebenfalls gelöscht. Die Dokumente bleiben erhalten und sind über den Filter für Dokumente ohne Ordner erreichbar.",
-        "deleteFolderSubtreeDetail_one": "Der Unterordner darin wird ebenfalls gelöscht. Die Dokumente bleiben erhalten und sind über den Filter für Dokumente ohne Ordner erreichbar."
+        "deleteFolderSubtreeDetail_one": "Der Unterordner darin wird ebenfalls gelöscht. Die Dokumente bleiben erhalten und sind über den Filter für Dokumente ohne Ordner erreichbar.",
+        "shareAction": "Teilen",
+        "sharePreparing": "Wird vorbereitet …",
+        "shareUnsupportedType": "Dieser Dateityp lässt sich nicht über das Teilen-Menü des Geräts weitergeben. Lade die Datei stattdessen herunter.",
+        "shareUnavailable": "Das Teilen-Menü des Geräts steht in diesem Browser nicht zur Verfügung oder braucht eine sichere Verbindung (HTTPS). Lade die Datei stattdessen herunter.",
+        "shareFailed": "Teilen hat nicht geklappt. Lade die Datei stattdessen herunter."
     },
     "userMultiSelect": {
         "nobody": "- Niemand -",

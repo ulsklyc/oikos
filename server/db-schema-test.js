@@ -1045,13 +1045,53 @@ const MIGRATIONS_SQL = {
       ON birthdays(name_day_calendar_event_id);
   `,
 
+  // SQL-String für Migration v175 (gespiegelt aus db.js MIGRATIONS):
+  // `access_permissions` akzeptiert neben Modulen und Widgets nun auch
+  // feingranulare Capability-Schlüssel. Bestehende Overrides bleiben erhalten.
+  175: `
+    CREATE TABLE access_permissions_new (
+      subject_type  TEXT NOT NULL CHECK(subject_type IN ('role', 'user')),
+      subject_id    TEXT NOT NULL,
+      resource_type TEXT NOT NULL CHECK(resource_type IN ('module', 'widget', 'capability')),
+      resource_key  TEXT NOT NULL,
+      access        TEXT NOT NULL CHECK(access IN ('none', 'read', 'write', 'allow')),
+      updated_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+      PRIMARY KEY (subject_type, subject_id, resource_type, resource_key)
+    );
+    INSERT INTO access_permissions_new
+      (subject_type, subject_id, resource_type, resource_key, access, updated_at)
+    SELECT subject_type, subject_id, resource_type, resource_key, access, updated_at
+    FROM access_permissions;
+    DROP TABLE access_permissions;
+    ALTER TABLE access_permissions_new RENAME TO access_permissions;
+    CREATE INDEX IF NOT EXISTS idx_access_permissions_subject
+      ON access_permissions(subject_type, subject_id);
+  `,
+
   // SQL for migration v176 (mirrored from db.js MIGRATIONS):
-  // Direct start/end times for timetable blocks.
+  // Multiple timetable blocks and their metadata per cycle position.
   176: `
+    CREATE TABLE schedule_pattern_days_new (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      pattern_id INTEGER NOT NULL REFERENCES schedule_patterns(id) ON DELETE CASCADE,
+      position INTEGER NOT NULL CHECK (position >= 0),
+      shift_type_id INTEGER REFERENCES schedule_shift_types(id) ON DELETE RESTRICT,
+      subject TEXT, room TEXT, instructor TEXT,
+      category TEXT NOT NULL DEFAULT 'work' CHECK(category IN ('school', 'work', 'activity', 'other')),
+      color TEXT, period_number INTEGER, notes TEXT
+    );
+    INSERT INTO schedule_pattern_days_new (id, pattern_id, position, shift_type_id)
+      SELECT id, pattern_id, position, shift_type_id FROM schedule_pattern_days;
+    DROP TABLE schedule_pattern_days;
+    ALTER TABLE schedule_pattern_days_new RENAME TO schedule_pattern_days;
+  `,
+
+  // SQL for migration v177 (mirrored from db.js MIGRATIONS):
+  // Direct start/end times for timetable blocks.
+  177: `
     ALTER TABLE schedule_pattern_days ADD COLUMN start_time TEXT;
     ALTER TABLE schedule_pattern_days ADD COLUMN end_time TEXT;
   `,
-
 };
 
 export { MIGRATIONS_SQL };

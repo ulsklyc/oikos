@@ -1224,6 +1224,14 @@
   flex-shrink: 0;
 }
 
+/* Eine Zeile unter den Meta-Angaben, die sagt, warum Teilen hier nicht geht
+ * (D#1014): eigener Umbruch in der umbrechenden Meta-Zeile, Schrift und Farbe
+ * erbt sie von dort. Wird nur gerendert, wenn es etwas zu erklaeren gibt. */
+.document-viewer__note {
+  flex-basis: 100%;
+  margin: 0;
+}
+
 .document-viewer__body {
   flex: 1;
   min-height: 0;
