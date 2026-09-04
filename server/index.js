@@ -21,6 +21,7 @@ import * as appleCalendar from './services/apple-calendar.js';
 import * as icsSubscription from './services/ics-subscription.js';
 import * as icsExport from './services/ics-export.js';
 import * as inventoryDeadlinesIcs from './services/inventory-deadlines-ics.js';
+import * as scheduleIcs from './services/schedule-ics.js';
 import * as caldavReminders from './services/caldav-reminders-sync.js';
 import * as caldavSync from './services/caldav-sync.js';
 import * as outlookCalendar from './services/outlook-calendar.js';
@@ -74,6 +75,9 @@ import permissionsRouter from './routes/permissions.js';
 import changelogRouter from './routes/changelog.js';
 import mcpRouter from './mcp/server.js';
 import scheduleRouter from './routes/schedule.js';
+import scheduleFeedRouter from './routes/schedule-feed.js';
+import schedulePreferencesRouter from './routes/schedule-preferences.js';
+import scheduleExtrasRouter from './routes/schedule-extras.js';
 import { moduleForPath, requiredAccess, tokenAllows } from './scopes.js';
 import { moduleAccessVerdict, MODULE_ACCESS_DENIED, MODULE_ACCESS_READ_ONLY } from './permissions.js';
 import { BODY_LIMIT, MAX_UPLOAD_BYTES, MAX_UPLOAD_MB } from './utils/upload-limit.js';
@@ -423,6 +427,24 @@ app.get('/feed/inventory-deadlines/:token.ics', feedLimiter, (req, res) => {
   }
 });
 
+// Eigenständiger Feed für den persönlichen Schichtplan (Schedule v3) - anders
+// als beim Inventar-Feed steckt hier die Nutzer-Id auch im Inhalt: gefeedet
+// werden NUR die eigenen aufgelösten Einträge dieses Tokens, siehe
+// server/services/schedule-ics.js.
+app.get('/feed/schedule/:token.ics', feedLimiter, (req, res) => {
+  try {
+    const userId = scheduleIcs.findUserIdByFeedToken(db.get(), req.params.token);
+    if (!userId) return res.status(404).type('text/plain').send('Not found');
+    const ics = scheduleIcs.buildScheduleFeed(db.get(), userId);
+    res.set('Cache-Control', 'private, no-store');
+    res.set('Content-Disposition', 'inline; filename="yuvomi-schedule.ics"');
+    res.type('text/calendar; charset=utf-8').send(ics);
+  } catch (err) {
+    log.error('', err);
+    res.status(500).type('text/plain').send('Internal error');
+  }
+});
+
 // MCP-Endpoint (Streamable HTTP, stateless): Auth über bestehende Bearer-API-Tokens.
 // Eigener Namespace außerhalb von /api/v1 → kein CSRF, kein Guest-Guard.
 app.use('/mcp', apiLimiter, requireAuth, mcpRouter);
@@ -521,6 +543,9 @@ app.use('/api/v1/notifications', notificationsRouter);
 app.use('/api/v1/health', healthRouter);
 app.use('/api/v1/rewards', rewardsRouter);
 app.use('/api/v1/schedule', scheduleRouter);
+app.use('/api/v1/schedule/feed', scheduleFeedRouter);
+app.use('/api/v1/schedule/preferences', schedulePreferencesRouter);
+app.use('/api/v1/schedule/extras', scheduleExtrasRouter);
 app.use('/api/v1/permissions', permissionsRouter);
 
 // --------------------------------------------------------

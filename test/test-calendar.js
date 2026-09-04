@@ -1029,6 +1029,23 @@ test('sameColor vergleicht Hex-Werte ohne Ruecksicht auf Schreibweise', () => {
   assert(sameColor(undefined, undefined) === false, 'undefined auch nicht');
 });
 
+// Additiv zu Muster/Override, nie ein Ersatz (server/routes/schedule-extras.js)
+// - die Ueberlagerung rendert schon ein Chip je Eintrag (kein Dedup-Risiko,
+// siehe die Untersuchung dazu), aber ohne diese Kennzeichnung waere Bereitschaft
+// neben einer regulaeren Schicht optisch nicht von einem zweiten Haupttermin
+// zu unterscheiden.
+test('ein Extra-Eintrag traegt eine eigene Kennzeichnung im Kalender-Chip und in seinem Titel, ein primaerer Eintrag nicht', () => {
+  const { renderScheduleChip, scheduleEntryTitle } = calendarHelpers;
+  const type = { name: 'Fruehschicht', short_code: 'F', color: '#6C3AED', start_time: '06:00', end_time: '14:00' };
+  const primary = { user_id: 1, source: 'override', shift_type: type };
+  const extra = { user_id: 1, source: 'extra', shift_type: type };
+
+  assert(!renderScheduleChip(primary).includes('schedule-entry__extra-badge'), 'ein primaerer Eintrag bekommt kein Extra-Abzeichen');
+  assert(renderScheduleChip(extra).includes('schedule-entry__extra-badge'), 'ein Extra bekommt sein Abzeichen im Chip');
+  assert(!scheduleEntryTitle(primary).includes('extraBadgeLabel'), 'der Titel eines primaeren Eintrags nennt das Extra-Etikett nicht');
+  assert(scheduleEntryTitle(extra).includes('extraBadgeLabel'), 'der Titel eines Extras nennt es beim Namen, auch ohne sichtbares Abzeichen (Tooltip fuer die enge Monatszelle)');
+});
+
 // --------------------------------------------------------
 // nextOccurrence: MONTHLY ueber kurze Monate
 //

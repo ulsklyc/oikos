@@ -1,11 +1,13 @@
 import { api } from '/api.js';
 import { t, formatDate } from '/i18n.js';
 import { esc } from '/utils/html.js';
-import { todayKey, addLocalDays } from '/utils/date.js';
-import { openModal, closeModal, confirmModal } from '/components/modal.js';
+import { todayKey, addLocalDays, parseLocalDateKey } from '/utils/date.js';
+import { openModal, closeModal, confirmModal, advancedSection } from '/components/modal.js';
+import { makeSortable } from '/utils/sortable.js';
 import { createPageFab, setPageFabAction } from '/utils/fab.js';
 import { emptyStateHTML } from '/utils/empty-state.js';
 import { wireScrollFade } from '/utils/ux.js';
+import { toggleRowHtml } from '/settings/components.js';
 
 // ZWEISPALTIG: Schedule is a full-width responsive library and statistics view;
 // constraining its row lists to the narrow reading measure would recreate the
@@ -16,7 +18,7 @@ let scheduleFab = null;
 let currentUserId = null;
 let canManageOthers = false;
 let activeView = 'patterns';
-let state = { users: [], types: [], patterns: [], overrides: [], entries: [], warnings: [] };
+let state = { users: [], types: [], customFields: [], patterns: [], overrides: [], extras: [], entries: [], warnings: [], reminderOffsetMinutes: null, weeklyHours: null, hiddenTemplates: [] };
 let statistics = { userId: null, range: 'current', monthFrom: '', monthTo: '', from: '', to: '', entries: [], bounds: null, loading: false };
 // Schichtfarben sind NUTZERFARBEN (freier Waehler im Formular); die Presets
 // sind nur Startwerte. Eine Grenze gilt trotzdem: keine davon darf die STIMME
@@ -34,16 +36,64 @@ let statistics = { userId: null, range: 'current', monthFrom: '', monthTo: '', f
 // abbilden, nichts dazwischen. Eigene Farben ausserhalb der fuenf Arbeits-Presets:
 // Blaugrau fuer Urlaub (Abwesenheit, keine Dringlichkeit), Rot fuer krank
 // (der einzige Rot-Ton unter den Presets).
-const SHIFT_PRESETS = Object.freeze([
-  { key: 'early', shortCode: 'E', startTime: '06:00', endTime: '14:00', color: '#0E7490' },
-  { key: 'late', shortCode: 'L', startTime: '14:00', endTime: '22:00', color: '#A21CAF' },
-  { key: 'night', shortCode: 'N', startTime: '22:00', endTime: '06:00', color: '#4338CA' },
-  { key: 'day', shortCode: 'D', startTime: '08:00', endTime: '16:00', color: '#15803D' },
-  { key: 'fullDay', shortCode: '24', startTime: '10:00', endTime: '10:00', color: '#A16207' },
-  { key: 'vacation', shortCode: 'V', startTime: null, endTime: null, color: '#475569' },
-  { key: 'sick', shortCode: 'S', startTime: null, endTime: null, color: '#B91C1C' },
+// Absenz ist kontextunabhaengig - ob Arbeit, Schule oder Uni, es braucht immer
+// einen Weg, einen Tag als "nicht da" zu kennzeichnen. Deshalb an jede
+// Vorlage angehaengt statt dreifach dupliziert.
+const SHARED_PRESETS = Object.freeze([
+  { key: 'vacation', shortCode: 'V', startTime: null, endTime: null, color: '#475569', icon: 'tree-palm' },
+  { key: 'sick', shortCode: 'S', startTime: null, endTime: null, color: '#B91C1C', icon: 'thermometer' },
 ]);
-const SHIFT_COLOR_FALLBACK = SHIFT_PRESETS[0].color;
+// Drei Vorlagen statt einer einzigen festen Liste - derselbe Quickstart-Weg
+// (vormals nur Arbeitsschichten) deckt jetzt auch Schule und Universitaet ab.
+// Die Zeiten sind Startwerte zum Anpassen, keine Behauptung universeller
+// Richtigkeit - dieselbe Haltung wie die bestehenden Arbeits-Presets schon
+// immer hatten ("Fruehschicht" 06-14 Uhr passt auch nicht jedem Betrieb).
+const PRESET_TEMPLATES = Object.freeze({
+  work: Object.freeze([
+    { key: 'early', shortCode: 'E', startTime: '06:00', endTime: '14:00', color: '#0E7490', icon: 'sunrise' },
+    { key: 'late', shortCode: 'L', startTime: '14:00', endTime: '22:00', color: '#A21CAF', icon: 'sunset' },
+    { key: 'night', shortCode: 'N', startTime: '22:00', endTime: '06:00', color: '#4338CA', icon: 'moon' },
+    { key: 'day', shortCode: 'D', startTime: '08:00', endTime: '16:00', color: '#15803D', icon: 'sun' },
+    { key: 'fullDay', shortCode: '24', startTime: '10:00', endTime: '10:00', color: '#A16207', icon: 'clock' },
+    ...SHARED_PRESETS,
+  ]),
+  school: Object.freeze([
+    { key: 'period1', shortCode: 'P1', startTime: '08:00', endTime: '08:45', color: '#0369A1', icon: 'book-open' },
+    { key: 'period2', shortCode: 'P2', startTime: '08:55', endTime: '09:40', color: '#0D9488', icon: 'book-open' },
+    { key: 'period3', shortCode: 'P3', startTime: '09:55', endTime: '10:40', color: '#B45309', icon: 'book-open' },
+    { key: 'period4', shortCode: 'P4', startTime: '10:50', endTime: '11:35', color: '#BE185D', icon: 'book-open' },
+    { key: 'exam', shortCode: 'EX', startTime: '09:00', endTime: '11:00', color: '#7C2D12', icon: 'file-text' },
+    ...SHARED_PRESETS,
+  ]),
+  university: Object.freeze([
+    { key: 'lecture', shortCode: 'VL', startTime: '09:00', endTime: '10:30', color: '#1D4ED8', icon: 'presentation' },
+    { key: 'seminar', shortCode: 'SE', startTime: '10:45', endTime: '12:15', color: '#0F766E', icon: 'users' },
+    { key: 'lab', shortCode: 'LAB', startTime: '13:00', endTime: '15:00', color: '#166534', icon: 'flask-conical' },
+    { key: 'exam', shortCode: 'EX', startTime: '09:00', endTime: '11:00', color: '#7C2D12', icon: 'file-text' },
+    ...SHARED_PRESETS,
+  ]),
+});
+// Fuer den EINZEL-Vorlagen-Waehler im "Schichtart erstellen"-Formular
+// (shiftPresetOptions()/applyShiftPreset() weiter unten) - der darf aus JEDER
+// Vorlage waehlen, nicht nur aus Arbeit, unabhaengig davon, welche Vorlage
+// zuletzt per Quickstart lief. Ein Map-Umweg entdoppelt exam/vacation/sick,
+// die in mehreren Vorlagen mit identischen Werten auftauchen.
+const ALL_PRESETS = Object.freeze([...new Map(
+  [...PRESET_TEMPLATES.work, ...PRESET_TEMPLATES.school, ...PRESET_TEMPLATES.university].map((preset) => [preset.key, preset]),
+).values()]);
+const SHIFT_COLOR_FALLBACK = PRESET_TEMPLATES.work[0].color;
+
+// Welche Vorlagen ueberhaupt als Knopf angeboten werden, ist selbst haushalt-
+// weit konfigurierbar (server/routes/preferences.js#schedule_hidden_templates,
+// Settings > Module > Optionen) - ein Haushalt, der nur Arbeit braucht, muss
+// nicht dauerhaft Schule/Uni-Knoepfe sehen. `PRESET_TEMPLATES` selbst bleibt
+// unveraendert (die Vorlagen existieren weiter, nur ihr Einstiegsknopf kann
+// fehlen); bereits angelegte Schichtarten sind davon ohnehin unberuehrt.
+const QUICKSTART_TEMPLATES = [['work', 'schedule.templateWork'], ['school', 'schedule.templateSchool'], ['university', 'schedule.templateUniversity']];
+function visibleQuickstartTemplates() {
+  const hidden = new Set(state.hiddenTemplates ?? []);
+  return QUICKSTART_TEMPLATES.filter(([key]) => !hidden.has(key));
+}
 
 const option = (value, label, selected = false) => `<option value="${esc(String(value ?? ''))}"${selected ? ' selected' : ''}>${esc(label)}</option>`;
 const userName = (id) => state.users.find((user) => Number(user.id) === Number(id))?.display_name
@@ -68,22 +118,34 @@ const clockLabel = (shiftType) => {
 
 async function load() {
   const day = todayKey();
-  const [users, types, patternResult, overrides, entries] = await Promise.all([
+  const [users, types, customFields, patternResult, overrides, extras, entries, preferences, householdPrefs] = await Promise.all([
     api.get('/auth/users'),
     api.get('/schedule/shift-types'),
+    api.get('/schedule/custom-fields'),
     api.get('/schedule/patterns'),
     api.get('/schedule/overrides'),
+    api.get('/schedule/extras'),
     api.get(`/schedule/entries?from=${day}&to=${day}`),
+    api.get('/schedule/preferences'),
+    // Haushaltweit, admin-only (server/routes/preferences.js) - welche
+    // Quickstart-Vorlagen ueberhaupt angeboten werden, nicht zu verwechseln
+    // mit den per-Nutzer-Werten oben aus /schedule/preferences.
+    api.get('/preferences').catch(() => ({ data: {} })),
   ]);
   const patterns = patternResult.data ?? [];
   const days = await Promise.all(patterns.map((pattern) => api.get(`/schedule/patterns/${pattern.id}/days`)));
   state = {
     users: users.data ?? [],
     types: types.data ?? [],
+    customFields: customFields.data ?? [],
     patterns: patterns.map((pattern, index) => ({ ...pattern, days: days[index].data ?? [] })),
     overrides: overrides.data ?? [],
+    extras: extras.data ?? [],
     entries: entries.data?.entries ?? [],
     warnings: entries.data?.warnings ?? [],
+    reminderOffsetMinutes: preferences.data?.reminderOffsetMinutes ?? null,
+    weeklyHours: preferences.data?.weeklyHours ?? null,
+    hiddenTemplates: Array.isArray(householdPrefs.data?.schedule_hidden_templates) ? householdPrefs.data.schedule_hidden_templates : [],
   };
 }
 
@@ -126,6 +188,93 @@ function formatHours(minutes) {
   const hours = minutes / 60;
   const value = Number.isInteger(hours) ? String(hours) : hours.toFixed(1).replace(/\.0$/, '');
   return t('schedule.hoursValue', { value });
+}
+
+// Personenbezogen und konfigurierbar (users.schedule_weekly_hours), NICHT ein
+// Haushaltsfeld - ein Teilzeit- und ein Vollzeit-Mitglied im selben Haushalt
+// haben unterschiedliche Sollstunden. 40 ist der Rueckfall, solange niemand
+// einen eigenen Wert gesetzt hat; die Markierung bleibt ein Hinweis, kein
+// Urteil - es gibt keine Ablehnung, nur eine Zahl neben einer anderen.
+const DEFAULT_WEEKLY_HOURS = 40;
+
+// Ein ROLLIERENDES 7-Tage-Fenster statt fester Kalenderwochen (Mo-So o.ae.):
+// ein Schichtblock kann eine Wochengrenze ueberspannen (z.B. Do-Mo als
+// zusammenhaengende fuenf Tage) - feste Wochen zerschneiden ihn dann in zwei
+// Haelften, von denen keine allein die Schwelle reisst, obwohl die
+// zusammenhaengenden sieben Tage es sehr wohl tun. Der Wochenstart des
+// Haushalts ist hier deshalb irrelevant: jedes Fenster von genau sieben
+// aufeinanderfolgenden Kalendertagen zaehlt, nicht nur die, die an einem
+// bestimmten Wochentag beginnen. Gemeldet wird nur das SCHLIMMSTE Fenster
+// (nicht die Summe ueber alle ueberlappenden Fenster - die teilen sich
+// dieselben Tage mehrfach, das wuerde denselben Ueberschuss vielfach zaehlen).
+function overtimeInfo(entries, weeklyHours = DEFAULT_WEEKLY_HOURS) {
+  const days = entries
+    .map((entry) => ({ day: parseLocalDateKey(entry.date_key).getTime(), minutes: entry.shift_type ? (shiftMinutes(entry.shift_type) ?? 0) : 0 }))
+    .sort((a, b) => a.day - b.day);
+  const sixDaysMs = 6 * 86400000;
+  let windowStart = 0;
+  let windowSum = 0;
+  let worstWindowMinutes = 0;
+  for (let end = 0; end < days.length; end += 1) {
+    windowSum += days[end].minutes;
+    while (days[windowStart].day < days[end].day - sixDaysMs) {
+      windowSum -= days[windowStart].minutes;
+      windowStart += 1;
+    }
+    worstWindowMinutes = Math.max(worstWindowMinutes, windowSum);
+  }
+  const excessMinutes = Math.max(0, worstWindowMinutes - weeklyHours * 60);
+  return { over: excessMinutes > 0, excessMinutes };
+}
+
+// Feste Presets statt eines freien Zahlenfelds: der Server deckelt ohnehin auf
+// 24h (server/routes/schedule-preferences.js), und eine Handvoll sprechender
+// Werte ist schneller getroffen als eine Minutenzahl zu tippen.
+const REMINDER_OFFSET_PRESETS = [0, 5, 10, 15, 30, 60, 120];
+
+function reminderOffsetOptions(selectedMinutes) {
+  return REMINDER_OFFSET_PRESETS.map((minutes) =>
+    `<option value="${minutes}"${Number(selectedMinutes) === minutes ? ' selected' : ''}>${esc(t(minutes === 0 ? 'schedule.reminderAtStart' : 'schedule.reminderMinutesBefore', { minutes }))}</option>`
+  ).join('');
+}
+
+// Ein eigener Vorlauf je Extra, unabhaengig vom haushaltweiten Feld unten -
+// eine Bereitschaft will vielleicht einen laengeren Vorlauf als die eigene
+// regulaere Schicht (server/services/schedule-reminders.js#syncExtraRemindersForUser).
+// Gleiches Umschalter-plus-Auswahl-Muster wie renderReminderSettings() unten,
+// damit sich beide Stellen gleich bedienen, auch wenn diese hier in einem
+// Formular statt einer Karte lebt.
+function reminderOffsetField(selectedMinutes) {
+  const active = selectedMinutes != null;
+  return '<div class="form-field schedule-active-field"><span class="label">' + esc(t('schedule.extraReminderOffset')) + '</span><label class="toggle"><input name="reminder_enabled" type="checkbox"' + (active ? ' checked' : '') + '><span class="toggle__track"></span></label></div>'
+    + '<select class="input" name="reminder_offset_minutes"' + (active ? '' : ' disabled') + '>' + reminderOffsetOptions(selectedMinutes) + '</select>';
+}
+
+function renderReminderSettings() {
+  const active = state.reminderOffsetMinutes != null;
+  const options = reminderOffsetOptions(state.reminderOffsetMinutes);
+  const weeklyHours = state.weeklyHours ?? DEFAULT_WEEKLY_HOURS;
+  return '<div class="card card--padded schedule-reminder-settings">'
+    + '<h2 class="u-section-title">' + esc(t('schedule.mySettings')) + '</h2>'
+    + '<div class="schedule-reminder-settings__row">'
+    + toggleRowHtml({ label: t('schedule.reminderToggle'), checked: active, attrs: { id: 'schedule-reminder-toggle' } })
+    + '<select class="input" id="schedule-reminder-offset"' + (active ? '' : ' disabled') + '>' + options + '</select>'
+    + '</div><p class="form-hint">' + esc(t('schedule.reminderHint')) + '</p>'
+    + '<div class="schedule-reminder-settings__row schedule-reminder-settings__row--hours">'
+    + '<label class="label" for="schedule-weekly-hours">' + esc(t('schedule.weeklyHoursLabel')) + '</label>'
+    + '<input class="input" type="number" min="1" max="168" step="1" id="schedule-weekly-hours" value="' + esc(String(weeklyHours)) + '">'
+    + '</div><p class="form-hint">' + esc(t('schedule.weeklyHoursHint')) + '</p></div>';
+}
+
+async function savePreference(patch) {
+  try {
+    const result = await api.put('/schedule/preferences', patch);
+    state.reminderOffsetMinutes = result.data?.reminderOffsetMinutes ?? null;
+    state.weeklyHours = result.data?.weeklyHours ?? null;
+  } catch (err) {
+    window.yuvomi?.showToast(err.message || t('common.errorGeneric'), 'danger');
+  }
+  renderPage();
 }
 
 function statisticsSummary() {
@@ -203,23 +352,40 @@ function shiftPresetLabel(key) {
     fullDay: t('schedule.presets.fullDay'),
     vacation: t('schedule.presets.vacation'),
     sick: t('schedule.presets.sick'),
+    period1: t('schedule.presets.period1'),
+    period2: t('schedule.presets.period2'),
+    period3: t('schedule.presets.period3'),
+    period4: t('schedule.presets.period4'),
+    exam: t('schedule.presets.exam'),
+    lecture: t('schedule.presets.lecture'),
+    seminar: t('schedule.presets.seminar'),
+    lab: t('schedule.presets.lab'),
   };
   return labels[key] ?? '';
 }
 
 function shiftPresetOptions() {
   return option('', t('schedule.presetCustom'), true)
-    + SHIFT_PRESETS.map((preset) => option(preset.key, shiftPresetLabel(preset.key))).join('');
+    + ALL_PRESETS.map((preset) => option(preset.key, shiftPresetLabel(preset.key))).join('');
+}
+
+function setShiftIconButtonIcon(button, iconName) {
+  button.querySelectorAll('i[data-lucide], svg.lucide').forEach((el) => el.remove());
+  button.insertAdjacentHTML('afterbegin', '<i data-lucide="' + esc(iconName || 'image-off') + '" aria-hidden="true"></i>');
+  window.lucide?.createIcons({ el: button });
 }
 
 function applyShiftPreset(form) {
-  const selected = SHIFT_PRESETS.find((preset) => preset.key === form.elements.shift_preset?.value);
+  const selected = ALL_PRESETS.find((preset) => preset.key === form.elements.shift_preset?.value);
   if (!selected) return;
   form.elements.name.value = shiftPresetLabel(selected.key);
   form.elements.short_code.value = selected.shortCode;
   form.elements.start_time.value = selected.startTime;
   form.elements.end_time.value = selected.endTime;
   form.elements.color.value = selected.color;
+  form.elements.icon.value = selected.icon ?? '';
+  const iconButton = form.querySelector('[data-action="pick-shift-icon"]');
+  if (iconButton) setShiftIconButtonIcon(iconButton, selected.icon);
 }
 function userOptions(selected) {
   return state.users.filter((user) => canManageOthers || Number(user.id) === Number(currentUserId)).map((user) => option(user.id, user.display_name || user.username, Number(selected) === Number(user.id))).join('');
@@ -234,9 +400,32 @@ function shiftFields(type = {}) {
     formField(t('schedule.name'), '<input class="input" required name="name" maxlength="200" value="' + esc(type.name ?? '') + '">'),
     formField(t('schedule.shortCode'), '<input class="input" name="short_code" maxlength="12" value="' + esc(type.short_code ?? '') + '">'),
     formField(t('schedule.color'), '<input class="input form-input--color" required name="color" type="color" value="' + esc(type.color ?? SHIFT_COLOR_FALLBACK) + '">', 'schedule-color-field'),
+    formField(t('schedule.icon'), '<button type="button" class="btn btn--secondary schedule-icon-picker" data-action="pick-shift-icon">'
+      + (type.icon ? '<i data-lucide="' + esc(type.icon) + '" aria-hidden="true"></i>' : '<i data-lucide="image-off" aria-hidden="true"></i>')
+      + '<span>' + esc(t('schedule.chooseIcon')) + '</span></button>'
+      + '<input type="hidden" name="icon" value="' + esc(type.icon ?? '') + '">'),
     formField(t('schedule.startTime'), '<yuvomi-datepicker name="start_time" type="time" label="' + esc(t('schedule.startTime')) + '" value="' + esc(type.start_time ?? '') + '"></yuvomi-datepicker>'),
     formField(t('schedule.endTime'), '<yuvomi-datepicker name="end_time" type="time" label="' + esc(t('schedule.endTime')) + '" value="' + esc(type.end_time ?? '') + '"></yuvomi-datepicker>'),
   ].join('');
+}
+
+/**
+ * Oeffnet die Symbolauswahl fuer den Knopf, der gerade geklickt wurde, und
+ * schreibt das Ergebnis ins versteckte `icon`-Feld desselben Formulars -
+ * gemeinsame Logik fuer beide Wege dorthin: den Klick-Delegierten von
+ * action() (Inline-Bearbeitung, im DOM von `root`) und die Verdrahtung in
+ * openScheduleCreateModal()'s onSave (das Modal haengt an document.body,
+ * ausserhalb von `root`, der Delegierte erreicht es nicht).
+ */
+async function pickShiftIcon(button) {
+  const form = button.closest('form');
+  const hidden = form?.elements?.icon;
+  if (!hidden) return;
+  const { openIconPicker } = await import('/components/icon-picker.js');
+  const chosen = await openIconPicker(hidden.value || null);
+  if (chosen === undefined) return;
+  hidden.value = chosen ?? '';
+  setShiftIconButtonIcon(button, chosen);
 }
 
 function patternFields(pattern = {}) {
@@ -258,15 +447,120 @@ function shiftTypeCard(type) {
     : `<p class="schedule-readonly">${esc(type?.created_by == null
         ? t('schedule.typeOrphaned')
         : t('schedule.typeOwnedBy', { user: userName(type.created_by) }))}</p>`;
-  return `<details class="card schedule-details"><summary><span class="schedule-swatch" style="--schedule-color:${esc(type.color)}"></span><span class="u-card-title u-compact">${esc(type.short_code ? `${type.short_code} · ${type.name}` : type.name)}</span> <small>${esc(clockLabel(type))}</small></summary>
+  const icon = type.icon ? `<i data-lucide="${esc(type.icon)}" class="schedule-type-icon" aria-hidden="true"></i>` : '';
+  // Nur zeigen, wenn der Haushalt ueberhaupt Felder definiert hat - eine leere
+  // "Eigene Felder"-Sektion auf JEDER Schichttyp-Karte waere fuer den (haeufigen)
+  // reinen Arbeitsschicht-Haushalt, der die Registrierung nie anfasst, nur Ballast.
+  const fieldsEditor = editable && state.customFields.length ? shiftTypeFieldsEditor(type) : '';
+  return `<details class="card schedule-details"><summary><span class="schedule-swatch" style="--schedule-color:${esc(type.color)}"></span>${icon}<span class="u-card-title u-compact">${esc(type.short_code ? `${type.short_code} · ${type.name}` : type.name)}</span> <small>${esc(clockLabel(type))}</small></summary>
     ${body}
+    ${fieldsEditor}
   </details>`;
+}
+
+function shiftTypeFieldRow(field) {
+  return '<div class="schedule-type-field-row" data-type-field-row data-custom-field-id="' + field.id + '">'
+    + '<button type="button" class="schedule-type-field-row__handle" aria-hidden="true" tabindex="-1"><i data-lucide="grip-vertical" aria-hidden="true"></i></button>'
+    + '<span class="schedule-type-field-row__name">' + esc(field.name) + '</span>'
+    + '<label class="toggle schedule-type-field-row__overlay"><input type="checkbox" data-show-in-overlay' + (field.show_in_overlay ? ' checked' : '') + '><span class="toggle__track"></span>' + esc(t('schedule.showInOverlay')) + '</label>'
+    + '<button type="button" class="btn btn--secondary btn--icon" data-action="move-type-field" data-direction="up" aria-label="' + esc(t('schedule.moveUp')) + '"><i data-lucide="chevron-up" aria-hidden="true"></i></button>'
+    + '<button type="button" class="btn btn--secondary btn--icon" data-action="move-type-field" data-direction="down" aria-label="' + esc(t('schedule.moveDown')) + '"><i data-lucide="chevron-down" aria-hidden="true"></i></button>'
+    + '<button type="button" class="btn btn--secondary btn--icon" data-action="remove-type-field" aria-label="' + esc(t('common.delete')) + '"><i data-lucide="x" aria-hidden="true"></i></button>'
+    + '</div>';
+}
+
+// Eine ZWEITE, unabhaengig gespeicherte Sektion neben dem shift-update-Formular
+// oben - derselbe Aufbau wie patternCard()'s Zyklustage-Editor + eigener
+// save-days-Knopf: rein lokale Aenderungen (hinzufuegen/entfernen/umsortieren/
+// Overlay-Haken), erst der Speichern-Klick hier schreibt etwas.
+function shiftTypeFieldsEditor(type) {
+  const attachedIds = new Set(type.fields.map((field) => field.id));
+  const available = state.customFields.filter((field) => !attachedIds.has(field.id));
+  const rows = type.fields.map(shiftTypeFieldRow).join('');
+  const picker = available.length
+    ? '<div class="schedule-type-field-add">'
+      + '<select class="input" data-field-picker="' + type.id + '">' + available.map((field) => option(field.id, field.name)).join('') + '</select>'
+      + '<button type="button" class="btn btn--secondary" data-action="add-type-field" data-id="' + type.id + '">' + esc(t('common.add')) + '</button>'
+      + '</div>' : '';
+  const body = '<div class="schedule-type-fields-rows" data-type-fields-rows="' + type.id + '">'
+    + (rows || '<p class="u-meta">' + esc(t('schedule.noFieldsAttached')) + '</p>') + '</div>'
+    + picker
+    + '<div class="schedule-actions"><button type="button" class="btn btn--secondary" data-action="save-shift-fields" data-id="' + type.id + '">' + esc(t('schedule.save')) + '</button></div>';
+  return advancedSection(body, { label: t('schedule.attachedFields') });
+}
+
+// Ein Feld gehoert dem Haushalt, nicht einer Person - definiert einmal, an
+// beliebig viele Schichttypen anheftbar (Phase 2), damit "Raum" nicht pro
+// Schichttyp neu getippt werden muss. Anlegen darf jeder, aendern/loeschen
+// nur wer es angelegt hat oder ein Admin - derselbe Massstab wie bei
+// Schichttypen (canEditType() liest ohnehin nur created_by/canManageOthers,
+// unabhaengig von der Tabelle).
+function customFieldRow(field) {
+  const editable = canEditType(field);
+  const actions = editable
+    ? '<span class="schedule-override-actions"><button type="button" class="btn btn--secondary" data-action="edit-custom-field" data-id="' + field.id + '">' + esc(t('common.edit')) + '</button>'
+      + '<button type="button" class="btn btn--danger" data-action="delete-custom-field" data-id="' + field.id + '">' + esc(t('schedule.delete')) + '</button></span>'
+    : '';
+  return '<div class="list-row schedule-custom-field-row"><div class="list-row__main"><span class="list-row__name">' + esc(field.name) + '</span></div>' + actions + '</div>';
+}
+
+function emptyCustomFieldsState() {
+  return emptyStateHTML({
+    icon: 'list-plus',
+    title: t('schedule.emptyCustomFieldsTitle'),
+    description: t('schedule.emptyCustomFieldsDescription'),
+    actions: [{ label: t('schedule.createCustomField'), icon: 'plus', attrs: { 'data-action': 'open-create-custom-field' } }],
+  });
+}
+
+function customFieldsSection() {
+  return '<section class="schedule-library schedule-library--custom-fields"><div class="schedule-library__head"><h2 class="u-section-title">' + esc(t('schedule.customFields')) + '</h2>'
+    + (state.customFields.length ? '<button type="button" class="btn btn--secondary" data-action="open-create-custom-field"><i data-lucide="plus" aria-hidden="true"></i>' + esc(t('schedule.createCustomField')) + '</button>' : '') + '</div>'
+    + (state.customFields.length ? '<div class="list-rows">' + state.customFields.map(customFieldRow).join('') + '</div>' : emptyCustomFieldsState())
+    + '</section>';
+}
+
+// EIN <select> je Zyklustag reichte, solange ein Tag hoechstens eine Klasse
+// trug. Fuer einen Stundenplan (mehrere Klassen zu verschiedenen Zeiten am
+// selben Tag) traegt jede Position jetzt eine variable Anzahl Zeilen (0..N),
+// mit "+"/"x" zum lokalen Hinzufuegen/Entfernen - erst der Save-Klick schreibt
+// etwas. save-days' Handler bleibt unveraendert: er sammelt ohnehin JEDES
+// [data-day]-Element, unabhaengig davon, wie viele dieselbe Position tragen.
+// Der Feld-Unterblock einer Zeile, sourced aus dem Schichttyp des GERADE
+// gewaehlten Werts - dieselbe Funktion baut ihn beim ersten Rendern UND beim
+// Nachziehen nach einem Schichttyp-Wechsel (siehe der 'change'-Zweig in
+// renderShell() weiter unten), damit beide Wege garantiert dasselbe Markup
+// erzeugen.
+function dayRowFieldsHtml(shiftTypeId, fieldValues = {}) {
+  const type = state.types.find((t) => Number(t.id) === Number(shiftTypeId));
+  if (!type?.fields.length) return '';
+  return '<div class="schedule-day-row-fields" data-day-row-fields>' + type.fields.map((field) =>
+    formField(field.name, '<input class="input" data-field-value="' + field.id + '" maxlength="500" value="' + esc(fieldValues[field.id] ?? '') + '">')
+  ).join('') + '</div>';
+}
+
+function dayRowHtml(position, shiftTypeId, writable, fieldValues = {}) {
+  const remove = writable ? '<button type="button" class="btn btn--secondary btn--icon" data-action="remove-pattern-day-row" aria-label="' + esc(t('common.delete')) + '"><i data-lucide="x" aria-hidden="true"></i></button>' : '';
+  return '<div class="schedule-day-row" data-day-row>'
+    + '<div class="schedule-day-row__main"><select class="input" data-day="' + position + '">' + typeOptions(shiftTypeId) + '</select>' + remove + '</div>'
+    + dayRowFieldsHtml(shiftTypeId, fieldValues)
+    + '</div>';
 }
 
 function patternCard(pattern) {
   const writable = canWrite(pattern.user_id);
-  const assigned = new Map(pattern.days.map((day) => [Number(day.position), day.shift_type_id]));
-  const days = Array.from({ length: pattern.cycle_length }, (_, position) => '<div class="form-field"><label class="label">' + (position + 1) + '</label><select class="input" data-day="' + position + '">' + typeOptions(assigned.get(position)) + '</select></div>').join('');
+  const assigned = new Map();
+  for (const day of pattern.days) {
+    const position = Number(day.position);
+    if (!assigned.has(position)) assigned.set(position, []);
+    assigned.get(position).push({ shiftTypeId: day.shift_type_id, fieldValues: day.field_values ?? {} });
+  }
+  const days = Array.from({ length: pattern.cycle_length }, (_, position) => {
+    const classes = assigned.get(position) ?? [{ shiftTypeId: null, fieldValues: {} }];
+    const rows = classes.map((day) => dayRowHtml(position, day.shiftTypeId, writable, day.fieldValues)).join('');
+    const add = writable ? '<button type="button" class="btn btn--secondary" data-action="add-pattern-day-row" data-position="' + position + '">' + esc(t('common.add')) + '</button>' : '';
+    return '<div class="form-field schedule-day-group" data-day-group="' + position + '"><label class="label">' + (position + 1) + '</label><div class="schedule-day-rows">' + rows + '</div>' + add + '</div>';
+  }).join('');
   return `<details class="card schedule-details" data-pattern="${pattern.id}"><summary><span class="u-card-title u-compact">${esc(pattern.name)}</span> <small>· ${esc(userName(pattern.user_id))}</small></summary>
     ${writable ? `<form class="schedule-form" data-form="pattern-update" data-id="${pattern.id}">${patternFields(pattern)}<button class="btn btn--secondary">${esc(t('schedule.save'))}</button></form>` : ''}
     <h3 class="u-card-title">${esc(t('schedule.cycleDays'))}</h3><div class="schedule-days">${days}</div>
@@ -282,6 +576,16 @@ function patternCard(pattern) {
  * Tag fuer Tag bearbeiten oder loeschen - genau die Muehe, die `overrides/fill`
  * beim Anlegen schon abgenommen hatte (Nutzer-Feedback nach dem Live-Test).
  */
+// Zwei field_values-Objekte gelten als gleich, wenn sie dieselben Schluessel
+// UND Werte tragen - Schluesselreihenfolge ist bei einem aus JSON geparsten
+// Objekt kein verlaessliches Merkmal, deshalb kein blosser JSON.stringify()-Vergleich.
+function sameFieldValues(a = {}, b = {}) {
+  const keysA = Object.keys(a);
+  const keysB = Object.keys(b);
+  if (keysA.length !== keysB.length) return false;
+  return keysA.every((key) => a[key] === b[key]);
+}
+
 function overrideGroups(overrides = state.overrides) {
   const sorted = [...overrides].sort((a, b) =>
     Number(a.user_id) - Number(b.user_id) || a.date_key.localeCompare(b.date_key));
@@ -291,12 +595,15 @@ function overrideGroups(overrides = state.overrides) {
     const sameSeries = last
       && Number(last.user_id) === Number(row.user_id)
       && ((last.shift_type_id == null && row.shift_type_id == null) || Number(last.shift_type_id) === Number(row.shift_type_id));
-    const consecutive = sameSeries && (last.note ?? '') === (row.note ?? '') && addLocalDays(last.to, 1) === row.date_key;
+    // field_values tragen dieselbe "muss uebereinstimmen, um zu verschmelzen"-
+    // Regel wie note schon immer - zwei Tage mit unterschiedlichen Werten sind
+    // keine eine Reihe, auch wenn Schichttyp und Notiz zufaellig gleich sind.
+    const consecutive = sameSeries && (last.note ?? '') === (row.note ?? '') && sameFieldValues(last.field_values, row.field_values) && addLocalDays(last.to, 1) === row.date_key;
     if (consecutive) {
       last.to = row.date_key;
       last.ids.push(row.id);
     } else {
-      groups.push({ user_id: row.user_id, shift_type_id: row.shift_type_id, note: row.note, from: row.date_key, to: row.date_key, ids: [row.id] });
+      groups.push({ user_id: row.user_id, shift_type_id: row.shift_type_id, note: row.note, field_values: row.field_values ?? {}, from: row.date_key, to: row.date_key, ids: [row.id] });
     }
   }
   return groups;
@@ -330,7 +637,7 @@ function emptyOverrideState() {
     icon: 'calendar-clock',
     title: t('schedule.emptyOverridesTitle'),
     description: t('schedule.emptyOverridesDescription'),
-    action: { label: t('schedule.createOverride'), icon: 'plus', attrs: { 'data-action': 'open-create', 'data-view': 'overrides' } },
+    action: { label: t('schedule.createOverride'), icon: 'plus', attrs: { 'data-action': 'open-create-override' } },
   });
 }
 
@@ -346,13 +653,83 @@ function overrideRows() {
     const actions = canWrite(group.user_id)
       ? '<span class="schedule-override-actions"><button type="button" class="btn btn--secondary" data-action="edit-override" data-from="' + esc(group.from) + '" data-user-id="' + group.user_id + '">' + esc(t('common.edit')) + '</button><button type="button" class="btn btn--danger" data-action="delete-override-range" data-from="' + esc(group.from) + '" data-to="' + esc(group.to) + '" data-user-id="' + group.user_id + '">' + esc(t('schedule.delete')) + '</button></span>'
       : '';
-    return '<div class="list-row schedule-override"><span class="schedule-swatch" style="--schedule-color:' + esc(swatchColor) + '"></span><div class="list-row__main"><span class="list-row__name">' + esc(label) + '</span><span class="list-row__meta">' + esc(meta) + '</span></div>' + actions + '</div>';
+    const icon = type?.icon ? '<i data-lucide="' + esc(type.icon) + '" class="schedule-type-icon" aria-hidden="true"></i>' : '';
+    return '<div class="list-row schedule-override"><span class="schedule-swatch" style="--schedule-color:' + esc(swatchColor) + '"></span>' + icon + '<div class="list-row__main"><span class="list-row__name">' + esc(label) + '</span><span class="list-row__meta">' + esc(meta) + '</span></div>' + actions + '</div>';
+  }).join('') + '</div>';
+}
+
+// Additiv zu Muster/Override, nie ein Ersatz - dieselbe Kennzeichnung ueberall,
+// wo ein Eintrag mit source==='extra' auftauchen kann (Heute-Liste hier,
+// Uebersichts-Kachel in dashboard.js, Kalender-Ueberlagerung in calendar.js),
+// damit Bereitschaft neben einer regulaeren Schicht auf den ersten Blick als
+// ZUSAETZLICH erkennbar bleibt, nicht wie ein zweiter Haupttermin.
+function extraBadge() {
+  return '<i data-lucide="layers" class="schedule-extra-badge" aria-label="' + esc(t('schedule.extraBadgeLabel')) + '"></i>';
+}
+
+function emptyExtraShiftsState() {
+  return emptyStateHTML({
+    icon: 'calendar-clock',
+    title: t('schedule.emptyExtraShiftsTitle'),
+    description: t('schedule.emptyExtraShiftsDescription'),
+    action: { label: t('schedule.addExtraShift'), icon: 'plus', attrs: { 'data-action': 'open-create-extra' } },
+  });
+}
+
+/**
+ * Dieselbe Zusammenfassung wie overrideGroups(), plus eine Achse, die
+ * Overrides nicht kennen: reminder_offset_minutes. "Aufeinanderfolgend"
+ * verlangt weiterhin den naechsten Kalendertag - zwei Zusatzschichten am
+ * SELBEN Tag (erlaubt, Extras duerfen sich stapeln) verschmelzen deshalb nie,
+ * das bleiben zwei Gruppen mit identischem Datum statt einer falsch
+ * zusammengefassten.
+ */
+function extraGroups() {
+  const sorted = [...state.extras].sort((a, b) =>
+    Number(a.user_id) - Number(b.user_id) || a.date_key.localeCompare(b.date_key));
+  const groups = [];
+  for (const row of sorted) {
+    const last = groups[groups.length - 1];
+    const sameSeries = last
+      && Number(last.user_id) === Number(row.user_id)
+      && Number(last.shift_type_id) === Number(row.shift_type_id)
+      && (last.note ?? '') === (row.note ?? '')
+      && (last.reminder_offset_minutes ?? null) === (row.reminder_offset_minutes ?? null)
+      && sameFieldValues(last.field_values, row.field_values);
+    const consecutive = sameSeries && addLocalDays(last.to, 1) === row.date_key;
+    if (consecutive) {
+      last.to = row.date_key;
+      last.ids.push(row.id);
+    } else {
+      groups.push({ user_id: row.user_id, shift_type_id: row.shift_type_id, note: row.note, reminder_offset_minutes: row.reminder_offset_minutes, field_values: row.field_values ?? {}, from: row.date_key, to: row.date_key, ids: [row.id] });
+    }
+  }
+  return groups;
+}
+
+function extraRows() {
+  const groups = extraGroups();
+  if (!groups.length) return emptyExtraShiftsState();
+  return '<div class="list-rows">' + groups.map((group) => {
+    const type = state.types.find((item) => Number(item.id) === Number(group.shift_type_id));
+    const swatchColor = type ? type.color : 'var(--color-border)';
+    const typeLabel = type ? (type.short_code ? `${type.short_code} · ${type.name}` : type.name) : '';
+    const meta = [userName(group.user_id), typeLabel, group.note].filter(Boolean).join(' · ');
+    const label = group.from === group.to ? formatDate(group.from) : `${formatDate(group.from)} – ${formatDate(group.to)}`;
+    const icon = type?.icon ? '<i data-lucide="' + esc(type.icon) + '" class="schedule-type-icon" aria-hidden="true"></i>' : '';
+    const ids = esc(group.ids.join(','));
+    const actions = canWrite(group.user_id)
+      ? '<span class="schedule-override-actions"><button type="button" class="btn btn--secondary" data-action="edit-extra-range" data-ids="' + ids + '">' + esc(t('common.edit')) + '</button><button type="button" class="btn btn--danger" data-action="delete-extra-range" data-ids="' + ids + '" data-user-id="' + group.user_id + '" data-from="' + esc(group.from) + '" data-to="' + esc(group.to) + '">' + esc(t('schedule.delete')) + '</button></span>'
+      : '';
+    return '<div class="list-row schedule-override"><span class="schedule-swatch" style="--schedule-color:' + esc(swatchColor) + '"></span>' + icon + extraBadge() + '<div class="list-row__main"><span class="list-row__name">' + esc(label) + '</span><span class="list-row__meta">' + esc(meta) + '</span></div>' + actions + '</div>';
   }).join('') + '</div>';
 }
 
 function renderStatistics() {
   const bounds = statistics.bounds || statisticBounds();
   const summary = statisticsSummary();
+  const weeklyHours = state.weeklyHours ?? DEFAULT_WEEKLY_HOURS;
+  const overtime = overtimeInfo(statistics.entries, weeklyHours);
   const selectedUser = statistics.userId || currentUserId;
   const range = statistics.range;
   const countItems = [...summary.values];
@@ -375,21 +752,24 @@ function renderStatistics() {
     : !bounds
       ? '<p class="card card--padded schedule-stat-empty" role="status">' + esc(t('schedule.invalidRange')) + '</p>'
       : '<p class="schedule-stat-period u-meta">' + esc(t('schedule.statisticsFor', { user: userName(selectedUser), from: formatDate(bounds.from), to: formatDate(bounds.to) })) + '</p>'
-      + '<div class="metric-grid schedule-stat-metrics">'
+      + '<div class="metric-grid schedule-stat-metrics' + (overtime?.over ? ' schedule-stat-metrics--with-overtime' : '') + '">'
       + '<article class="metric-card"><div class="metric-card__label">' + esc(t('schedule.shiftCounts')) + '</div><div class="metric-card__value">' + esc(String(summary.totalCount)) + '</div><div class="metric-card__note">' + esc(t('schedule.shifts')) + '</div></article>'
       + '<article class="metric-card"><div class="metric-card__label">' + esc(t('schedule.workedHours')) + '</div><div class="metric-card__value">' + esc(formatHours(summary.totalMinutes)) + '</div><div class="metric-card__note">' + esc(t('schedule.total')) + '</div></article>'
+      + (overtime?.over ? '<article class="metric-card metric-card--warning"><div class="metric-card__label">' + esc(t('schedule.overtime')) + '</div><div class="metric-card__value">+' + esc(formatHours(overtime.excessMinutes)) + '</div><div class="metric-card__note">' + esc(t('schedule.overtimeNote', { hours: weeklyHours })) + '</div></article>' : '')
       + '</div>'
       + '<div class="schedule-stat-sections">'
       + '<section class="card card--padded schedule-stat-card"><div><h2 class="u-section-title">' + esc(t('schedule.shiftCounts')) + '</h2><p class="u-meta">' + esc(t('schedule.shiftCountsDescription')) + '</p></div>' + statisticsRows(countItems, (item) => String(item.count), (item) => item.count, t('schedule.noStatistics')) + '<div class="schedule-stat-total"><span>' + esc(t('schedule.total')) + '</span><strong>' + esc(String(summary.totalCount)) + '</strong></div></section>'
       + '<section class="card card--padded schedule-stat-card"><div><h2 class="u-section-title">' + esc(t('schedule.workedHours')) + '</h2><p class="u-meta">' + esc(t('schedule.workedHoursDescription')) + '</p></div>' + statisticsRows(hourItems, (item) => formatHours(item.minutes), (item) => item.minutes, t('schedule.noStatistics')) + '<div class="schedule-stat-total"><span>' + esc(t('schedule.total')) + '</span><strong>' + esc(formatHours(summary.totalMinutes)) + '</strong></div></section>'
       + '</div>';
   return '<section class="schedule-statistics">'
+    + renderReminderSettings()
     + '<form class="card card--padded schedule-stat-filters" data-form="statistics">'
     + formField(t('schedule.owner'), '<select class="input" required name="user_id">' + state.users.map((user) => option(user.id, user.display_name || user.username, Number(selectedUser) === Number(user.id))).join('') + '</select>')
     + '<div class="form-field schedule-stat-range"><span class="label">' + esc(t('schedule.statisticsRange')) + '</span><div class="segmented schedule-stat-range__choices" role="group" aria-label="' + esc(t('schedule.statisticsRange')) + '">'
     + [['current', 'schedule.currentMonth'], ['months', 'schedule.selectedMonths'], ['custom', 'schedule.customRange']].map(([value, label]) => '<button type="button" class="segmented__item' + (range === value ? ' is-active' : '') + '" data-action="statistics-range" data-range="' + value + '" aria-pressed="' + (range === value ? 'true' : 'false') + '">' + esc(t(label)) + '</button>').join('')
     + '</div></div>' + (controls ? '<div class="schedule-stat-dates">' + controls + '</div>' : '')
-    + '<div class="schedule-stat-filter-actions"><button class="btn btn--primary">' + esc(t('schedule.applyStatistics')) + '</button></div></form>'
+    + '<div class="schedule-stat-filter-actions"><button class="btn btn--primary">' + esc(t('schedule.applyStatistics')) + '</button>'
+    + '<button type="button" class="btn btn--secondary" data-action="print-statistics"><i data-lucide="printer" aria-hidden="true"></i>' + esc(t('schedule.print')) + '</button></div></form>'
     + results + '</section>';
 }
 function emptyPatternState() {
@@ -401,22 +781,34 @@ function emptyPatternState() {
   });
 }
 
-// Eine leere Typenliste zwingt sonst dazu, jeden der sieben Presets einzeln ueber
-// das Anlegen-Formular durchzuklicken, obwohl der Waehler dort (shiftPresetOptions)
-// genau diese sieben Werte schon kennt - der Reibungspunkt war die Wiederholung,
-// nicht das Fehlen der Presets selbst. „Schnellstart" bleibt zweite Wahl neben
-// dem manuellen Anlegen (Grammatik-Praezedenz: zwei CTAs wie bei einer leeren
-// Dokumentensuche), fuer wer lieber sofort einen eigenen Typ benennt.
+// Eine leere Typenliste zwingt sonst dazu, jeden Preset einzeln ueber das
+// Anlegen-Formular durchzuklicken, obwohl der Waehler dort (shiftPresetOptions)
+// sie schon alle kennt - der Reibungspunkt war die Wiederholung, nicht das
+// Fehlen der Presets selbst. Drei Vorlagen statt einer, weil dieselbe
+// Bequemlichkeit fuer Schule/Uni genauso gilt wie fuer Arbeit. „Manuell
+// anlegen" bleibt letzte Wahl (Grammatik-Praezedenz), fuer wer lieber sofort
+// einen eigenen Typ benennt.
 function emptyShiftTypesState() {
   return emptyStateHTML({
     icon: 'calendar-clock',
     title: t('schedule.emptyShiftTypesTitle'),
     description: t('schedule.emptyShiftTypesDescription'),
     actions: [
-      { label: t('schedule.quickStartShiftTypes'), icon: 'sparkles', attrs: { 'data-action': 'quick-start-shifts' } },
-      { label: t('schedule.createShiftType'), icon: 'plus', tone: 'secondary', attrs: { 'data-action': 'open-create', 'data-view': 'shifts' } },
+      ...visibleQuickstartTemplates().map(([key, labelKey]) => ({ label: t(labelKey), icon: 'sparkles', attrs: { 'data-action': 'quick-start-shifts', 'data-template': key } })),
+      { label: t('schedule.createShiftType'), icon: 'plus', attrs: { 'data-action': 'open-create', 'data-view': 'shifts' } },
     ],
   });
+}
+
+// Note plus jedes ueberlagerungssichtbare Feld mit einem Wert, gemeinsam eine
+// Zeile - dieselbe Form nutzen renderToday() hier UND calendar.js'
+// scheduleEntryTitle()-Tooltip, damit "was ergaenzt den Namen" an genau einer
+// Stelle definiert ist statt zweimal (leicht) verschieden nachgebaut zu werden.
+// Bewusst NUR die Felder, deren show_in_overlay gesetzt ist - ein Feld ohne
+// diesen Haken ist im Editor pflegbar, aber hier absichtlich unsichtbar.
+function overlayMeta(entry) {
+  const overlayFields = (entry.shift_type?.fields ?? []).filter((field) => field.show_in_overlay && entry.field_values?.[field.id]);
+  return [entry.note, ...overlayFields.map((field) => `${field.name}: ${entry.field_values[field.id]}`)].filter(Boolean).join(' · ');
 }
 
 function renderToday() {
@@ -425,8 +817,12 @@ function renderToday() {
     const type = entry.shift_type;
     const swatchColor = type ? type.color : 'var(--color-border)';
     const name = type ? esc(type.short_code ? `${type.short_code} · ${type.name}` : type.name) : esc(t('schedule.freeDay'));
-    const meta = type ? `${esc(userName(entry.user_id))} · ${esc(clockLabel(type))}` : esc(userName(entry.user_id));
-    return `<div class="list-row schedule-entry-row"><span class="schedule-swatch" style="--schedule-color:${esc(swatchColor)}"></span><div class="list-row__main"><span class="list-row__name">${name}</span><span class="list-row__meta">${meta}</span></div></div>`;
+    const base = type ? `${esc(userName(entry.user_id))} · ${esc(clockLabel(type))}` : esc(userName(entry.user_id));
+    const overlay = overlayMeta(entry);
+    const meta = overlay ? `${base} · ${esc(overlay)}` : base;
+    const icon = type?.icon ? `<i data-lucide="${esc(type.icon)}" class="schedule-type-icon" aria-hidden="true"></i>` : '';
+    const badge = entry.source === 'extra' ? extraBadge() : '';
+    return `<div class="list-row schedule-entry-row"><span class="schedule-swatch" style="--schedule-color:${esc(swatchColor)}"></span>${icon}${badge}<div class="list-row__main"><span class="list-row__name">${name}</span><span class="list-row__meta">${meta}</span></div></div>`;
   }).join('')}</div>`;
 }
 
@@ -444,8 +840,7 @@ function renderScheduleWarnings() {
 function renderShell() {
   const tabs = [
     ['shifts', t('schedule.shiftTypes')],
-    ['patterns', t('schedule.patterns')],
-    ['overrides', t('schedule.overrides')],
+    ['patterns', t('schedule.planning')],
     ['statistics', t('schedule.statistics')],
   ];
   root.replaceChildren();
@@ -468,21 +863,62 @@ function renderShell() {
     const actionButton = event.target.closest('[data-action]');
     if (actionButton) action({ currentTarget: actionButton });
   });
+  root.addEventListener('change', (event) => {
+    if (event.target.id === 'schedule-reminder-toggle') {
+      const offset = event.target.checked ? Number(root.querySelector('#schedule-reminder-offset')?.value ?? 15) : null;
+      savePreference({ reminderOffsetMinutes: offset });
+    } else if (event.target.id === 'schedule-reminder-offset') {
+      savePreference({ reminderOffsetMinutes: Number(event.target.value) });
+    } else if (event.target.id === 'schedule-weekly-hours') {
+      const hours = Math.min(168, Math.max(1, Math.round(Number(event.target.value) || DEFAULT_WEEKLY_HOURS)));
+      savePreference({ weeklyHours: hours });
+    } else if (event.target.matches('[data-day]')) {
+      // Der gewaehlte Schichttyp entscheidet, welche Felder die Zeile zeigt -
+      // ein Wechsel baut den Unterblock neu aus dem NEUEN Typ, ohne die bereits
+      // getippten Werte anderer Zeilen anzufassen. Werte fuer Felder, die am
+      // neuen Typ nicht mehr haengen, werden dabei mit verworfen (best-effort,
+      // spiegelt dieselbe Validierung, die der Server beim Speichern ohnehin durchsetzt).
+      const row = event.target.closest('[data-day-row]');
+      const existing = row?.querySelector('[data-day-row-fields]');
+      const html = dayRowFieldsHtml(event.target.value);
+      if (existing) existing.outerHTML = html;
+      else if (html) row.insertAdjacentHTML('beforeend', html);
+      window.lucide?.createIcons({ el: row });
+    }
+  });
 }
 
 function renderPage() {
+  // Rebuilding .schedule-body below can destroy whatever currently holds
+  // focus (e.g. the weekly-hours input right after the user typed into it) -
+  // losing focus resets it to <body>, and the browser scrolls the page's
+  // real scrollport (#main-content, see router.js) back to the top to show
+  // it. Statistics is the one tab with persistent on-page form controls that
+  // trigger a render while focused, so it's the one tab where this was
+  // visible; restoring the scroll position afterward papers over it for
+  // every tab uniformly rather than special-casing statistics.
+  const scrollPort = document.getElementById('main-content');
+  const scrollTop = scrollPort?.scrollTop ?? 0;
   root.querySelectorAll('[data-tab]').forEach((button) => {
     const isActive = button.dataset.tab === activeView;
     button.classList.toggle('sub-tab--active', isActive);
     button.setAttribute('aria-selected', String(isActive));
   });
   const panel = activeView === 'shifts'
-    ? '<section class="schedule-library schedule-library--shifts"><h2 class="u-section-title">' + esc(t('schedule.shiftTypes')) + '</h2>' + (state.types.length ? state.types.map(shiftTypeCard).join('') : emptyShiftTypesState()) + '</section>'
+    // Der Quickstart bleibt erreichbar, auch nachdem der erste Typ existiert -
+    // ein Haushalt kann durchaus "Arbeit" fuer ein Mitglied und spaeter
+    // "Schule" fuer ein anderes brauchen, nicht nur beim allerersten Typ.
+    ? '<section class="schedule-library schedule-library--shifts"><div class="schedule-library__head"><h2 class="u-section-title">' + esc(t('schedule.shiftTypes')) + '</h2>'
+      + (state.types.length && visibleQuickstartTemplates().length ? '<div class="segmented" role="group" aria-label="' + esc(t('schedule.quickStartShiftTypes')) + '">'
+        + visibleQuickstartTemplates().map(([template, key]) => '<button type="button" class="segmented__item" data-action="quick-start-shifts" data-template="' + template + '">' + esc(t(key)) + '</button>').join('')
+        + '</div>' : '') + '</div>'
+      + (state.types.length ? state.types.map(shiftTypeCard).join('') : emptyShiftTypesState()) + '</section>'
+      + customFieldsSection()
     : activeView === 'patterns'
       ? '<section class="schedule-library schedule-library--patterns"><h2 class="u-section-title">' + esc(t('schedule.patterns')) + '</h2>' + (state.patterns.length ? state.patterns.map(patternCard).join('') : emptyPatternState()) + '</section>'
-      : activeView === 'overrides'
-        ? '<section class="schedule-library schedule-library--overrides"><h2 class="u-section-title">' + esc(t('schedule.overrides')) + '</h2>' + overrideRows() + '</section>'
-        : renderStatistics();
+        + '<section class="schedule-library schedule-library--overrides"><div class="schedule-library__head"><h2 class="u-section-title">' + esc(t('schedule.overrides')) + '</h2><button type="button" class="btn btn--secondary" data-action="open-create-override"><i data-lucide="plus" aria-hidden="true"></i>' + esc(t('schedule.createOverride')) + '</button></div>' + overrideRows() + '</section>'
+        + '<section class="schedule-library schedule-library--extras"><div class="schedule-library__head"><h2 class="u-section-title">' + esc(t('schedule.extraShifts')) + '</h2><button type="button" class="btn btn--secondary" data-action="open-create-extra"><i data-lucide="plus" aria-hidden="true"></i>' + esc(t('schedule.addExtraShift')) + '</button></div>' + extraRows() + '</section>'
+      : renderStatistics();
   const body = root.querySelector('.schedule-body');
   body.replaceChildren();
   // Die Heute-Karte erst, wenn das Modul in Betrieb ist: ein frischer Haushalt
@@ -497,18 +933,30 @@ function renderPage() {
     + `<div class="schedule-content">${panel}</div>`);
   updateScheduleFab();
   window.lucide?.createIcons({ el: body });
+  wireShiftTypeFieldSortables(body);
+  if (scrollPort) scrollPort.scrollTop = scrollTop;
+}
+
+// Drag ist NIE der einzige Weg (siehe utils/sortable.js) - die Auf/Ab-Knoepfe
+// in shiftTypeFieldRow() bedienen dieselbe lokale Umsortierung tastaturbasiert.
+// `onEnd` bleibt bewusst leer: SortableJS hat das DOM bereits physisch
+// umgestellt, und wie beim Zyklustage-Editor schreibt erst der eigene
+// Speichern-Klick etwas - keine Instanz-Nachverfolgung noetig, `renderPage()`
+// ersetzt den ganzen Teilbaum bei jeder Aenderung ohnehin neu.
+function wireShiftTypeFieldSortables(body) {
+  body.querySelectorAll('[data-type-fields-rows]').forEach((listEl) => {
+    makeSortable(listEl, { handle: '.schedule-type-field-row__handle', onEnd: () => {} }).catch(() => {});
+  });
 }
 function updateScheduleFab() {
   if (!scheduleFab) return;
   const labels = {
     shifts: t('schedule.createShiftType'),
-    patterns: t('schedule.addPattern'),
-    overrides: t('schedule.createOverride'),
+    patterns: t('schedule.addEntry'),
   };
   const dockLabels = {
     shifts: t('schedule.shiftType'),
-    patterns: t('schedule.pattern'),
-    overrides: t('schedule.override'),
+    patterns: t('schedule.planning'),
   };
   setPageFabAction(scheduleFab, {
     label: labels[activeView],
@@ -538,16 +986,80 @@ function openOverrideEditModal(group) {
     + formField(t('schedule.rangeTo'), '<yuvomi-datepicker required name="to" type="date" label="' + esc(t('schedule.rangeTo')) + '" value="' + esc(group.to) + '"></yuvomi-datepicker>')
     + formField(t('schedule.shiftTypes'), '<select class="input" name="shift_type_id">' + typeOptions(type?.id ?? null) + '</select>')
     + formField(t('schedule.note'), '<input class="input" name="note" maxlength="5000" value="' + esc(group.note ?? '') + '">')
+    + dayRowFieldsHtml(type?.id ?? null, group.field_values)
     + '<div class="modal-actions"><button type="submit" class="btn btn--primary">' + esc(t('schedule.save')) + '</button></div></form>';
   openModal({
     title: t('schedule.editOverride'),
     size: 'md',
     content,
-    onSave: (modal) => modal.querySelector('#schedule-create-form')?.addEventListener('submit', saveCreatedSchedule),
+    onSave: (modal) => {
+      const form = modal.querySelector('#schedule-create-form');
+      wireOccurrenceFieldReactivity(form);
+      form?.addEventListener('submit', saveCreatedSchedule);
+    },
   });
 }
 
-function openScheduleCreateModal(view) {
+// Die Override-/Extra-Modale haengen am document.body, ausserhalb von `root` -
+// der Klick-/Change-Delegierte in renderShell() erreicht sie nicht, deshalb
+// hier eigens verdrahtet (derselbe Grund wie pick-shift-icon). Ein Feld-
+// Unterblock direkt nach dem Schichttyp-Feld, neu gebaut bei jedem Wechsel -
+// dieselbe dayRowFieldsHtml(), die auch der Zyklustage-Editor benutzt.
+// JEDES [name="shift_type_id"] im Bereich wird verdrahtet, nicht nur das
+// erste - das gemeinsame Anlege-Formular (openScheduleCreateModal) traegt
+// zwei davon (Ersetzen/Hinzufuegen, je ein eigenes <fieldset>, per
+// disabled/hidden nur eines davon aktiv), und jedes braucht seinen eigenen,
+// auf sein EIGENES Fieldset begrenzten Feld-Unterblock.
+function wireOccurrenceFieldReactivity(scope) {
+  scope?.querySelectorAll('[name="shift_type_id"]').forEach((select) => {
+    select.addEventListener('change', () => {
+      const container = select.closest('fieldset') ?? select.closest('form');
+      const existing = container?.querySelector('[data-day-row-fields]');
+      const html = dayRowFieldsHtml(select.value);
+      if (existing) existing.outerHTML = html;
+      else if (html) select.closest('.form-field')?.insertAdjacentHTML('afterend', html);
+      window.lucide?.createIcons({ el: container });
+    });
+  });
+}
+
+/**
+ * Additiv zu Muster/Override, deshalb ein eigenes, kleineres Formular statt
+ * einer weiteren Verzweigung in openScheduleCreateModal(). Eine Gruppe statt
+ * einer einzelnen Zeile - wie openOverrideEditModal(), eine einzelne Zusatz-
+ * schicht ist nur eine Gruppe der Groesse 1 (from === to). Extras haben aber
+ * kein ON CONFLICT wie Overrides: das Speichern legt fuer den neuen Zeitraum
+ * zuerst frische Zeilen an und loescht die alten IDs erst danach - schlaegt
+ * das Anlegen fehl, bleiben hoechstens Duplikate statt eines Datenverlusts.
+ */
+function openExtraGroupEditModal(group) {
+  const content = '<form id="schedule-create-form" class="form-stack schedule-modal-form" data-form="extra-edit-range">'
+    + '<input type="hidden" name="ids" value="' + esc(group.ids.join(',')) + '">'
+    + '<input type="hidden" name="user_id" value="' + esc(String(group.user_id)) + '">'
+    + formField(t('schedule.owner'), '<input class="input" readonly value="' + esc(userName(group.user_id)) + '">')
+    + formField(t('schedule.rangeFrom'), '<yuvomi-datepicker required name="from" type="date" label="' + esc(t('schedule.rangeFrom')) + '" value="' + esc(group.from) + '"></yuvomi-datepicker>')
+    + formField(t('schedule.rangeTo'), '<yuvomi-datepicker required name="to" type="date" label="' + esc(t('schedule.rangeTo')) + '" value="' + esc(group.to) + '"></yuvomi-datepicker>')
+    + formField(t('schedule.shiftTypes'), '<select class="input" required name="shift_type_id">' + typeOptions(group.shift_type_id, false) + '</select>')
+    + formField(t('schedule.note'), '<input class="input" name="note" maxlength="5000" value="' + esc(group.note ?? '') + '">')
+    + reminderOffsetField(group.reminder_offset_minutes)
+    + dayRowFieldsHtml(group.shift_type_id, group.field_values)
+    + '<div class="modal-actions"><button type="submit" class="btn btn--primary">' + esc(t('schedule.save')) + '</button></div></form>';
+  openModal({
+    title: t('schedule.editExtraShift'),
+    size: 'md',
+    content,
+    onSave: (modal) => {
+      const form = modal.querySelector('#schedule-create-form');
+      form?.querySelector('[name="reminder_enabled"]')?.addEventListener('change', (event) => {
+        form.querySelector('[name="reminder_offset_minutes"]').disabled = !event.currentTarget.checked;
+      });
+      wireOccurrenceFieldReactivity(form);
+      form?.addEventListener('submit', saveCreatedSchedule);
+    },
+  });
+}
+
+function openScheduleCreateModal(view, { mode = 'pattern' } = {}) {
   let title;
   let content;
   if (view === 'shifts') {
@@ -557,23 +1069,50 @@ function openScheduleCreateModal(view) {
       + shiftFields()
       + '<div class="modal-actions"><button type="submit" class="btn btn--primary">' + esc(t('common.create')) + '</button></div></form>';
   } else if (view === 'patterns') {
-    title = t('schedule.addPattern');
+    // EIN Formular fuer drei Faelle statt drei getrennter Modale: eine
+    // wiederkehrende Rotation (Muster), eine einmalige ERSETZUNG eines Tages
+    // (frueher "Override", ersetzt was das Muster sagt - NULL ist ein
+    // ausdruecklich freier Tag) und eine einmalige ZUSAETZLICHE Schicht
+    // (Extra, stapelt sich immer, egal was sonst an dem Tag steht). EIN
+    // dreiteiliger Umschalter (.segmented, wie schedule-stat-range__choices)
+    // statt zweier verschachtelter Kippschalter - jeder Modus lebt in einem
+    // eigenen <fieldset>, das ausser dem aktiven immer disabled ist. Das ist
+    // absichtlich mehr als Kosmetik: ein disabled fieldset nimmt FormData UND
+    // die native Validierung automatisch aus - ein verstecktes, aber weiterhin
+    // required und aktives Feld (wie zuvor "name") blockiert sonst den Submit
+    // lautlos, weil Chromium ein unsichtbares Pflichtfeld nicht fokussieren
+    // kann, um den Fehler zu zeigen.
+    title = t('schedule.addEntry');
+    const modes = [['pattern', 'schedule.pattern'], ['replace', 'schedule.override'], ['add', 'schedule.extraBadgeLabel']];
     content = '<form id="schedule-create-form" class="form-stack schedule-modal-form" data-form="pattern-create">'
       + formField(t('schedule.owner'), '<select class="input" required name="user_id">' + userOptions(selectedOwner()) + '</select>')
-      + patternFields()
-      + '<div class="modal-actions"><button type="submit" class="btn btn--primary">' + esc(t('common.create')) + '</button></div></form>';
-  } else {
-    title = t('schedule.createOverride');
-    content = '<form id="schedule-create-form" class="form-stack schedule-modal-form" data-form="override-create">'
-      + formField(t('schedule.owner'), '<select class="input" required name="user_id">' + userOptions(selectedOwner()) + '</select>')
-      + '<div class="form-field schedule-active-field"><span class="label">' + esc(t('schedule.fillRange')) + '</span><label class="toggle"><input name="fill_range" type="checkbox"><span class="toggle__track"></span></label></div>'
-      + '<div data-field="single-date">' + formField(t('schedule.date'), '<yuvomi-datepicker required name="date_key" type="date" label="' + esc(t('schedule.date')) + '" value="' + esc(todayKey()) + '"></yuvomi-datepicker>') + '</div>'
-      + '<div data-field="range-dates" hidden>'
+      + '<input type="hidden" name="mode" value="' + esc(mode) + '">'
+      // Kein zweites sichtbares Label hier - der Modaltitel sagt bereits
+      // "Add entry", ein identisches Label direkt darunter war reine
+      // Wiederholung. `aria-label` traegt den Kontext weiterhin fuer
+      // Screenreader, ohne ihn ein zweites Mal sichtbar zu zeigen.
+      + '<div class="segmented schedule-create-mode" role="group" aria-label="' + esc(t('schedule.addEntry')) + '">'
+      + modes.map(([value, key]) => '<button type="button" class="segmented__item' + (mode === value ? ' is-active' : '') + '" data-mode="' + value + '" aria-pressed="' + (mode === value ? 'true' : 'false') + '">' + esc(t(key)) + '</button>').join('')
+      + '</div>'
+      + '<fieldset data-field="mode-pattern"' + (mode === 'pattern' ? '' : ' hidden disabled') + '>' + patternFields() + '</fieldset>'
+      // Kein Einzeltag-/Zeitraum-Umschalter mehr: ein einzelner Tag ist einfach
+      // ein Zeitraum, dessen Von und Bis gleich sind (beide defaulten auf
+      // heute) - dieselbe Sache doppelt abzufragen war die eigentliche
+      // Redundanz. saveCreatedSchedule() entscheidet an einer Stelle
+      // (range_from === range_to), ob der Einzeltag-Endpunkt oder /fill mit
+      // Rueckfrage genommen wird - fuer den haeufigen Einzeltag-Fall aendert
+      // sich am Verhalten nichts.
+      + '<fieldset data-field="one-time-shared"' + (mode === 'pattern' ? ' hidden disabled' : '') + '>'
       + formField(t('schedule.rangeFrom'), '<yuvomi-datepicker name="range_from" type="date" label="' + esc(t('schedule.rangeFrom')) + '" value="' + esc(todayKey()) + '"></yuvomi-datepicker>')
       + formField(t('schedule.rangeTo'), '<yuvomi-datepicker name="range_to" type="date" label="' + esc(t('schedule.rangeTo')) + '" value="' + esc(todayKey()) + '"></yuvomi-datepicker>')
-      + '</div>'
-      + formField(t('schedule.shiftTypes'), '<select class="input" name="shift_type_id">' + typeOptions(null) + '</select>')
       + formField(t('schedule.note'), '<input class="input" name="note" maxlength="5000">')
+      + '</fieldset>'
+      // Zwei Auswahlfelder, nicht eins: ein Override darf frei sein (NULL,
+      // schedule_overrides.shift_type_id ist nullable), ein Extra nicht
+      // (schedule_extra_shifts.shift_type_id ist NOT NULL) - deshalb traegt
+      // nur die Ersetzen-Variante die Option "Freier Tag".
+      + '<fieldset data-field="mode-replace"' + (mode === 'replace' ? '' : ' hidden disabled') + '>' + formField(t('schedule.shiftTypes'), '<select class="input" name="shift_type_id">' + typeOptions(null) + '</select>') + '</fieldset>'
+      + '<fieldset data-field="mode-add"' + (mode === 'add' ? '' : ' hidden disabled') + '>' + formField(t('schedule.shiftTypes'), '<select class="input" name="shift_type_id">' + typeOptions(null, false) + '</select>') + reminderOffsetField(null) + '</fieldset>'
       + '<div class="modal-actions"><button type="submit" class="btn btn--primary">' + esc(t('schedule.save')) + '</button></div></form>';
   }
   openModal({
@@ -583,20 +1122,56 @@ function openScheduleCreateModal(view) {
     onSave: (modal) => {
       const form = modal.querySelector('#schedule-create-form');
       form?.querySelector('[name="shift_preset"]')?.addEventListener('change', () => applyShiftPreset(form));
-      // Ein Umschalter statt zweier getrennter Formulare: beide Feldsaetze
-      // leben im selben `<form>`, damit Besitzer/Schichtart/Notiz nicht doppelt
-      // gepflegt werden muessen. `yuvomi-datepicker` kennt kein `required`
-      // (kein Eintrag in observedAttributes, keine ElementInternals-Validitaet
-      // dafuer) - das Feld ist rein optisch versteckt, die eigentliche Pflicht
-      // prueft der Server (`date(..., true)` in der jeweiligen Route).
-      form?.querySelector('[name="fill_range"]')?.addEventListener('change', (event) => {
-        const range = event.currentTarget.checked;
-        form.querySelector('[data-field="single-date"]').hidden = range;
-        form.querySelector('[data-field="range-dates"]').hidden = !range;
+      // Wie der Fuell-Umschalter direkt darunter: das Modal haengt an
+      // document.body, ausserhalb von `root` - der Klick-Delegierte in
+      // action() erreicht es nicht, also eigens verdrahten.
+      form?.querySelector('[data-action="pick-shift-icon"]')?.addEventListener('click', (event) => pickShiftIcon(event.currentTarget));
+      // Ein dreiteiliger Umschalter statt zweier verschachtelter Kippschalter:
+      // jeder Klick setzt `hidden` UND `disabled` gemeinsam auf jedem
+      // <fieldset> - `disabled` ist der eigentliche Fix, nicht nur Kosmetik,
+      // siehe Kommentar oben an der Formularerzeugung.
+      form?.querySelectorAll('[data-mode]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const mode = button.dataset.mode;
+          form.querySelector('[name="mode"]').value = mode;
+          form.querySelectorAll('[data-mode]').forEach((item) => {
+            const active = item.dataset.mode === mode;
+            item.classList.toggle('is-active', active);
+            item.setAttribute('aria-pressed', String(active));
+          });
+          const setGroup = (field, enabled) => {
+            const fieldset = form.querySelector('[data-field="' + field + '"]');
+            fieldset.hidden = !enabled;
+            fieldset.disabled = !enabled;
+          };
+          setGroup('mode-pattern', mode === 'pattern');
+          setGroup('one-time-shared', mode !== 'pattern');
+          setGroup('mode-replace', mode === 'replace');
+          setGroup('mode-add', mode === 'add');
+        });
       });
+      form?.querySelector('[name="reminder_enabled"]')?.addEventListener('change', (event) => {
+        form.querySelector('[name="reminder_offset_minutes"]').disabled = !event.currentTarget.checked;
+      });
+      wireOccurrenceFieldReactivity(form);
       form?.addEventListener('submit', saveCreatedSchedule);
     },
   });
+}
+
+// `[data-field-value]`-Eingaben tragen bewusst kein `name` - ihr Schluessel
+// ist die Feld-Id, nicht ein fester Formularname, deshalb liest sie die
+// native FormData() nicht mit. Auf den uebergebenen Bereich begrenzt statt
+// das ganze Formular zu durchsuchen: das gemeinsame Anlege-Formular haelt
+// bis zu zwei Feld-Unterbloecke gleichzeitig im DOM (Ersetzen/Hinzufuegen je
+// eigenes <fieldset>), nur einer davon aktiv - sonst laesen bereits
+// getippte, aber inzwischen verlassene Werte des anderen Modus mit hinein.
+function collectFieldValues(scope) {
+  const values = {};
+  scope?.querySelectorAll('[data-field-value]').forEach((input) => {
+    if (input.value.trim()) values[input.dataset.fieldValue] = input.value.trim();
+  });
+  return values;
 }
 
 async function saveCreatedSchedule(event) {
@@ -606,25 +1181,44 @@ async function saveCreatedSchedule(event) {
   try {
     if (form.dataset.form === 'shift-create') await api.post('/schedule/shift-types', data);
     if (form.dataset.form === 'pattern-create') {
-      data.user_id = Number(data.user_id);
-      data.cycle_length = Number(data.cycle_length);
-      data.is_active = form.elements.is_active.checked;
-      await api.post('/schedule/patterns', data);
-    }
-    if (form.dataset.form === 'override-create') {
-      const userId = Number(data.user_id);
-      const shiftTypeId = data.shift_type_id ? Number(data.shift_type_id) : null;
-      if (form.elements.fill_range?.checked) {
-        const type = state.types.find((item) => Number(item.id) === shiftTypeId);
-        const typeLabel = type ? (type.short_code ? `${type.short_code} · ${type.name}` : type.name) : t('schedule.freeDay');
-        const confirmed = await confirmModal(
-          t('schedule.fillRangeConfirmTitle'),
-          { confirmLabel: t('schedule.fillRange'), detail: t('schedule.fillRangeConfirmDetail', { from: formatDate(data.range_from), to: formatDate(data.range_to), type: typeLabel }) },
-        );
-        if (!confirmed) return;
-        await api.post('/schedule/overrides/fill', { user_id: userId, from: data.range_from, to: data.range_to, shift_type_id: shiftTypeId, note: data.note });
+      if (data.mode === 'pattern') {
+        data.user_id = Number(data.user_id);
+        data.cycle_length = Number(data.cycle_length);
+        data.is_active = form.elements.is_active.checked;
+        await api.post('/schedule/patterns', data);
+      } else if (data.mode === 'replace') {
+        const userId = Number(data.user_id);
+        const shiftTypeId = data.shift_type_id ? Number(data.shift_type_id) : null;
+        const fieldValues = collectFieldValues(form.querySelector('[data-field="mode-replace"]'));
+        // Kein Umschalter mehr - ein einzelner Tag ist einfach ein Zeitraum,
+        // dessen Von und Bis gleich sind. Nur ein echter Mehrtagesbereich
+        // bekommt die Rueckfrage, das entspricht dem bisherigen Verhalten
+        // fuer den (haeufigeren) Einzeltag-Fall unveraendert.
+        if (data.range_from === data.range_to) {
+          await api.put('/schedule/overrides/' + encodeURIComponent(data.range_from), { user_id: userId, shift_type_id: shiftTypeId, note: data.note, field_values: fieldValues });
+        } else {
+          const type = state.types.find((item) => Number(item.id) === shiftTypeId);
+          const typeLabel = type ? (type.short_code ? `${type.short_code} · ${type.name}` : type.name) : t('schedule.freeDay');
+          const confirmed = await confirmModal(
+            t('schedule.fillRangeConfirmTitle'),
+            { confirmLabel: t('schedule.fillRange'), detail: t('schedule.fillRangeConfirmDetail', { from: formatDate(data.range_from), to: formatDate(data.range_to), type: typeLabel }) },
+          );
+          if (!confirmed) return;
+          await api.post('/schedule/overrides/fill', { user_id: userId, from: data.range_from, to: data.range_to, shift_type_id: shiftTypeId, note: data.note, field_values: fieldValues });
+        }
       } else {
-        await api.put('/schedule/overrides/' + encodeURIComponent(data.date_key), { user_id: userId, shift_type_id: shiftTypeId, note: data.note });
+        const payload = {
+          user_id: Number(data.user_id),
+          shift_type_id: Number(data.shift_type_id),
+          note: data.note,
+          reminder_offset_minutes: form.elements.reminder_enabled.checked ? Number(data.reminder_offset_minutes) : null,
+          field_values: collectFieldValues(form.querySelector('[data-field="mode-add"]')),
+        };
+        if (data.range_from === data.range_to) {
+          await api.post('/schedule/extras', { ...payload, date_key: data.range_from });
+        } else {
+          await api.post('/schedule/extras/fill', { ...payload, from: data.range_from, to: data.range_to });
+        }
       }
     }
     if (form.dataset.form === 'override-edit') {
@@ -632,12 +1226,13 @@ async function saveCreatedSchedule(event) {
       const shiftTypeId = data.shift_type_id ? Number(data.shift_type_id) : null;
       const type = state.types.find((item) => Number(item.id) === shiftTypeId);
       const typeLabel = type ? (type.short_code ? `${type.short_code} · ${type.name}` : type.name) : t('schedule.freeDay');
+      const fieldValues = collectFieldValues(form);
       const confirmed = await confirmModal(
         t('schedule.fillRangeConfirmTitle'),
         { confirmLabel: t('schedule.save'), detail: t('schedule.fillRangeConfirmDetail', { from: formatDate(data.from), to: formatDate(data.to), type: typeLabel }) },
       );
       if (!confirmed) return;
-      await api.post('/schedule/overrides/fill', { user_id: userId, from: data.from, to: data.to, shift_type_id: shiftTypeId, note: data.note });
+      await api.post('/schedule/overrides/fill', { user_id: userId, from: data.from, to: data.to, shift_type_id: shiftTypeId, note: data.note, field_values: fieldValues });
       // Was ausserhalb der neuen Spanne lag, aber zur alten gehoerte, muss weg -
       // sonst bliebe ein verkuerztes Ende als Karteileiche stehen (fill fasst
       // nur die neue Spanne an, nie das, was davor oder danach lag).
@@ -646,6 +1241,61 @@ async function saveCreatedSchedule(event) {
         await api.delete(`/schedule/overrides?user_id=${userId}&from=${span.from}&to=${span.to}`);
       }
     }
+    if (form.dataset.form === 'extra-edit-range') {
+      const payload = {
+        user_id: Number(data.user_id),
+        shift_type_id: Number(data.shift_type_id),
+        note: data.note,
+        reminder_offset_minutes: form.elements.reminder_enabled.checked ? Number(data.reminder_offset_minutes) : null,
+        field_values: collectFieldValues(form),
+      };
+      // Extras kennen kein ON CONFLICT wie Overrides - erst die neuen Zeilen
+      // fuer den (moeglicherweise verschobenen/veraenderten) Zeitraum anlegen,
+      // dann die alten IDs loeschen. In dieser Reihenfolge kostet ein
+      // fehlgeschlagener zweiter Schritt hoechstens ein Duplikat, nie einen
+      // Datenverlust.
+      if (data.from === data.to) {
+        await api.post('/schedule/extras', { ...payload, date_key: data.from });
+      } else {
+        await api.post('/schedule/extras/fill', { ...payload, from: data.from, to: data.to });
+      }
+      for (const id of data.ids.split(',')) {
+        await api.delete(`/schedule/extras/${id}`);
+      }
+    }
+    await load();
+    renderPage();
+    await closeModal({ force: true });
+    window.yuvomi?.showToast(t('schedule.saved'), 'success');
+  } catch (error) {
+    window.yuvomi?.showToast(error.data?.error ?? t('common.errorGeneric'), 'danger');
+  }
+}
+
+// Eigenes, kleines Modal statt eines vierten Zweigs in saveCreatedSchedule():
+// die Registrierung eines Feldes ist ein Ein-Feld-Formular ohne Beruehrung mit
+// Mustern/Ausnahmen/Extras, ein weiterer Zweig dort haette nur die ohnehin
+// schon grosse Funktion weiter aufgeblaeht.
+function openCustomFieldModal(field = null) {
+  const isEdit = Boolean(field);
+  openModal({
+    title: isEdit ? t('schedule.editCustomField') : t('schedule.createCustomField'),
+    size: 'sm',
+    content: '<form id="schedule-custom-field-form" class="form-stack schedule-modal-form">'
+      + formField(t('schedule.fieldName'), '<input class="input" required name="name" maxlength="100" value="' + esc(field?.name ?? '') + '">')
+      + '<div class="modal-actions"><button type="submit" class="btn btn--primary">' + esc(t('schedule.save')) + '</button></div></form>',
+    onSave: (modal) => {
+      modal.querySelector('#schedule-custom-field-form')?.addEventListener('submit', (event) => saveCustomField(event, field?.id ?? null));
+    },
+  });
+}
+
+async function saveCustomField(event, fieldId) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  try {
+    if (fieldId) await api.put(`/schedule/custom-fields/${fieldId}`, data);
+    else await api.post('/schedule/custom-fields', data);
     await load();
     renderPage();
     await closeModal({ force: true });
@@ -685,25 +1335,16 @@ async function submitForm(event) {
       renderPage();
       return;
     }
-    if (form.dataset.form === 'shift-create') await api.post('/schedule/shift-types', data);
+    // Keine Zweige fuer 'shift-create'/'pattern-create'/'override-create' hier:
+    // alle drei werden ausschliesslich im Erstellen-Modal gebaut (an
+    // document.body, nicht in `root`), das direkt an saveCreatedSchedule()
+    // verdrahtet - dieser Delegierte an `root` sieht so ein Formular nie.
+    // Nur die INLINE-Bearbeitungsformulare (Update) leben in `root`.
     if (form.dataset.form === 'shift-update') await api.put(`/schedule/shift-types/${form.dataset.id}`, data);
-    if (form.dataset.form === 'pattern-create') {
-      data.user_id = Number(data.user_id);
-      data.cycle_length = Number(data.cycle_length);
-      data.is_active = form.elements.is_active.checked;
-      await api.post('/schedule/patterns', data);
-    }
     if (form.dataset.form === 'pattern-update') {
       data.cycle_length = Number(data.cycle_length);
       data.is_active = form.elements.is_active.checked;
       await api.put(`/schedule/patterns/${form.dataset.id}`, data);
-    }
-    if (form.dataset.form === 'override-create') {
-      const dateKey = data.date_key;
-      delete data.date_key;
-      data.user_id = Number(data.user_id);
-      data.shift_type_id = data.shift_type_id ? Number(data.shift_type_id) : null;
-      await api.put(`/schedule/overrides/${dateKey}`, data);
     }
     await load();
     renderPage();
@@ -724,28 +1365,30 @@ async function action(event) {
       openScheduleCreateModal(button.dataset.view || activeView);
       return;
     }
-    // Ein zweiter Klick vor dem ersten `load()` darf nicht alle sieben Presets
-    // doppelt anlegen. `state.types.length` allein schuetzt davor nicht: es
-    // wird erst von `load()` im `finally` aktualisiert, ein zweiter Klick
-    // waehrend der sieben Requests sieht also noch `state.types.length === 0`
-    // (Review #930: `schedule_shift_types` hat kein UNIQUE auf name/short_code,
-    // ein zweiter Durchlauf legt also still 14 Typen mit doppelten Namen an).
-    // Die Schaltflaeche synchron zu deaktivieren schliesst genau dieses Fenster.
-    // `finally` statt nur dem Erfolgspfad: schlaegt ein Preset mitten in der
-    // Schleife fehl (Netzwerk, doppelter Kurzcode), sollen die bereits
-    // angelegten trotzdem sichtbar werden - sonst zeigt die Seite weiter den
-    // Leerzustand, obwohl schon Typen existieren.
+    // `button.disabled` statt eines `state.types.length`-Torwaechters: der
+    // alte Wachposten blockierte JEDE weitere Vorlage, sobald irgendein Typ
+    // existierte - richtig, solange es nur eine Vorlage gab, falsch, sobald
+    // ein Haushalt z.B. "Arbeit" fuer ein Mitglied und spaeter "Schule" fuer
+    // ein anderes braucht. Ein bereits vorhandener Kurzcode wird stattdessen
+    // je Preset uebersprungen, nicht der ganze Lauf verweigert - ein zweiter
+    // Klick auf dieselbe Vorlage legt so nichts doppelt an. `finally` statt
+    // nur dem Erfolgspfad: schlaegt ein Preset mitten in der Schleife fehl
+    // (Netzwerk, doppelter Kurzcode einer eigenen Anlage), sollen die bereits
+    // angelegten trotzdem sichtbar werden.
     if (button.dataset.action === 'quick-start-shifts') {
-      if (state.types.length) return;
       button.disabled = true;
+      const template = PRESET_TEMPLATES[button.dataset.template] ?? [];
+      const existingCodes = new Set(state.types.map((type) => type.short_code));
       try {
-        for (const preset of SHIFT_PRESETS) {
+        for (const preset of template) {
+          if (existingCodes.has(preset.shortCode)) continue;
           await api.post('/schedule/shift-types', {
             name: shiftPresetLabel(preset.key),
             short_code: preset.shortCode,
             start_time: preset.startTime,
             end_time: preset.endTime,
             color: preset.color,
+            icon: preset.icon,
           });
         }
       } finally {
@@ -753,6 +1396,14 @@ async function action(event) {
         renderPage();
       }
       window.yuvomi?.showToast(t('schedule.saved'), 'success');
+      return;
+    }
+    if (button.dataset.action === 'pick-shift-icon') {
+      await pickShiftIcon(button);
+      return;
+    }
+    if (button.dataset.action === 'print-statistics') {
+      window.print();
       return;
     }
     if (button.dataset.action === 'statistics-range') {
@@ -766,6 +1417,30 @@ async function action(event) {
       return;
     }
     if (button.dataset.action === 'delete-shift') await api.delete(`/schedule/shift-types/${button.dataset.id}`);
+    if (button.dataset.action === 'open-create-custom-field') {
+      openCustomFieldModal();
+      return;
+    }
+    if (button.dataset.action === 'edit-custom-field') {
+      const field = state.customFields.find((item) => Number(item.id) === Number(button.dataset.id));
+      if (field) openCustomFieldModal(field);
+      return;
+    }
+    // Kaskadiert serverseitig ueber Zuordnung UND Werte (ON DELETE CASCADE,
+    // Migration 183) - anders als ein Schichttyp (409, solange er noch
+    // referenziert ist) ist das Loeschen eines Feldes eine bewusst
+    // bestaetigte Aktion, deshalb die Rueckfrage hier statt eines
+    // Server-Schutzes.
+    if (button.dataset.action === 'delete-custom-field') {
+      const field = state.customFields.find((item) => Number(item.id) === Number(button.dataset.id));
+      const affected = state.types.filter((type) => (type.fields ?? []).some((f) => Number(f.id) === Number(button.dataset.id))).length;
+      const confirmed = await confirmModal(
+        t('schedule.deleteCustomFieldTitle', { name: field?.name ?? '' }),
+        { danger: true, confirmLabel: t('schedule.delete'), detail: t('schedule.deleteCustomFieldDetail', { count: affected }) },
+      );
+      if (!confirmed) return;
+      await api.delete(`/schedule/custom-fields/${button.dataset.id}`);
+    }
     // Ein Muster loeschen nimmt seine Zyklustage mit (ON DELETE CASCADE): eine
     // Achttage-Rotation ist mit einem Fingertipp weg, und es gibt keinen Weg
     // zurueck. Deshalb fragt genau DIESE Loeschung nach und nennt dabei, was
@@ -796,12 +1471,98 @@ async function action(event) {
       if (!confirmed) return;
       await api.delete(`/schedule/overrides?user_id=${userId}&from=${from}&to=${to}`);
     }
+    if (button.dataset.action === 'open-create-extra') {
+      openScheduleCreateModal('patterns', { mode: 'add' });
+      return;
+    }
+    if (button.dataset.action === 'open-create-override') {
+      openScheduleCreateModal('patterns', { mode: 'replace' });
+      return;
+    }
+    if (button.dataset.action === 'edit-extra-range') {
+      const group = extraGroups().find((item) => item.ids.join(',') === button.dataset.ids);
+      if (group) openExtraGroupEditModal(group);
+      return;
+    }
+    // Dieselbe Begruendung wie 'delete-override-range': ein Bereich kann viele
+    // Tage tragen, darum fragt das Loeschen hier nach - ein Extra-Tag ist
+    // seitdem selbst nur eine Gruppe der Groesse 1 und nimmt denselben Weg.
+    if (button.dataset.action === 'delete-extra-range') {
+      const { from, to, userId } = button.dataset;
+      const confirmed = await confirmModal(
+        t('schedule.deleteOverrideRangeTitle'),
+        { danger: true, confirmLabel: t('schedule.delete'), detail: t('schedule.deleteOverrideRangeDetail', { from: formatDate(from), to: formatDate(to), user: userName(userId) }) },
+      );
+      if (!confirmed) return;
+      for (const id of button.dataset.ids.split(',')) {
+        await api.delete(`/schedule/extras/${id}`);
+      }
+    }
+    // Rein lokale Aenderungen am Tageseditor, kein API-Aufruf - erst der
+    // 'save-days'-Klick unten schreibt etwas. Deshalb ein fruehes `return`:
+    // das gemeinsame `await load(); renderPage();` am Ende dieser Funktion
+    // wuerde sonst die gerade hinzugefuegte/entfernte Zeile mit dem
+    // Server-Stand ueberschreiben, bevor sie je gespeichert wurde.
+    if (button.dataset.action === 'add-pattern-day-row') {
+      button.closest('[data-day-group]')?.querySelector('.schedule-day-rows')?.insertAdjacentHTML('beforeend', dayRowHtml(Number(button.dataset.position), null, true));
+      window.lucide?.createIcons({ el: root });
+      return;
+    }
+    if (button.dataset.action === 'remove-pattern-day-row') {
+      button.closest('[data-day-row]')?.remove();
+      return;
+    }
+    // Dieselbe lokal-erst-Regel wie die Zyklustage-Zeilen oben: hinzufuegen,
+    // entfernen und umsortieren aendern nur das DOM, bis 'save-shift-fields'
+    // unten den ganzen Satz an /schedule/shift-types/:id/fields schreibt.
+    if (button.dataset.action === 'add-type-field') {
+      const container = document.querySelector(`[data-type-fields-rows="${button.dataset.id}"]`);
+      const picker = document.querySelector(`[data-field-picker="${button.dataset.id}"]`);
+      if (!container || !picker?.value) return;
+      const field = state.customFields.find((item) => Number(item.id) === Number(picker.value));
+      if (!field) return;
+      container.querySelector('.u-meta')?.remove();
+      container.insertAdjacentHTML('beforeend', shiftTypeFieldRow({ ...field, show_in_overlay: false }));
+      picker.querySelector(`option[value="${field.id}"]`)?.remove();
+      window.lucide?.createIcons({ el: container.parentElement });
+      return;
+    }
+    if (button.dataset.action === 'remove-type-field') {
+      const row = button.closest('[data-type-field-row]');
+      const container = row?.closest('[data-type-fields-rows]');
+      row?.remove();
+      if (container && !container.children.length) container.insertAdjacentHTML('beforeend', '<p class="u-meta">' + esc(t('schedule.noFieldsAttached')) + '</p>');
+      return;
+    }
+    // Tastaturbedienbarer Reorder-Pfad neben dem Ziehen ueber makeSortable()
+    // oben (utils/sortable.js verlangt genau das) - dieselbe Richtung ('up'/
+    // 'down') treibt beide Knopf-Varianten, nur je Zeile lokal statt ueber
+    // einen Server-Aufruf.
+    if (button.dataset.action === 'move-type-field') {
+      const row = button.closest('[data-type-field-row]');
+      const sibling = button.dataset.direction === 'up' ? row?.previousElementSibling : row?.nextElementSibling;
+      if (!row || !sibling) return;
+      if (button.dataset.direction === 'up') row.parentElement.insertBefore(row, sibling);
+      else row.parentElement.insertBefore(sibling, row);
+      return;
+    }
+    if (button.dataset.action === 'save-shift-fields') {
+      const container = document.querySelector(`[data-type-fields-rows="${button.dataset.id}"]`);
+      const fields = [...(container?.querySelectorAll('[data-type-field-row]') ?? [])].map((row, index) => ({
+        custom_field_id: Number(row.dataset.customFieldId),
+        position: index,
+        show_in_overlay: row.querySelector('[data-show-in-overlay]')?.checked ?? false,
+      }));
+      await api.put(`/schedule/shift-types/${button.dataset.id}/fields`, { fields });
+    }
     if (button.dataset.action === 'save-days') {
       const details = button.closest('[data-pattern]');
-      const days = [...details.querySelectorAll('[data-day]')].map((select) => ({
-        position: Number(select.dataset.day),
-        shift_type_id: select.value ? Number(select.value) : null,
-      }));
+      const days = [...details.querySelectorAll('[data-day-row]')].map((row) => {
+        const select = row.querySelector('[data-day]');
+        const field_values = {};
+        row.querySelectorAll('[data-field-value]').forEach((input) => { if (input.value.trim()) field_values[input.dataset.fieldValue] = input.value.trim(); });
+        return { position: Number(select.dataset.day), shift_type_id: select.value ? Number(select.value) : null, field_values };
+      });
       await api.put(`/schedule/patterns/${button.dataset.id}/days`, { days });
     }
     await load();
@@ -829,4 +1590,4 @@ export async function render(container, { user } = {}) {
 // bereits pur bzw. nehmen ihre Eingabe jetzt als Parameter statt sie fest aus
 // `state` zu lesen - ein Test kann so echte Tage hineingeben und das Ergebnis
 // pruefen, statt nur zu belegen, dass der Funktionsname im Quelltext steht.
-export const __test = { overrideGroups, rangeDifference };
+export const __test = { overrideGroups, rangeDifference, setShiftIconButtonIcon, overtimeInfo, sameFieldValues, overlayMeta };

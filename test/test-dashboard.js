@@ -2152,6 +2152,34 @@ test('Schedule-Widget: der Zeilendeckel zeigt die Im-Dienst-Eintraege zuerst, ni
   nodeAssert.match(html, /Finn/, 'Finn ist im Dienst und muss trotz Deckel sichtbar sein');
 });
 
+// Eine Person mit einem Extra (Bereitschaft NEBEN einer regulaeren Schicht,
+// server/routes/schedule-extras.js) traegt zwei Eintraege am selben Tag - die
+// Ueberschrift zaehlt trotzdem PERSONEN ("wer arbeitet heute"), nicht
+// Schicht-Zeilen, sonst wuerde genau diese Person doppelt gezaehlt.
+test('renderScheduleWidget() zaehlt Personen, nicht Schicht-Eintraege, und begrenzt nur die sichtbaren Zeilen', async () => {
+  const { __test } = await import('../public/pages/dashboard.js');
+  const users = [
+    { id: 1, display_name: 'Alice' },
+    { id: 2, display_name: 'Bob' },
+    { id: 3, display_name: 'Carol' },
+  ];
+  const shiftType = { id: 1, name: 'Frueh', short_code: 'F', color: '#6C3AED' };
+  const entries = [
+    { user_id: 1, source: 'override', shift_type: shiftType },
+    { user_id: 1, source: 'extra', shift_type: shiftType }, // dieselbe Person, zweiter Eintrag
+    { user_id: 2, source: 'override', shift_type: shiftType },
+    { user_id: 3, source: 'override', shift_type: shiftType },
+  ];
+
+  const wide = __test.renderScheduleWidget({ entries, hasTypes: true }, users, '1x2');
+  nodeAssert.match(wide, /widget__badge">3</, 'drei verschiedene Personen sind im Dienst, nicht vier Zeilen');
+  nodeAssert.equal((wide.match(/schedule-widget-row"/g) || []).length, 4, 'auf 1x2 (Deckel 5) passen alle vier Zeilen');
+
+  const narrow = __test.renderScheduleWidget({ entries, hasTypes: true }, users, '1x1');
+  nodeAssert.match(narrow, /widget__badge">3</, 'die Kopfzahl bleibt der wahre Bestand, unabhaengig von der Kachelgroesse');
+  nodeAssert.equal((narrow.match(/schedule-widget-row"/g) || []).length, 3, 'auf 1x1 (Deckel 3) werden nur drei der vier Zeilen gezeigt');
+});
+
 test('Kennzahlreihe fuehrt mit den Modulen, die sonst kein Widget zeigen', async () => {
   const { __test } = await import('../public/pages/dashboard.js');
   // Die drei Opt-in-Module sind im Werks-Layout unsichtbar (DEFAULT_HIDDEN_WIDGETS)

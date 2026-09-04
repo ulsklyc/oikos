@@ -30,6 +30,24 @@ export function schedulePaths() {
       put: op({ summary: 'Update a shift type', description: 'Only its creator or an administrator.', tag: 'Schedule', params: [idParam()], stateChanging: true, requestBody: jsonBody(null) }),
       delete: op({ summary: 'Delete a shift type', description: 'Only its creator or an administrator. Answers 409 while a pattern or override still references it.', tag: 'Schedule', params: [idParam()], stateChanging: true }),
     },
+    '/api/v1/schedule/shift-types/{id}/fields': {
+      put: op({
+        summary: 'Replace which custom fields are attached to a shift type',
+        description: 'Deletes and re-inserts the whole attachment set in one transaction, same shape as PUT /patterns/{id}/days. Rejects a custom_field_id that does not exist or repeats within the payload.',
+        tag: 'Schedule',
+        params: [idParam()],
+        stateChanging: true,
+        requestBody: jsonBody(null),
+      }),
+    },
+    '/api/v1/schedule/custom-fields': {
+      get: op({ summary: 'List custom fields', description: 'Household-wide definitions, defined once and attachable to any number of shift types.', tag: 'Schedule' }),
+      post: op({ summary: 'Create a custom field', description: 'Any member may add one.', tag: 'Schedule', stateChanging: true, requestBody: jsonBody(null) }),
+    },
+    '/api/v1/schedule/custom-fields/{id}': {
+      put: op({ summary: 'Rename a custom field', description: 'Only its creator or an administrator.', tag: 'Schedule', params: [idParam()], stateChanging: true, requestBody: jsonBody(null) }),
+      delete: op({ summary: 'Delete a custom field', description: 'Only its creator or an administrator. Cascades: also removes its shift-type attachments and any values already recorded against it.', tag: 'Schedule', params: [idParam()], stateChanging: true }),
+    },
     '/api/v1/schedule/patterns': {
       get: op({ summary: 'List cycle patterns', tag: 'Schedule' }),
       post: op({ summary: 'Create a cycle pattern', tag: 'Schedule', stateChanging: true, requestBody: jsonBody(null) }),
@@ -40,14 +58,11 @@ export function schedulePaths() {
     },
     '/api/v1/schedule/patterns/{id}/days': {
       get: op({ summary: 'List the cycle days of a pattern', tag: 'Schedule', params: [idParam()] }),
-      put: op({ summary: 'Replace all cycle days of a pattern', tag: 'Schedule', params: [idParam()], stateChanging: true, requestBody: jsonBody(null) }),
-    },
-    '/api/v1/schedule/patterns/{id}/days/{position}': {
       put: op({
-        summary: 'Set one cycle day',
-        description: 'A NULL shift type is a free day within the cycle.',
+        summary: 'Replace all cycle days of a pattern',
+        description: 'Deletes and re-inserts every day of the cycle in one transaction. A position may repeat - a cycle day can carry several classes at different times (a timetable), each its own shift type; an omitted position is a free day.',
         tag: 'Schedule',
-        params: [idParam(), { name: 'position', in: 'path', required: true, description: 'Zero-based position within the cycle', schema: { type: 'integer' } }],
+        params: [idParam()],
         stateChanging: true,
         requestBody: jsonBody(null),
       }),
@@ -85,6 +100,46 @@ export function schedulePaths() {
         requestBody: jsonBody(null),
       }),
       delete: op({ summary: 'Remove a per-day override', tag: 'Schedule', params: [stringPathParam('dateKey', 'Date (YYYY-MM-DD)')], stateChanging: true }),
+    },
+    '/api/v1/schedule/extras': {
+      get: op({ summary: 'List extra shifts (additive to the primary pattern/override slot)', tag: 'Schedule' }),
+      post: op({
+        summary: 'Add an extra shift on a day',
+        description: 'Additive to whatever the primary slot resolves for that day - never an upsert, so multiple extras (even sharing a shift type) may exist on the same date. Addressed by its own id, not by (user_id, date_key) like overrides.',
+        tag: 'Schedule',
+        stateChanging: true,
+        requestBody: jsonBody(null),
+      }),
+    },
+    '/api/v1/schedule/extras/fill': {
+      post: op({
+        summary: 'Add the same extra shift across a date range in one call',
+        description: 'An insert loop, not an upsert - every day in range gets its own new row. Writes real rows, capped at 100 days like /overrides/fill.',
+        tag: 'Schedule',
+        stateChanging: true,
+        requestBody: jsonBody(null),
+      }),
+    },
+    '/api/v1/schedule/extras/{id}': {
+      put: op({ summary: 'Update an extra shift', description: 'Any field left out of the body keeps its previous value. user_id may never be reassigned.', tag: 'Schedule', params: [idParam()], stateChanging: true, requestBody: jsonBody(null) }),
+      delete: op({ summary: 'Remove an extra shift', tag: 'Schedule', params: [idParam()], stateChanging: true }),
+    },
+    '/api/v1/schedule/feed': {
+      get: op({ summary: 'Get own schedule ICS feed status', tag: 'Schedule' }),
+      delete: op({ summary: 'Disable own schedule ICS feed', tag: 'Schedule', stateChanging: true }),
+    },
+    '/api/v1/schedule/feed/regenerate': {
+      post: op({ summary: 'Regenerate own schedule ICS feed token', tag: 'Schedule', stateChanging: true }),
+    },
+    '/api/v1/schedule/preferences': {
+      get: op({ summary: 'Get own shift-start reminder offset and weekly-hours target', tag: 'Schedule' }),
+      put: op({
+        summary: 'Set own shift-start reminder offset and/or weekly-hours target',
+        description: 'Either field may be omitted to leave it unchanged; either may be set to null to reset it to its default (reminder off, 40h/week). A change to reminderOffsetMinutes triggers an immediate resync so it takes effect without waiting for the next periodic pass.',
+        tag: 'Schedule',
+        stateChanging: true,
+        requestBody: jsonBody(null),
+      }),
     },
   };
 }

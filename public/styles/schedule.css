@@ -98,6 +98,32 @@
   align-self: start;
 }
 
+/* Bare <fieldset> carries a browser-default border/padding/min-width this
+   form never wants - it's used purely to disable a field group in one line
+   (disabled excludes it from FormData and native validation together). */
+.schedule-modal-form fieldset[data-field] {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: inherit;
+}
+
+/* The rule above's `display: flex` otherwise outranks the browser's own
+   `[hidden] { display: none }` (class+attribute beats a lone attribute
+   selector) - without this, a hidden mode's fieldset stayed visually
+   stacked under the active one even though `disabled` correctly kept it
+   out of FormData/validation. */
+.schedule-modal-form fieldset[data-field][hidden] {
+  display: none;
+}
+
+.schedule-create-mode {
+  margin-top: 4px;
+}
+
 @media screen and (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .schedule-page input[type="time"],
   :root:not([data-theme="light"]) .schedule-modal-form input[type="time"] {
@@ -165,6 +191,94 @@
   gap: var(--space-2);
 }
 
+/* A cycle day can carry several classes (a timetable), not just one - a small
+ * add/remove list instead of a single <select>, same grid cell as before. */
+.schedule-day-group {
+  min-width: 0;
+}
+
+.schedule-day-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* Zweistufig seit Migration 181: die Auswahl-Zeile (Schichttyp + Entfernen)
+ * bleibt eine Reihe, ein optionaler Feld-Unterblock (dayRowFieldsHtml())
+ * steht darunter - nur vorhanden, wenn der gewaehlte Schichttyp eigene Felder
+ * traegt, also fuer die meisten Haushalte unveraendert eine einzelne Zeile. */
+.schedule-day-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.schedule-day-row__main {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+}
+
+.schedule-day-row__main .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.schedule-day-row-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-left: var(--space-4);
+  border-left: 2px solid var(--color-border);
+}
+
+/* A shift type's attached custom fields (migration 181) - same list/row shape
+ * as the cycle-day editor above, plus a drag handle and the reorder buttons
+ * makeSortable() requires alongside it. */
+.schedule-type-fields-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+}
+
+.schedule-type-field-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.schedule-type-field-row__handle {
+  background: none;
+  border: none;
+  padding: var(--space-1);
+  cursor: grab;
+  color: var(--color-text-secondary);
+  flex: 0 0 auto;
+}
+
+.schedule-type-field-row__name {
+  flex: 1;
+  min-width: 0;
+}
+
+.schedule-type-field-row__overlay {
+  flex: 0 0 auto;
+  font-size: var(--text-2xs);
+}
+
+.schedule-type-field-add {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+  margin-bottom: var(--space-2);
+}
+
+.schedule-type-field-add .input {
+  flex: 1;
+  min-width: 0;
+}
+
 /* Shift types keep their actions inside the edit form; give that nested row
  * the same breathing room as the pattern action row below its card content. */
 .schedule-details > .schedule-form > .schedule-actions {
@@ -185,6 +299,39 @@
 .schedule-override {
   align-items: center;
   gap: var(--space-2);
+}
+
+/* Neben dem Farbpunkt, nicht statt ihm - Farbe und Symbol beantworten
+ * verschiedene Fragen ("welcher Ton" vs. "welche Art Tag") und sollen sich
+ * nicht gegenseitig ersetzen koennen. */
+.schedule-type-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  color: var(--color-text-secondary);
+}
+
+/* Additiv zu Muster/Override, nie ein Ersatz - eine eigene Form (nicht nur
+ * eine Farbe) haelt die Kennzeichnung auch fuer Farbfehlsicht eindeutig. */
+.schedule-extra-badge {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  color: var(--color-text-secondary);
+}
+
+.schedule-library__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.schedule-icon-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: fit-content;
 }
 
 
@@ -367,8 +514,49 @@
   --summary-cards: 2;
 }
 
+/* Nur gesetzt, wenn die Ueberstunden-Kachel tatsaechlich dabei ist - die
+ * Kartenzahl in --summary-cards muss zur tatsaechlichen Kartenzahl passen,
+ * sonst zieht die dritte Karte eine leere Spalte oder bricht in eine
+ * eigene Zeile mit nur sich selbst. */
+.schedule-stat-metrics--with-overtime {
+  --summary-cards: 3;
+}
+
+/* Ein Hinweis, kein Urteil: die Karte nennt sich selbst "Ueberstunden" im
+ * Label (Text traegt die Aussage, nicht nur die Farbe) und tont sich am
+ * reservierten Warnton, denselben, den Budget und Gesundheit fuer ihre
+ * eigenen Schwellenwerte schon verwenden. */
+.metric-card--warning {
+  border-color: color-mix(in oklch, var(--color-warning) 40%, transparent);
+}
+
+.metric-card--warning .metric-card__value {
+  color: var(--color-warning);
+}
+
 .schedule-stat-card > div > h2 {
   margin-bottom: var(--space-1);
+}
+
+.schedule-reminder-settings {
+  margin-bottom: var(--space-4);
+}
+
+.schedule-reminder-settings__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.schedule-reminder-settings__row .toggle-row {
+  flex: 1 1 auto;
+}
+
+.schedule-reminder-settings__row select {
+  width: auto;
+  flex: 0 0 auto;
 }
 
 .schedule-stat-list {
@@ -500,5 +688,42 @@
 @container schedule-page (max-width: 639px) {
   .schedule-stat-dates {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Druckansicht der Statistik-Auswertung: layout.css raeumt bereits Navigation,
+ * FAB und Toasts weg (app-weit); hier faellt zusaetzlich das, was nur auf dem
+ * Bildschirm einen Zweck hat - die Tab-Leiste (die Statistik ist die einzige
+ * Ansicht auf dem Blatt, eine Reihe Reiter dazu waere Bedienoberflaeche ohne
+ * Bedienung), die "Heute"-Karte (beantwortet "was jetzt", nicht "was in der
+ * Spanne war") und die Formular-Bedienelemente (Speichern/Drucken ergeben auf
+ * Papier nichts). Die Auswertung selbst - Kopfzeile, Kennzahlen, Tabellen -
+ * bleibt unveraendert, dieselbe Information, die schon auf dem Bildschirm
+ * stand. */
+@media print {
+  .schedule-tabs,
+  .schedule-today,
+  .schedule-stat-filters .form-field,
+  .schedule-stat-filter-actions {
+    display: none !important;
+  }
+
+  .schedule-statistics {
+    display: block;
+  }
+
+  .schedule-stat-period {
+    font-size: var(--text-lg);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+  }
+
+  .schedule-stat-sections {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .card {
+    box-shadow: none;
+    border: 1px solid var(--color-border);
   }
 }

@@ -18,6 +18,12 @@ export function dateKeysInRange(from, to) {
  * Resolve one user's patterns and overrides in an inclusive date window.
  * `patterns` must be ordered by descending valid_from, so the first matching
  * pattern is the documented winner when a user accidentally overlaps them.
+ *
+ * `patternDays` maps "patternId:position" to an ARRAY of schedule_pattern_days
+ * rows, not a single row - a cycle day may carry several classes at different
+ * times (a timetable), each its own shift_type_id. An empty/missing array
+ * still resolves to exactly one explicit free-day entry (never zero entries),
+ * matching what an unset position has always meant.
  */
 export function resolveEntries({ from, to, userId, patterns, patternDays, overrides }) {
   const overrideByDate = new Map(overrides.map((row) => [row.date_key, row]));
@@ -26,7 +32,7 @@ export function resolveEntries({ from, to, userId, patterns, patternDays, overri
   for (const date_key of dateKeysInRange(from, to)) {
     const override = overrideByDate.get(date_key);
     if (override) {
-      entries.push({ user_id: userId, date_key, source: 'override', override_id: override.id,
+      entries.push({ user_id: userId, date_key, source: 'override', override_id: override.id, pattern_day_id: null,
         shift_type_id: override.shift_type_id, note: override.note ?? null, is_free: override.shift_type_id == null });
       continue;
     }
@@ -36,9 +42,16 @@ export function resolveEntries({ from, to, userId, patterns, patternDays, overri
     if (matches.length > 1) warnings.push({ user_id: userId, date_key, pattern_ids: matches.map((p) => p.id) });
     const pattern = matches[0];
     const position = cyclePosition(pattern.anchor_date, pattern.cycle_length, date_key);
-    const day = patternDays.get(`${pattern.id}:${position}`);
-    entries.push({ user_id: userId, date_key, source: 'pattern', pattern_id: pattern.id, position,
-      shift_type_id: day?.shift_type_id ?? null, note: null, is_free: day?.shift_type_id == null });
+    const days = patternDays.get(`${pattern.id}:${position}`) ?? [];
+    if (!days.length) {
+      entries.push({ user_id: userId, date_key, source: 'pattern', pattern_id: pattern.id, position, pattern_day_id: null,
+        shift_type_id: null, note: null, is_free: true });
+      continue;
+    }
+    for (const day of days) {
+      entries.push({ user_id: userId, date_key, source: 'pattern', pattern_id: pattern.id, position, pattern_day_id: day.id,
+        shift_type_id: day.shift_type_id, note: null, is_free: day.shift_type_id == null });
+    }
   }
   return { entries, warnings };
 }
