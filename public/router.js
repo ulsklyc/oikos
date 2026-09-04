@@ -87,7 +87,6 @@ const ROUTES = [
   { path: '/pantry',   page: '/pages/pantry.js',    requiresAuth: true, module: 'pantry',    titleKey: 'nav.pantry' },
   { path: '/inventory', page: '/pages/inventory.js', requiresAuth: true, module: 'inventory', titleKey: 'nav.inventory' },
   { path: '/schedule', page: '/pages/schedule.js', requiresAuth: true, module: 'schedule', titleKey: 'nav.schedule' },
-  { path: '/timetables', page: '/pages/timetables.js', requiresAuth: true, module: 'timetables', titleKey: 'nav.timetables' },
   { path: '/contacts', page: '/pages/contacts.js',  requiresAuth: true, module: 'contacts',  titleKey: 'nav.contacts' },
   { path: '/budget',   page: '/pages/budget.js',    requiresAuth: true, module: 'budget',    titleKey: 'nav.budget' },
   { path: '/documents', page: '/pages/documents.js', requiresAuth: true, module: 'documents', titleKey: 'nav.documents' },
@@ -3411,7 +3410,6 @@ function navItems({ catalog = false } = {}) {
     // Plan
     { path: '/calendar',  label: t('nav.calendar'),  module: 'calendar',  section: NAV_SECTION.plan },
     { path: '/schedule',  label: t('nav.schedule'),  module: 'schedule',  section: NAV_SECTION.plan },
-    { path: '/timetables', label: t('nav.timetables'), module: 'timetables', section: NAV_SECTION.plan },
     { path: '/tasks',     label: t('nav.tasks'),     module: 'tasks',     section: NAV_SECTION.plan },
     { path: '/notes',     label: t('nav.notes'),     module: 'notes',     section: NAV_SECTION.plan },
     // Haushalt — Kitchen-Gruppe zuerst, dann die übrigen Haushalts-Module

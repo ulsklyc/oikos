@@ -6956,37 +6956,35 @@ const MIGRATIONS = [
   },
   {
     version: 175,
-    description: 'Timetables: work hours and school timetables per family member',
+    description: 'Schedule: timetable blocks per cycle position',
+    foreignKeysOff: true,
     up: `
-      CREATE TABLE IF NOT EXISTS timetable_entries (
-        id            INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        day_of_week   INTEGER NOT NULL CHECK(day_of_week BETWEEN 1 AND 7),
-        start_time    TEXT    NOT NULL CHECK(start_time GLOB '[0-2][0-9]:[0-5][0-9]'),
-        end_time      TEXT    NOT NULL CHECK(end_time GLOB '[0-2][0-9]:[0-5][0-9]'),
-        subject       TEXT    NOT NULL,
-        room          TEXT,
-        instructor    TEXT,
-        color         TEXT,
-        category      TEXT    NOT NULL DEFAULT 'school' CHECK(category IN ('school', 'work', 'activity', 'other')),
-        week_type     TEXT    NOT NULL DEFAULT 'all' CHECK(week_type IN ('all', 'A', 'B')),
+      CREATE TABLE schedule_pattern_days_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        pattern_id INTEGER NOT NULL REFERENCES schedule_patterns(id) ON DELETE CASCADE,
+        position INTEGER NOT NULL CHECK (position >= 0),
+        shift_type_id INTEGER REFERENCES schedule_shift_types(id) ON DELETE RESTRICT,
+        subject TEXT,
+        room TEXT,
+        instructor TEXT,
+        category TEXT NOT NULL DEFAULT 'work' CHECK(category IN ('school', 'work', 'activity', 'other')),
+        color TEXT,
         period_number INTEGER,
-        notes         TEXT,
-        created_at    TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-        updated_at    TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+        notes TEXT
       );
-
-      CREATE INDEX IF NOT EXISTS idx_timetable_entries_user_day
-        ON timetable_entries(user_id, day_of_week);
-
-      CREATE TABLE IF NOT EXISTS timetable_settings (
-        user_id              INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-        active_week          TEXT    NOT NULL DEFAULT 'all' CHECK(active_week IN ('all', 'A', 'B')),
-        view_mode            TEXT    NOT NULL DEFAULT 'week' CHECK(view_mode IN ('day', 'week', 'grid')),
-        show_weekends        INTEGER NOT NULL DEFAULT 0 CHECK(show_weekends IN (0, 1)),
-        show_school_holidays INTEGER NOT NULL DEFAULT 1 CHECK(show_school_holidays IN (0, 1)),
-        updated_at           TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
-      );
+      INSERT INTO schedule_pattern_days_new (id, pattern_id, position, shift_type_id)
+        SELECT id, pattern_id, position, shift_type_id FROM schedule_pattern_days;
+      DROP TABLE schedule_pattern_days;
+      ALTER TABLE schedule_pattern_days_new RENAME TO schedule_pattern_days;
+      CREATE INDEX idx_schedule_pattern_days_position ON schedule_pattern_days(pattern_id, position);
+    `,
+  },
+  {
+    version: 176,
+    description: 'Schedule: timetable block times',
+    up: `
+      ALTER TABLE schedule_pattern_days ADD COLUMN start_time TEXT;
+      ALTER TABLE schedule_pattern_days ADD COLUMN end_time TEXT;
     `,
   },
 ];

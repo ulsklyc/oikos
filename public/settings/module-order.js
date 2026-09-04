@@ -22,7 +22,6 @@ export const BUILT_IN_MODULES = Object.freeze([
   { id: 'dashboard', labelKey: 'nav.dashboard', locked: true },
   { id: 'calendar', labelKey: 'nav.calendar' },
   { id: 'schedule', labelKey: 'nav.schedule' },
-  { id: 'timetables', labelKey: 'nav.timetables' },
   { id: 'tasks', labelKey: 'nav.tasks' },
   { id: 'notes', labelKey: 'nav.notes' },
   { id: 'contacts', labelKey: 'nav.contacts' },
@@ -80,7 +79,7 @@ export const NAV_SECTIONS = Object.freeze([
 export const DEFAULT_MODULE_ACCENT = 'var(--color-accent)';
 
 const KITCHEN_CHILD_ID_SET = new Set(KITCHEN_CHILD_IDS);
-const PLAN_MODULE_IDS = new Set(['calendar', 'schedule', 'timetables', 'tasks', 'notes']);
+const PLAN_MODULE_IDS = new Set(['calendar', 'schedule', 'tasks', 'notes']);
 // Ehemals ein einziger „Zuhause"-Sammeltopf (8 Module) — aufgeteilt in semantische
 // Gruppen ≤5, damit die Sidebar-Sektion eine Bedeutung trägt statt „nicht Plan/Übersicht".
 const HOUSEHOLD_MODULE_IDS = new Set(['kitchen', 'meals', 'recipes', 'shopping', 'housekeeping', 'documents', 'inventory', 'rewards']);

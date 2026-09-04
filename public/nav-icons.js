@@ -323,7 +323,6 @@ export const MODULE_ICON = {
   dashboard:        'layout-dashboard',
   calendar:         'calendar',
   schedule:         'calendar-clock',
-  timetables:       'graduation-cap',
   tasks:            'check-square',
   notes:            'sticky-note',
   meals:            'utensils',

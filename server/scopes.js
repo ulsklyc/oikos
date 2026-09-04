@@ -30,7 +30,6 @@ const SCOPE_MODULES = [
   { key: 'notes',        prefixes: ['notes'] },
   { key: 'contacts',     prefixes: ['contacts'] },
   { key: 'schedule',     prefixes: ['schedule'] },
-  { key: 'timetables',   prefixes: ['timetables'] },
   { key: 'budget',       prefixes: ['budget', 'split-expenses'] },
   { key: 'documents',    prefixes: ['documents'] },
   { key: 'health',       prefixes: ['health'] },

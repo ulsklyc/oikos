@@ -2547,8 +2547,11 @@ formally closed.
 | Column | Type | Constraint |
 |--------|------|-----------|
 | pattern_id | INTEGER | NOT NULL, FK → Schedule Patterns (CASCADE) |
-| position | INTEGER | NOT NULL, `CHECK >= 0`, `UNIQUE (pattern_id, position)` — 0 … cycle_length-1 |
-| shift_type_id | INTEGER | FK → Schedule Shift Types (RESTRICT) — NULL is a free day within the cycle |
+| position | INTEGER | NOT NULL, `CHECK >= 0` — 0 … cycle_length-1; multiple blocks may share a position |
+| shift_type_id | INTEGER | FK → Schedule Shift Types (RESTRICT) — NULL is a free block within the cycle |
+| subject / room / instructor | TEXT | Optional timetable details |
+| category | TEXT | `school`, `work`, `activity`, or `other` |
+| color / period_number / notes | TEXT / INTEGER / TEXT | Optional block color, lesson period, and notes |
 
 Shortening a pattern is refused while days sit beyond the new length, rather than silently dropping
 them.
@@ -3215,17 +3218,6 @@ Off by default. Four tabs (shift types, patterns, overrides, statistics) plus a 
   `GET/PUT /api/v1/schedule/patterns/:id/days[/:position]`, `GET /api/v1/schedule/overrides`,
   `POST /api/v1/schedule/overrides/fill`, `DELETE /api/v1/schedule/overrides` (a date range, for a
   grouped row), `PUT/DELETE /api/v1/schedule/overrides/:dateKey`.
-
-### Timetables (`/timetables`)
-
-School timetables, lectures, work hours and study schedules per family member.
-
-- **Per-member organization:** schedules are organized per family member with day, week grid, and list views.
-- **Recurring weekly slots:** Monday–Sunday slots with start/end time, subject title, optional period number, room/location, instructor/teacher, category (`school`, `work`, `activity`, `other`), color and notes.
-- **Alternating weeks:** slots can apply to all weeks, Week A only, or Week B only for bi-weekly / rotating schedules.
-- **Copy schedule:** copy all timetable entries from one family member to another in one step.
-- **Preferences:** toggleable weekend display (Mon–Fri vs Mon–Sun) and default week type per member.
-- **API:** `GET/POST /api/v1/timetables`, `GET/PUT/DELETE /api/v1/timetables/:id`, `GET /api/v1/timetables/today`, `GET/PUT /api/v1/timetables/settings`, `POST /api/v1/timetables/copy`.
 
 ### Rewards (`/rewards`)
 

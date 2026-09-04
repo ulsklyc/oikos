@@ -87,7 +87,6 @@ Schalte an, was dein Haushalt braucht; der Rest bleibt aus dem Weg.
 | **Belohnungen** | Punkte auf Aufgaben schreiben der zugewiesenen Person gut, mit elterlich freigegebenem Katalog und nachvollziehbarem Konto. |
 | **Gesundheit** | Vitalwerte, Medikamente, Laborwerte, Aktivität und Zyklus je Mitglied, mit Verlaufsdiagrammen. |
 | **Schichtplan** | Rotierende Schichtmuster und feste Wochenpläne aus einem Zyklusmodell, mit Ausnahmen je Tag und einem ausdrücklichen freien Tag. Der Kalender zeigt sie als schreibgeschützte Ebene, beim Lesen berechnet - eine Musteränderung lässt keine veralteten Termine zurück. Standardmäßig aus. |
-| **Stundenplan** | Wöchentliche Schul- und Arbeitspläne je Familienmitglied mit Tages- und Wochenansicht, Schulstunden, Raum-/Lehrkraftangaben und A/B-Wochenwechsel. |
 | **Notizen &amp; Kontakte** | Farbige Markdown-Haftnotizen mit Checklisten, die man antippt statt zu bearbeiten, plus ein Kontaktverzeichnis mit CardDAV-Sync und vCard-Import/-Export. |
 | **Geburtstage** | Geburtstagsliste mit optionalen Namenstagen, automatischen Kalendereinträgen, Altersanzeige und Erinnerungen. |
 | **Familie** | Mitgliedsprofile mit Rollen, Fotos und Kontaktdaten. Neue Mitglieder kommen über einen Einladungslink und wählen ihr Passwort selbst. |
