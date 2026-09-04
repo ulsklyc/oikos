@@ -7,7 +7,7 @@
 
   <p>
     Tasks, calendar, budget, groceries, meals, health and more - for a family, a couple,
-    or just you. Twenty modules on a server you own, and the only thing that leaves it
+    or just you. Nineteen modules on a server you own, and the only thing that leaves it
     is a version check.
   </p>
 
@@ -34,7 +34,7 @@
     <img src="docs/screenshots/dashboard-light-web.webp" alt="The Yuvomi dashboard: today's tasks, calendar events, meals and the shopping list on one screen" width="820">
   </picture>
 
-  <sub><b>20</b> modules &nbsp;·&nbsp; <b>24</b> languages &nbsp;·&nbsp; <b>0</b> trackers &nbsp;·&nbsp; optional <b>AES-256</b> database encryption &nbsp;·&nbsp; <b>MIT</b></sub>
+  <sub><b>19</b> modules &nbsp;·&nbsp; <b>24</b> languages &nbsp;·&nbsp; <b>0</b> trackers &nbsp;·&nbsp; optional <b>AES-256</b> database encryption &nbsp;·&nbsp; <b>MIT</b></sub>
 </div>
 
 Most households glue their life together from a dozen paid apps, each with its own account, its
@@ -68,7 +68,7 @@ This is the part a folder full of separate apps cannot do:
 - **A ticked-off chore pays out.** Points on a task land on the assigned member's account, and the reward catalog spends them.
 - **A filed receipt hangs on the booking.** Upload it once and it belongs to the transaction, the shared expense and the inventory item at the same time.
 
-## The twenty modules
+## The nineteen modules
 
 Turn on what your household needs; the rest stays out of the way.
 
@@ -86,7 +86,7 @@ Turn on what your household needs; the rest stays out of the way.
 | **Housekeeping** | Household staff: schedules, check-in/out, daily or hourly billing, chores and supply requests. |
 | **Rewards** | Points on tasks credit the assigned member, with a parent-approved catalog and an auditable ledger. |
 | **Health** | Per-member vitals, medications, labs, activity and cycle tracking, with trend charts. |
-| **Schedule** | Rotating shift patterns and fixed weekly timetables from one cycle model, with per-day overrides, lesson details, and an aligned member grid. The calendar shows them as a read-only overlay computed on read, so changing a pattern leaves no stale appointments behind. Off by default. |
+| **Schedule** | Rotating shift patterns and fixed weekly timetables from one cycle model, with per-day overrides and an explicit free day. The calendar shows them as a read-only overlay computed on read, so changing a pattern leaves no stale appointments behind. Off by default. |
 | **Notes &amp; Contacts** | Colored Markdown sticky notes with checklists you tick off by tapping them, plus a contact directory with CardDAV sync and vCard import/export. |
 | **Birthdays** | Birthday and optional name-day tracker with automatic calendar events, age display and reminders. |
 | **Family** | Member profiles with roles, photos and contact details. New members join through an invite link and pick their own password. |

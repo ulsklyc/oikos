@@ -7,7 +7,7 @@
 
   <p>
     Aufgaben, Kalender, Budget, Einkauf, Mahlzeiten, Gesundheit und mehr - für eine Familie,
-    ein Paar oder nur dich. Zwanzig Module auf einem Server, der dir gehört, und das Einzige,
+    ein Paar oder nur dich. Neunzehn Module auf einem Server, der dir gehört, und das Einzige,
     was ihn verlässt, ist eine Versionsprüfung.
   </p>
 
@@ -34,7 +34,7 @@
     <img src="docs/screenshots/de/dashboard-light-web.webp" alt="Das Yuvomi-Dashboard: Aufgaben, Termine, Mahlzeiten und Einkaufsliste des Tages auf einem Bildschirm" width="820">
   </picture>
 
-  <sub><b>20</b> Module &nbsp;·&nbsp; <b>24</b> Sprachen &nbsp;·&nbsp; <b>0</b> Tracker &nbsp;·&nbsp; optionale <b>AES-256</b>-Verschlüsselung &nbsp;·&nbsp; <b>MIT</b></sub>
+  <sub><b>19</b> Module &nbsp;·&nbsp; <b>24</b> Sprachen &nbsp;·&nbsp; <b>0</b> Tracker &nbsp;·&nbsp; optionale <b>AES-256</b>-Datenbankverschlüsselung &nbsp;·&nbsp; <b>MIT</b></sub>
 </div>
 
 Die meisten Haushalte kleben ihren Alltag aus einem Dutzend Bezahl-Apps zusammen, jede mit eigenem
@@ -68,7 +68,7 @@ Das ist der Teil, den ein Ordner voller Einzel-Apps nicht kann:
 - **Eine erledigte Aufgabe zahlt aus.** Punkte auf einer Aufgabe landen auf dem Konto der zugewiesenen Person, und der Belohnungskatalog gibt sie aus.
 - **Ein abgelegter Beleg hängt an der Buchung.** Einmal hochgeladen, gehört er gleichzeitig zur Buchung, zur geteilten Ausgabe und zum Inventargegenstand.
 
-## Die zwanzig Module
+## Die neunzehn Module
 
 Schalte an, was dein Haushalt braucht; der Rest bleibt aus dem Weg.
 
