@@ -903,6 +903,7 @@
         "toggleHolidays": "法定节假日",
         "toggleSchool": "学校假期",
         "toggleBirthdays": "生日",
+        "toggleMonthTitles": "事件标题",
         "assignedToMe": "分配给我",
         "deleteRecurringTitle": "删除重复事件",
         "recurringScopeLabel": "应用于",

@@ -915,6 +915,7 @@
         "toggleHolidays": "공휴일",
         "toggleSchool": "방학",
         "toggleBirthdays": "생일",
+        "toggleMonthTitles": "일정 제목",
         "assignedToMe": "나에게 할당됨",
         "deleteRecurringTitle": "반복 일정 삭제",
         "recurringScopeLabel": "적용 대상",

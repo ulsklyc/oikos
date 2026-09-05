@@ -329,6 +329,12 @@ const LAYER_SCHOOL_KEY    = 'yuvomi:calendar:layer:school';
 const LAYER_BIRTHDAYS_KEY = 'yuvomi:calendar:layer:birthdays';
 const LAYER_SCHEDULE_KEY = 'yuvomi:calendar:layer:schedule';
 const SCHEDULE_DISPLAY_KEY = 'yuvomi:calendar:schedule-display';
+// Monatszelle am Telefon: Titelzeilen statt Punkte. GERAETEWEIT, nicht pro
+// Haushalt - die Frage, die der Schalter beantwortet ("passt ein Titel auf
+// diesen Schirm?"), ist eine des Geraets, und dieselbe Person liest denselben
+// Kalender abends am 27-Zoll-Monitor. Damit steht er neben scheduleDisplay in
+// localStorage und nicht in den Haushaltseinstellungen.
+const MONTH_TITLES_KEY = 'yuvomi:calendar:month-titles';
 const ASSIGNED_TO_ME_KEY  = 'yuvomi:calendar:assignedToMe';
 const PEOPLE_FILTER_KEY   = 'yuvomi:calendar:people';
 
@@ -580,6 +586,11 @@ let state = {
   layerSchool:   true,     // toggle for school holiday layer
   layerBirthdays: true,    // toggle for the birthday layer (#778)
   layerSchedule: true,     // computed schedule overlay
+  // AUS ist die Vorgabe, und das ist eine Zusage an den Bestand: die Punkte
+  // sind die gemessene Fassung (siehe den Block in calendar.css), und ein
+  // Update, das die Monatsansicht jedes Telefons ungefragt umbaut, waere die
+  // falsche Art, eine zweite Lesart anzubieten.
+  monthTitles: false,      // Monat am Telefon: Titelzeilen statt Punkte
   scheduleDisplay: 'compact',
   offlineSince:  null,     // Date des letzten Cache-Stands, wenn offline bedient
   defaultDuration: 60,     // Standard-Termindauer (Minuten) aus den Präferenzen
@@ -1366,6 +1377,9 @@ export async function render(container, { user }) {
   state.layerBirthdays = localStorage.getItem(LAYER_BIRTHDAYS_KEY) !== 'false';
   state.layerSchedule = localStorage.getItem(LAYER_SCHEDULE_KEY) !== 'false';
   state.scheduleDisplay = localStorage.getItem(SCHEDULE_DISPLAY_KEY) === 'blocks' ? 'blocks' : 'compact';
+  // Gegen 'true' geprueft, nicht gegen 'false' wie die Ebenen darueber: die
+  // Ebenen sind AN, solange nichts anderes dasteht, dieser Schalter ist AUS.
+  state.monthTitles = localStorage.getItem(MONTH_TITLES_KEY) === 'true';
   state.currentUserId = user?.id ?? null;
   state.user          = user ?? null;
   state.assignedToMe  = localStorage.getItem(ASSIGNED_TO_ME_KEY) === '1';
@@ -1714,6 +1728,20 @@ function updateOfflineNotice() {
 // extrem vollen Tagen (>14 Items) - "+N" zählt via data-total trotzdem korrekt.
 const MONTH_DAY_MAX_CHIPS = 14;
 
+/**
+ * Den Deckel aus dem gelesenen Custom-Property-Wert bestimmen.
+ *
+ * Eigene Funktion, weil hier drei Werte dasselbe bedeuten muessen: der leere
+ * String (Property nirgends gesetzt), '0' (Basiswert von .month-grid) und
+ * alles Unlesbare - alle drei heissen "kein Deckel". Als Ausdruck inline stand
+ * das dreimal nicht da, und `parseInt('') > 0` ist NaN > 0, also genau der
+ * stille Fall, der ohne diese Funktion niemand pruefen kann.
+ */
+function monthDayVisibleCap(raw) {
+  const n = parseInt(raw, 10);
+  return n > 0 ? n : Infinity;
+}
+
 let _monthGridResizeObserver = null;
 let _monthFitRaf = 0;
 
@@ -1748,6 +1776,15 @@ function fitMonthDayCells(grid) {
     if (chips.length) cells.push({ cell, chips, moreRow, total });
   }
 
+  // Der Deckel kommt aus dem Stylesheet, nicht aus einer zweiten Breitenabfrage
+  // hier: in der Titelfassung stehen hoechstens vier Zeilen, sonst entscheidet
+  // weiter allein die Zellhoehe (0/leer = kein Deckel). Wo die Grenze liegt,
+  // weiss die Media Query, die auch die Zeilenhoehe setzt - ein zweites
+  // `matchMedia` daneben waere dieselbe Zahl an einer zweiten Stelle. EIN
+  // Lesezugriff fuers ganze Gitter, in der Messphase: er teilt sich den
+  // erzwungenen Reflow mit den Zellmessungen darunter.
+  const maxVisible = monthDayVisibleCap(getComputedStyle(grid).getPropertyValue('--month-day-max-visible'));
+
   // Messphase: der erste Zugriff erzwingt EINEN Reflow, der Rest liest mit.
   for (const item of cells) {
     const cs        = getComputedStyle(item.cell);
@@ -1757,8 +1794,12 @@ function fitMonthDayCells(grid) {
   }
 
   for (const { chips, moreRow, total, bottoms, cellBottom, reserved } of cells) {
-    // Passt alles rein (inkl. evtl. nicht gerenderter Überzähliger)? Dann fertig.
-    const fitsAll = total <= chips.length && bottoms[bottoms.length - 1] <= cellBottom;
+    // Passt alles rein (inkl. evtl. nicht gerenderter Überzähliger) UND unter den
+    // Deckel? Dann fertig. Ohne die zweite Frage traete der Fall "fuenf Termine,
+    // Zelle hoch genug fuer fuenf" hier durch und zeigte fuenf Zeilen ohne "+N" -
+    // der Deckel muss auf BEIDEN Wegen greifen, nicht nur im Klipp-Zweig.
+    const fitsAll = total <= chips.length && total <= maxVisible
+      && bottoms[bottoms.length - 1] <= cellBottom;
     if (fitsAll) {
       moreRow.hidden = true;
       moreRow.textContent = '';
@@ -1771,7 +1812,7 @@ function fitMonthDayCells(grid) {
       if (bottom <= reserved) visible += 1;
       else break;
     }
-    visible = Math.max(1, visible); // nie ganz leer wirken lassen
+    visible = Math.max(1, Math.min(visible, maxVisible)); // nie ganz leer wirken lassen
 
     chips.forEach((chip, i) => chip.classList.toggle('is-clipped', i >= visible));
     const hiddenCount = total - visible;
@@ -1876,7 +1917,7 @@ function renderMonthView(container) {
 
   container.replaceChildren();
   container.insertAdjacentHTML('beforeend', `
-    <div class="month-view">
+    <div class="${monthViewClasses(state.monthTitles)}">
       <div class="month-weekdays">
         ${weekdayOrder(state.weekStart).map((idx) => `<div class="month-weekday">${DAY_NAMES_SHORT()[idx]}</div>`).join('')}
       </div>
@@ -1891,9 +1932,13 @@ function renderMonthView(container) {
     const dayEl = e.target.closest('.month-day');
     if (!dayEl) return;
 
-    // Mobil ist die ganze Zelle EIN Drill-in-Ziel: die Chips sind dort zu
-    // Punkten reduziert (reines "etwas ist los"-Signal), ein Tap darf nie in
-    // einem Event-Popup enden statt in der handlungsfähigen Tagesansicht (P1).
+    // Mobil ist die ganze Zelle EIN Drill-in-Ziel, und das bleibt es auch mit
+    // Titelzeilen. DER GRUND IST DIE TAP-GROESSE, nicht die Chip-Form: hier
+    // stand "die Chips sind dort zu Punkten reduziert", was ab dem
+    // Titel-Schalter nur noch die halbe Wahrheit waere - eine 13px hohe
+    // Titelzeile ist genauso weit unter den 44px, die ein Ziel am Finger
+    // braucht, wie es der 10px-Punkt war. Ein Tap darf nie in einem
+    // Event-Popup enden statt in der handlungsfaehigen Tagesansicht (P1).
     // Desktop behält die feinere Interaktion: Chip -> Ziel, Zelle -> Tag.
     const isMobile = window.matchMedia(MOBILE_MEDIA_QUERY).matches;
     if (!isMobile) {
@@ -1939,6 +1984,22 @@ function renderMonthView(container) {
  * Wochenend-Tönung hing früher an `:nth-child(7n)`/`7n-1` im CSS, was nur bei
  * Wochenstart Montag Sa/So traf: bei Sonntag-Start färbte sie Fr/Sa (#780).
  */
+/**
+ * Klassen der Monatsflaeche. Eigene Funktion aus demselben Grund wie
+ * `monthDayClasses` daneben: die Entscheidung ist damit ohne DOM pruefbar
+ * (`__test`), statt nur als Teilstring einer Template-Zeile zu existieren.
+ *
+ * Die Modifier-Klasse steht auf ALLEN Breiten, wenn der Schalter an ist - was
+ * sie bewirkt, entscheidet allein das Stylesheet, und dort wohnt sie in der
+ * 639er-Query. Sie hier zusaetzlich an ein `matchMedia` zu haengen, hiesse die
+ * Schwelle ein zweites Mal zu fuehren; beim naechsten Breakpoint-Umbau liefen
+ * die beiden auseinander, und genau diese Doppelung hat der Kalender 2026-08
+ * schon einmal bezahlt (siehe MOBILE_MEDIA_QUERY).
+ */
+function monthViewClasses(monthTitles) {
+  return ['month-view', monthTitles ? 'month-view--titles' : ''].filter(Boolean).join(' ');
+}
+
 function monthDayClasses(date, inMonth, todayKey = state.today) {
   return [
     'month-day',
@@ -2655,6 +2716,18 @@ function openCalendarFilters() {
     attrs: { 'data-filter-schedule-display': 'true' },
   }) : '';
 
+  // NUR AM TELEFON, denn nur dort gibt es die zweite Fassung: ab 640px zeigt
+  // die Monatszelle ohnehin Titel, und der Schalter waere ein Bedienelement
+  // ohne Wirkung - die Zeile wuerde etwas versprechen, das die Ansicht schon
+  // tut. Das Blatt wird beim Oeffnen gebaut, die Zeile richtet sich also nach
+  // der Breite in diesem Moment; wer waehrend des offenen Blattes dreht,
+  // sieht sie beim naechsten Oeffnen.
+  const monthTitlesRow = window.matchMedia(MOBILE_MEDIA_QUERY).matches ? toggleRowHtml({
+    label: t('calendar.toggleMonthTitles'),
+    checked: state.monthTitles,
+    attrs: { 'data-filter-month-titles': 'true' },
+  }) : '';
+
   const meRow = (people.length > 1 && state.currentUserId != null)
     ? toggleRowHtml({
       label: t('calendar.assignedToMe'),
@@ -2695,10 +2768,11 @@ function openCalendarFilters() {
           ${personRows}
         </section>
       ` : ''}
-      ${scheduleDisplayRow ? `
+      ${(scheduleDisplayRow || monthTitlesRow) ? `
         <section class="cal-filters__group">
           <h3 class="cal-filters__heading">${t('calendar.filtersDisplay')}</h3>
           ${scheduleDisplayRow}
+          ${monthTitlesRow}
         </section>
       ` : ''}
       <button type="button" class="btn btn--secondary cal-filters__reset" id="cal-filters-reset">
@@ -2731,6 +2805,9 @@ function openCalendarFilters() {
     } else if (input.dataset.filterScheduleDisplay) {
       state.scheduleDisplay = input.checked ? 'blocks' : 'compact';
       try { localStorage.setItem(SCHEDULE_DISPLAY_KEY, state.scheduleDisplay); } catch {}
+    } else if (input.dataset.filterMonthTitles) {
+      state.monthTitles = input.checked;
+      try { localStorage.setItem(MONTH_TITLES_KEY, input.checked ? 'true' : 'false'); } catch {}
     } else if (input.dataset.filterMine) {
       state.assignedToMe = input.checked;
       try { localStorage.setItem(ASSIGNED_TO_ME_KEY, input.checked ? '1' : '0'); } catch {}
@@ -3053,6 +3130,8 @@ export const __test = {
   clickedTime,
   hourOffset,
   monthDayClasses,
+  monthViewClasses,
+  monthDayVisibleCap,
   pickerColors,
   colorToSave,
   eventIconName,

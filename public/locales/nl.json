@@ -903,6 +903,7 @@
         "toggleHolidays": "Feestdagen",
         "toggleSchool": "Schoolvakanties",
         "toggleBirthdays": "Verjaardagen",
+        "toggleMonthTitles": "Afspraaktitels",
         "assignedToMe": "Aan mij toegewezen",
         "deleteRecurringTitle": "Terugkerende afspraak verwijderen",
         "recurringScopeLabel": "Van toepassing op",

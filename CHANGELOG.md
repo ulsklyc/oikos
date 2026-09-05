@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The month view on a phone can now show event titles instead of coloured dots.** Below 640px
+  every entry in a month cell was reduced to a 10px dot - a reliable "something is happening"
+  signal, but one that makes reading the month itself a day-by-day affair. A new "Event titles"
+  switch under Display in the calendar's filter sheet keeps the same chips and shrinks them to
+  10px single-line rows with an ellipsis, up to four per day followed by the existing "+N".
+
+  The dots stay the default: their contrast recipe is measured, and an update should not rebuild
+  every household's month view unasked. The switch is per device (localStorage, next to the
+  schedule display mode), because the question it answers - does a title fit on this screen - is
+  the device's, and the same person reads the same calendar on a monitor in the evening. It
+  appears only below 640px, where there is a second fassung to choose. Colour, contrast and the
+  tap target are unchanged: the titles inherit the tinted surface the wider month view already
+  uses, and a tap anywhere in the cell still opens the day.
+
 - **Deleting a document folder can now either keep its documents unfiled or delete the confirmed
   subtree together with its documents.** The dialog previews exact folder and document counts and
   offers destructive deletion only when the user may delete every affected document. The server

@@ -915,6 +915,7 @@
         "toggleHolidays": "تعطیلات رسمی",
         "toggleSchool": "تعطیلات مدرسه",
         "toggleBirthdays": "تولدها",
+        "toggleMonthTitles": "عنوان رویدادها",
         "assignedToMe": "واگذارشده به من",
         "deleteRecurringTitle": "حذف رویداد تکرارشونده",
         "recurringScopeLabel": "اعمال بر",
