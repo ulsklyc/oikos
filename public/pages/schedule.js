@@ -410,8 +410,17 @@ async function refreshOverview() {
   const weekStart = weekStartIndex(state.weekStartPref);
   const from = startOfLocalWeekKey(overview.weekCursor, weekStart);
   const to = addLocalDays(from, 6);
+  // Einen Tag vor dem ersten sichtbaren Tag mitholen: eine Nachtschicht auf
+  // dem letzten Tag der VORIGEN Woche wird sonst nie geladen, und ihre
+  // Fortsetzung auf dem ersten sichtbaren Tag der neuen Woche faellt
+  // ersatzlos weg statt zu erscheinen (Review-Fund 2026-09-05, #1022).
+  // buildOverviewLanes() rendert diesen zusaetzlichen Tag nie selbst als
+  // Spalte - er dient nur als Quelle fuer eine Fortsetzung, die auf einen Tag
+  // aus `weekDays` faellt. Die Feiertage brauchen das nicht, sie kennen keine
+  // Fortsetzung ueber Mitternacht.
+  const entriesFrom = addLocalDays(from, -1);
   const [entriesRes, holidaysRes] = await Promise.all([
-    api.get(`/schedule/entries?from=${from}&to=${to}`),
+    api.get(`/schedule/entries?from=${entriesFrom}&to=${to}`),
     api.get(`/calendar/holidays?from=${from}&to=${to}`).catch(() => ({ data: [] })),
   ]);
   overview = {
@@ -912,10 +921,16 @@ function renderToday() {
 
 // Uebersicht-Tab: mehrere Personen nebeneinander vergleichen.
 //
-// Feste Spur je Person, nach AUSWAHLREIHENFOLGE - nie nach Aktivitaet
-// umsortiert. Der ganze Sinn der Ansicht ist, dass "Kind 2s Spalte" jeden Tag
-// an derselben Stelle steht, damit das Auge sie ueber eine Woche verfolgen
-// kann; eine Person mit vielen Eintraegen darf ihr nicht mehr Platz oder eine
+// Feste Spur je Person, nie nach Aktivitaet umsortiert. Die Reihenfolge kommt
+// unveraendert aus `getSelectedUserIds()` (DOM-Reihenfolge des Multi-Select-
+// Widgets, alphabetisch nach display_name) - NICHT aus der Klickreihenfolge,
+// wie ein frueherer Stand dieses Kommentars behauptete (Review-Fund
+// 2026-09-05, #1022). Das ist das richtige Verhalten, nur die Beschreibung
+// war falsch: alphabetisch bleibt stabil ueber jede Auswahlaenderung hinweg,
+// eine Klickreihenfolge wuerde sich bei jedem Abwaehlen/Neuwaehlen verschieben.
+// Der ganze Sinn der Ansicht ist, dass "Kind 2s Spalte" jeden Tag an
+// derselben Stelle steht, damit das Auge sie ueber eine Woche verfolgen kann;
+// eine Person mit vielen Eintraegen darf ihr nicht mehr Platz oder eine
 // andere Position erkaufen (anders als layoutOverlaps() in calendar.js, das
 // bewusst dynamisch ist - dort geht es um sich ueberschneidende Termine EINER
 // Spalte, nicht um Personen-Identitaet). Jede Spur wird gerendert, auch mit
@@ -925,6 +940,21 @@ function renderToday() {
 function isOvernightEntry(entry) {
   const type = entry.shift_type;
   return !!(type?.start_time && type?.end_time && type.end_time <= type.start_time);
+}
+
+/**
+ * Zaehlt ein Eintrag fuer computeActiveHours() der sichtbaren Tage, obwohl
+ * sein eigener date_key evtl. nicht sichtbar ist? Ja, wenn er selbst
+ * sichtbar ist ODER er eine Nachtschicht ist, deren Fortsetzung (siehe
+ * buildOverviewLanes()) auf einen sichtbaren Tag faellt - sonst hat
+ * ausgerechnet die Tagesansicht direkt nach einer Nachtschicht keinen
+ * einzigen bezeiteten Eintrag zum Rechnen und faellt auf die Standardstunden
+ * zurueck, obwohl die Fortsetzung selbst sehr wohl gerendert wird
+ * (Review-Fund 2026-09-05, #1022).
+ */
+function touchesVisibleDay(entry, visibleDateKeys) {
+  return visibleDateKeys.has(entry.date_key)
+    || (isOvernightEntry(entry) && visibleDateKeys.has(addLocalDays(entry.date_key, 1)));
 }
 
 function buildOverviewLanes(days, selectedUserIds, entries) {
@@ -1124,7 +1154,7 @@ function renderOverview() {
   // sichtbarer Tag (Tagesansicht) soll aber keine Stunde mehr "aktiv" halten,
   // die hier gar nicht zu sehen ist.
   const visibleDateKeys = new Set(weekDays);
-  const selectedEntries = overview.entries.filter((entry) => overview.selectedIds.includes(entry.user_id) && visibleDateKeys.has(entry.date_key));
+  const selectedEntries = overview.entries.filter((entry) => overview.selectedIds.includes(entry.user_id) && touchesVisibleDay(entry, visibleDateKeys));
   const activeHours = computeActiveHours(selectedEntries);
   const gridHeight = activeHours.length * OVERVIEW_HOUR_PX;
   const hourLines = activeHours.map((_, i) => `<div class="schedule-overview__hour-line" style="top:${i * OVERVIEW_HOUR_PX}px"></div>`).join('');
@@ -1955,4 +1985,4 @@ export async function render(container, { user } = {}) {
 // bereits pur bzw. nehmen ihre Eingabe jetzt als Parameter statt sie fest aus
 // `state` zu lesen - ein Test kann so echte Tage hineingeben und das Ergebnis
 // pruefen, statt nur zu belegen, dass der Funktionsname im Quelltext steht.
-export const __test = { overrideGroups, rangeDifference, setShiftIconButtonIcon, overtimeInfo, sameFieldValues, overlayMeta, buildOverviewLanes, normalizeOverviewSelection, computeActiveHours, collapsedMinutes, isOvernightEntry };
+export const __test = { overrideGroups, rangeDifference, setShiftIconButtonIcon, overtimeInfo, sameFieldValues, overlayMeta, buildOverviewLanes, normalizeOverviewSelection, computeActiveHours, collapsedMinutes, isOvernightEntry, touchesVisibleDay };

@@ -31,6 +31,25 @@ function insertUser(username, role = 'member') {
 const alice = insertUser('feed-alice');
 const bob = insertUser('feed-bob');
 
+// Ohne diese Zeile faellt householdTimeZone() auf serverTimeZone() zurueck -
+// die Zone der Maschine, die den Test gerade ausfuehrt (#1022, Review-Fund
+// 2026-09-05). In einem UTC-Container liefert resolveFeedZone() dann `null`
+// und stampProp() haengt ein 'Z' an; ausserhalb UTC entsteht stattdessen
+// `DTSTART;TZID=<Zone>:...`. Die alten, nicht endverankerten Assertions unten
+// passten zufaellig auf beide Formen und pruefte damit nie wirklich die
+// Verankerung. Pin wie test-schedule-reminders.js es schon fuer die Erinnerungen tut.
+db.prepare("INSERT INTO sync_config (key, value) VALUES ('household_timezone', 'UTC')").run();
+
+/** Fuehrt `fn` mit einer anderen Haushaltszone aus, stellt UTC danach wieder her. */
+function withHouseholdTimeZone(zone, fn) {
+  db.prepare("UPDATE sync_config SET value = ? WHERE key = 'household_timezone'").run(zone);
+  try {
+    fn();
+  } finally {
+    db.prepare("UPDATE sync_config SET value = 'UTC' WHERE key = 'household_timezone'").run();
+  }
+}
+
 function insertType(fields = {}) {
   const f = { name: 'Frueh', short_code: 'F', start_time: '06:00', end_time: '14:00', color: '#6C3AED', ...fields };
   return db.prepare(`
@@ -151,9 +170,29 @@ test('eine Schicht mit Uhrzeiten trägt DTSTART/DTEND als Zeitstempel, nicht als
   insertOverride(alice, today, type);
 
   const ics = scheduleIcs.buildScheduleFeed(db, alice);
-  assert.match(ics, /DTSTART:\d{8}T140000/);
-  assert.match(ics, /DTEND:\d{8}T220000/);
+  // Endverankert (kein `/DTSTART:\d{8}T140000/` ohne `$`): die Haushaltszone ist
+  // hier UTC, resolveFeedZone() liefert also null und stampProp() haengt ein
+  // 'Z' an - eine unverankerte Regex saehe das faelschlich als Treffer fuer die
+  // TZID-Form einer anderen Zone (#1022, Review-Fund 2026-09-05).
+  assert.match(ics, /DTSTART:\d{8}T140000Z$/m);
+  assert.match(ics, /DTEND:\d{8}T220000Z$/m);
   assert.doesNotMatch(ics, /DTSTART;VALUE=DATE/);
+  assert.doesNotMatch(ics, /TZID=/);
+
+  db.exec('DELETE FROM schedule_overrides');
+});
+
+test('eine Schicht mit Uhrzeiten verankert an einer Nicht-UTC-Haushaltszone statt an "Z"', () => {
+  const type = insertType({ name: 'Spaet2b', start_time: '14:00', end_time: '22:00' });
+  const today = db.prepare("SELECT date('now') AS d").get().d;
+  insertOverride(alice, today, type);
+
+  withHouseholdTimeZone('Europe/Berlin', () => {
+    const ics = scheduleIcs.buildScheduleFeed(db, alice);
+    assert.match(ics, /DTSTART;TZID=Europe\/Berlin:\d{8}T140000$/m);
+    assert.match(ics, /DTEND;TZID=Europe\/Berlin:\d{8}T220000$/m);
+    assert.doesNotMatch(ics, /DTSTART:\d{8}T140000Z/);
+  });
 
   db.exec('DELETE FROM schedule_overrides');
 });
@@ -165,7 +204,8 @@ test('eine Nachtschicht über Mitternacht endet auf dem Folgetag', () => {
   insertOverride(alice, today, night);
 
   const ics = scheduleIcs.buildScheduleFeed(db, alice);
-  assert.match(ics, new RegExp(`DTEND:${tomorrow}T060000`));
+  // Endverankert, gleicher Grund wie oben: UTC-Haushalt, also 'Z' statt TZID.
+  assert.match(ics, new RegExp(`DTEND:${tomorrow}T060000Z$`, 'm'));
 
   db.exec('DELETE FROM schedule_overrides');
 });

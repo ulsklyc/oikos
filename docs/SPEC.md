@@ -2807,6 +2807,33 @@ set to `null` to reset it to its default):
   member of the same household have different targets and the overtime card evaluates each member's
   own range.
 
+**Overview tab (Schedule v3):** a fifth tab compares several household members' resolved schedules
+side by side, one lane per person, for a whole week or a single day (`GET /schedule/entries`, no new
+endpoint — the same call every other view already makes, just fetched for the selected people at
+once). Answers the "several fixed timetables, one glance" request from a proposed separate
+Timetables module/feature (#1018) without a second data model, since every resolved entry already
+carries a `user_id`.
+
+- **Person picker:** a real multi-select (unlike the Statistics tab's single-select picker), offering
+  only actual household members — filtered through `isHouseholdMember()`
+  (`server/services/member-email.js`), the one shared predicate that already excludes housekeeping
+  workers and split-expense guests everywhere else membership is checked. Selection persists per
+  browser (`localStorage`); a stale id for someone since removed or demoted is silently dropped on
+  load rather than left dangling.
+- **Fixed lane order:** lanes stay in the order the picker returns them, never re-sorted by who has
+  entries that day — the point of the view is that "the second child's column" is always in the same
+  place, so a lane still renders (empty) for a person with nothing on a given day rather than
+  collapsing and shifting every later lane.
+- **Overnight continuation:** a shift that crosses midnight continues into the next visible day as a
+  synthetic entry, the same "vanishing at midnight" problem the calendar overlay already solves for a
+  single person. The fetch window reaches one day earlier than the visible range specifically so a
+  shift starting on the last day of the previous week still has something to continue from on the
+  first visible day of the new one.
+- **Holidays:** the household's school/public holidays render as a banner above the grid, not inside
+  any one lane — a holiday has no `user_id`, so it belongs to the whole view rather than one column.
+- **Frontend only:** `public/pages/schedule.js` (`buildOverviewLanes()`, `computeActiveHours()`,
+  `touchesVisibleDay()`); no new migration, no new route.
+
 ### Access Permissions (migration v74)
 
 Role- and member-based access control for interactive users (#467). Governs which modules a

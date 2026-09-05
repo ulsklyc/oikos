@@ -806,6 +806,45 @@ test('computeActiveHours() drops hours nobody selected occupies, and falls back 
   assert.deepEqual(__test.computeActiveHours(overnight), [0, 1, 2, 3, 4, 5, 22, 23], 'both the before- and after-midnight hours count as active');
 });
 
+// Review-Fund 2026-09-05 (#1022): activeHours filterte strikt nach
+// visibleDateKeys, ohne eine Nachtschicht des Vortags zu beruecksichtigen,
+// deren Fortsetzung auf einen sichtbaren Tag faellt. In der Tagesansicht
+// direkt nach einer Nachtschicht war visibleDateKeys dann genau EIN Tag, der
+// Originaleintrag (datiert auf den Vortag) fiel durchs Sieb, und
+// computeActiveHours() sah gar keinen bezeiteten Eintrag - obwohl
+// buildOverviewLanes() die Fortsetzung selbst unabhaengig davon zeigt.
+test('touchesVisibleDay() counts a previous day\'s overnight shift when its continuation lands on a visible day', async () => {
+  const { __test } = await import('../public/pages/schedule.js');
+  const night = { date_key: '2026-09-11', shift_type: { start_time: '22:00', end_time: '06:00' } };
+  const dayShift = { date_key: '2026-09-11', shift_type: { start_time: '08:00', end_time: '16:00' } };
+
+  assert.equal(__test.touchesVisibleDay(night, new Set(['2026-09-11'])), true, 'an entry on a visible day always counts');
+  assert.equal(
+    __test.touchesVisibleDay(night, new Set(['2026-09-12'])), true,
+    'day view of 12 Sept alone must still see the night shift that started on the 11th',
+  );
+  assert.equal(
+    __test.touchesVisibleDay(dayShift, new Set(['2026-09-12'])), false,
+    'a plain (non-overnight) shift on a day that is not visible must not count',
+  );
+  assert.equal(
+    __test.touchesVisibleDay(night, new Set(['2026-09-13'])), false,
+    'the continuation only lands on the immediate next day - it does not reach two days out',
+  );
+});
+
+test('computeActiveHours() sees a full-height continuation in a single-day view right after a night shift, not the default fallback', async () => {
+  const { __test } = await import('../public/pages/schedule.js');
+  const night = { date_key: '2026-09-11', shift_type: { start_time: '22:00', end_time: '06:00' } };
+  const visibleDateKeys = new Set(['2026-09-12']); // day view showing only the day AFTER the shift started
+  const selected = [night].filter((entry) => __test.touchesVisibleDay(entry, visibleDateKeys));
+  assert.deepEqual(
+    __test.computeActiveHours(selected), [0, 1, 2, 3, 4, 5, 22, 23],
+    'the night shift counts even though its own date_key (11th) is not the visible day (12th) - ' +
+    'without this the axis fell back to the default 06-19 band and the continuation collapsed to 18px',
+  );
+});
+
 test('collapsedMinutes() maps clock time onto the collapsed scale, and puts an exact-hour end at the end of the PRECEDING hour', async () => {
   const { __test } = await import('../public/pages/schedule.js');
   const activeHours = [8, 12, 13]; // 09-11 dropped, matching the fixture above

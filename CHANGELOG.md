@@ -369,6 +369,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that's all it's meant to be. "Room: 204" now shows up right alongside the shift name wherever a
   resolved entry is already summarized.
 
+- **A new Overview tab compares several household members' schedules side by side, one column per
+  person, for a whole week or a single day.** Answers the same request as the "Timetables" proposal
+  (three kids on the same school schedule, one glance instead of three) without a second data model:
+  the picker offers only real household members (never staff or split-expense guests), lanes stay in
+  a fixed left-to-right order regardless of who has entries that day, an overnight shift continues
+  into the next visible day instead of vanishing at midnight, and the household's school/public
+  holidays show as a banner above the grid since a holiday belongs to no one person.
+
 ### Fixed
 
 - **The shift-type colour picker no longer spans the full row on a phone.** `width: 100%` stretched
