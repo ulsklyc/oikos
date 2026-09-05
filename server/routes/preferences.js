@@ -162,6 +162,14 @@ const MAX_WIDGET_OPTION_KEYS = 8;
 const MAX_WIDGET_OPTION_VALUES = 50;
 const MAX_WIDGET_OPTION_LENGTH = 64;
 
+// Welche Quickstart-Vorlagen der Schichtplan-Schnellstart anbietet
+// (public/pages/schedule.js#PRESET_TEMPLATES) - haushaltweit und admin-only
+// wie disabled_modules, nicht pro Nutzer wie hidden_modules: die Vorlagen
+// legen geteilte Schichtarten an, dieselbe Reichweite gilt fuer die Frage,
+// welche Knoepfe dafuer sichtbar sind. Ein Haushalt, der nur Arbeit braucht,
+// soll nicht dauerhaft Schule/Uni-Knoepfe sehen (Nutzerwunsch).
+const SCHEDULE_TEMPLATE_KEYS = ['work', 'school', 'university'];
+
 // Modul-Slugs, die per Settings deaktiviert werden können.
 // Dashboard und Settings sind absichtlich nicht enthalten — sie sind essentiell.
 const TOGGLEABLE_MODULES = [
@@ -340,6 +348,17 @@ function parseHiddenModules(raw) {
   return parseDisabledModules(raw);
 }
 
+function parseScheduleHiddenTemplates(raw) {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((key) => typeof key === 'string' && SCHEDULE_TEMPLATE_KEYS.includes(key));
+  } catch {
+    return [];
+  }
+}
+
 function parseModuleOrder(raw) {
   if (!raw) return [];
   try {
@@ -515,6 +534,7 @@ router.get('/', (req, res) => {
         // dieselbe Form wie calendar_default_target, damit beide Dialoge ihr
         // Ziel gleich benennen.
         tasks_default_target: cfgUserGet('tasks_default_target', req.authUserId) || '',
+        schedule_hidden_templates: parseScheduleHiddenTemplates(cfgGet('schedule_hidden_templates')),
         weather_provider: cfgGet('weather_provider') ?? null,
         weather_lat:      cfgGet('weather_lat')      ?? null,
         weather_lon:      cfgGet('weather_lon')      ?? null,
@@ -547,7 +567,7 @@ router.get('/', (req, res) => {
 
 router.put('/', (req, res) => {
   try {
-    const { visible_meal_types, currency, date_format, time_format, week_start, region, timezone, language, app_name, dashboard_widgets, dashboard_today_glance, dashboard_widgets_default, dashboard_today_glance_default, disabled_modules, hidden_modules, module_order, mobile_nav_order, housekeeping_payment_tasks, budget_mode, calendar_default_duration, calendar_default_reminders, calendar_default_assign_me, calendar_default_target, health_cycle_enabled, health_cycle_enabled_user, rewards_require_approval, tasks_subtasks_expanded, tasks_default_points, tasks_default_target, weather_provider, weather_lat, weather_lon, weather_city, weather_units, weather_auto_locate, weather_user, holiday_country, holiday_subdivision, holiday_group, holiday_show_public, holiday_show_school, holiday_public_color, holiday_school_color } = req.body;
+    const { visible_meal_types, currency, date_format, time_format, week_start, region, timezone, language, app_name, dashboard_widgets, dashboard_today_glance, dashboard_widgets_default, dashboard_today_glance_default, disabled_modules, hidden_modules, module_order, mobile_nav_order, housekeeping_payment_tasks, budget_mode, calendar_default_duration, calendar_default_reminders, calendar_default_assign_me, calendar_default_target, health_cycle_enabled, health_cycle_enabled_user, rewards_require_approval, tasks_subtasks_expanded, tasks_default_points, tasks_default_target, schedule_hidden_templates, weather_provider, weather_lat, weather_lon, weather_city, weather_units, weather_auto_locate, weather_user, holiday_country, holiday_subdivision, holiday_group, holiday_show_public, holiday_show_school, holiday_public_color, holiday_school_color } = req.body;
 
     if (visible_meal_types !== undefined) {
       if (!Array.isArray(visible_meal_types)) {
@@ -868,6 +888,22 @@ router.put('/', (req, res) => {
       cfgUserSet('tasks_default_target', req.authUserId, target);
     }
 
+    // Welche Quickstart-Vorlagen der Schichtplan-Schnellstart zeigt - wie
+    // disabled_modules haushaltweit und admin-only, nicht wie hidden_modules
+    // pro Nutzer: die Vorlagen legen geteilte Schichtarten an.
+    if (schedule_hidden_templates !== undefined) {
+      if (req.authRole !== 'admin') {
+        return res.status(403).json({ error: 'Admin access required.', code: 403 });
+      }
+      if (!Array.isArray(schedule_hidden_templates)) {
+        return res.status(400).json({ error: 'schedule_hidden_templates muss ein Array sein', code: 400 });
+      }
+      const unique = [...new Set(
+        schedule_hidden_templates.filter((key) => typeof key === 'string' && SCHEDULE_TEMPLATE_KEYS.includes(key)),
+      )];
+      cfgSet('schedule_hidden_templates', JSON.stringify(unique));
+    }
+
     // Haushaltweite Modul-Feature-Schalter — nur Admins.
     if (health_cycle_enabled !== undefined) {
       if (req.authRole !== 'admin') {
@@ -1148,6 +1184,7 @@ router.put('/', (req, res) => {
         // dieselbe Form wie calendar_default_target, damit beide Dialoge ihr
         // Ziel gleich benennen.
         tasks_default_target: cfgUserGet('tasks_default_target', req.authUserId) || '',
+        schedule_hidden_templates: parseScheduleHiddenTemplates(cfgGet('schedule_hidden_templates')),
         weather_provider: cfgGet('weather_provider') ?? null,
         weather_lat:      cfgGet('weather_lat')      ?? null,
         weather_lon:      cfgGet('weather_lon')      ?? null,

@@ -312,4 +312,5 @@ export {
   escapeICSText, foldLine, buildFeed,
   getFeedToken, regenerateFeedToken, clearFeedToken, findUserIdByFeedToken,
   getFeedShowAssignees, setFeedShowAssignees,
+  resolveFeedZone, stampProp,
 };

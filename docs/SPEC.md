@@ -1432,11 +1432,11 @@ Planned/estimated budget (Budget → Plan). A **steady monthly plan**: one amoun
 
 ### Reminders
 
-Per-user reminders attached to tasks, calendar events, subscriptions, inventory items, inventory tracked dates, or pantry items.
+Per-user reminders attached to tasks, calendar events, subscriptions, inventory items, inventory tracked dates, pantry items, or upcoming schedule shifts.
 
 | Column | Type | Constraint |
 |--------|------|-----------|
-| entity_type | TEXT | `task`, `event`, `subscription`, `inventory_item`, `inventory_tracked_date`, or `pantry_item`, NOT NULL |
+| entity_type | TEXT | `task`, `event`, `subscription`, `inventory_item`, `inventory_tracked_date`, `pantry_item`, or `schedule_entry` (migration v178), NOT NULL |
 | entity_id | INTEGER | Entity identifier, NOT NULL |
 | remind_at | TEXT | ISO 8601 datetime, NOT NULL |
 | dismissed | INTEGER | 0/1, default 0 |
@@ -1444,27 +1444,34 @@ Per-user reminders attached to tasks, calendar events, subscriptions, inventory 
 | created_by | INTEGER | FK → Users (CASCADE delete), NOT NULL — whose reminder this row *is*: who gets notified, and who may change or dismiss it |
 | assigned_from | INTEGER | FK → Users (SET NULL), nullable (migration v169) — whose action the row was derived from. `NULL` means self-set, which is what every pre-v169 row is |
 
-All types except `pantry_item` can be set and deleted through `POST`/`PUT`/`DELETE
-/api/v1/reminders`. Four of them are **derived** - their module recreates the reminder whenever the
+All types except `pantry_item` and `schedule_entry` can be set and deleted through `POST`/`PUT`/`DELETE
+/api/v1/reminders`. Five of them are **derived** - their module recreates the reminder whenever the
 underlying object is written (renewal date, warranty end, inventory deadline, best-before date) - but
-only the pantry is additionally rebuilt on **every notification run**. A hand-set `pantry_item`
-reminder is therefore gone within a minute and a deleted one is back, so all four write paths
-(`POST`, `PUT`, `DELETE /:id`, `DELETE` by filter) answer 400 for it; for the other three derived types a hand-set date survives until the next change to
-their object, which is a half-life you can work with, and closing them would break a published
-`/api/v1` surface for no reason.
+`pantry_item` and `schedule_entry` are additionally rebuilt on **every notification run**
+(`syncAllPantryExpiryReminders()`, `syncAllScheduleReminders()`). A hand-set reminder of either kind is
+therefore gone within a minute and a deleted one is back, so all four write paths
+(`POST`, `PUT`, `DELETE /:id`, `DELETE` by filter) answer 400 for both; for the other three derived
+types a hand-set date survives until the next change to their object, which is a half-life you can
+work with, and closing them would break a published `/api/v1` surface for no reason.
 
-Reading and **dismissing** (`PATCH /:id/dismiss`) stay open for all six - the reminder toast has to
+`schedule_entry` additionally has no user-supplyable `entity_id`: a pattern-derived shift is computed
+on read and has no stored row of its own (see Schedule above), so `entity_id` points at an anchor row
+in `schedule_reminder_entries` (one per `(user_id, date_key)`, migration v178) that the sync
+maintains - not something a caller could construct even if the type were settable.
+
+Reading and **dismissing** (`PATCH /:id/dismiss`) stay open for all seven - the reminder toast has to
 show a derived notification and let the user wave it away, and dismissing holds precisely because
 the row stays.
 
 Calendar events support **multiple reminders** (e.g. "15 minutes before" *and* "1 day before").
 Each reminder is an independent row and is delivered separately by the notification scheduler.
 Every delivery carries the linked entity's title as the notification body (task title, event title,
-subscription name, inventory item, `item · label` for a tracked date, pantry item), so the reminder
-is identifiable without opening the app; the fallback text only applies once the linked entity has
-been deleted. Some origins add the date the reminder is about: subscription reminders carry amount
-and renewal date as `Name - 12.99 EUR - 2026-08-03`, warranty reminders the warranty end, tracked
-dates and pantry items their date as `Name - 2026-09-01`. That line is deliberately data
+subscription name, inventory item, `item · label` for a tracked date, pantry item, shift type name),
+so the reminder is identifiable without opening the app; the fallback text only applies once the
+linked entity has been deleted. Some origins add the date the reminder is about: subscription
+reminders carry amount and renewal date as `Name - 12.99 EUR - 2026-08-03`, warranty reminders the
+warranty end, tracked dates and pantry items their date as `Name - 2026-09-01`, and a shift-start
+reminder its start time as `Name - 06:00`. That line is deliberately data
 only, with no sentence around it: the notification is assembled on the server, which has no way to
 know the **recipient's** language, since locale, date and number formats live in the client's
 local storage. The household data language (#631, #632) does not close this gap — it governs what the
@@ -2739,6 +2746,7 @@ patterns. Any member may add one; renaming or deleting one is the creator's call
 | short_code | TEXT | optional, max 12 chars — the compact calendar strip shows this |
 | start_time / end_time | TEXT | HH:MM, both or neither (`CHECK`). `end <= start` means the shift crosses midnight; it stays on its start day |
 | color | TEXT | NOT NULL (default `#6C3AED`) |
+| icon | TEXT | optional Lucide icon name (migration 170), validated for form only (lowercase/digits/hyphens, ≤48 chars) — the same rule quick-links applies to its icon field, since the vocabulary itself lives client-side (`window.lucide`) and isn't reachable from the server |
 | created_by | INTEGER | FK → Users (SET NULL) — decides who may change it |
 | created_at / updated_at | TEXT | ISO 8601 |
 
@@ -2764,11 +2772,14 @@ formally closed.
 | Column | Type | Constraint |
 |--------|------|-----------|
 | pattern_id | INTEGER | NOT NULL, FK → Schedule Patterns (CASCADE) |
-| position | INTEGER | NOT NULL, `CHECK >= 0`, `UNIQUE (pattern_id, position)` — 0 … cycle_length-1 |
+| position | INTEGER | NOT NULL, `CHECK >= 0` — 0 … cycle_length-1 |
 | shift_type_id | INTEGER | FK → Schedule Shift Types (RESTRICT) — NULL is a free day within the cycle |
 
 Shortening a pattern is refused while days sit beyond the new length, rather than silently dropping
-them.
+them. As of migration 182, a position is **not** unique — a cycle day may carry several rows (a
+timetable's multiple classes at different times on the same weekday), each its own `shift_type_id`.
+`PUT /patterns/:id/days` always replaces every row of a pattern in one transaction (delete-all,
+re-insert-all), so every save assigns fresh ids to every row, even unchanged ones.
 
 #### Schedule Overrides
 
@@ -2786,6 +2797,219 @@ reassignment) instead of one `PUT` per day. Its cap is a separate constant from 
 `MAX_RANGE_DAYS` (731 days) — `MAX_FILL_DAYS` (100 days) is deliberately smaller, because a fill
 *writes* real rows, cutting against the "computed on read, never materialized" rule above if it
 were allowed to run for years at a time; the number is sized for an absence, not a shadow pattern.
+
+#### Schedule Extra Shifts (Schedule v4, migration 180)
+
+Additive to whatever the primary pattern/override slot resolves for a day - never a replacement
+for it, and deliberately not a generalization of Schedule Overrides' one-row-per-day model. The
+motivating case: on-call stacked on top of a regular shift on the same date.
+
+| Column | Type | Constraint |
+|--------|------|-----------|
+| user_id | INTEGER | NOT NULL, FK → Users (CASCADE) |
+| date_key | TEXT | NOT NULL, YYYY-MM-DD |
+| shift_type_id | INTEGER | NOT NULL, FK → Schedule Shift Types (RESTRICT) — unlike an override, an extra only exists to *add* a shift, so there's no "extra-free" concept to encode |
+| note | TEXT | optional |
+| reminder_offset_minutes | INTEGER | optional, own per-extra shift-start reminder lead time — independent of the household-wide `schedule_reminder_offset_minutes` below |
+| created_by | INTEGER | FK → Users (SET NULL) |
+| created_at | TEXT | ISO 8601 |
+
+Deliberately **no `UNIQUE` constraint** — arbitrarily many rows per user per day are allowed,
+including duplicate `shift_type_id` (a genuine split shift of the same type is as valid a case as
+two different types). `server/routes/schedule.js#scheduleData()` merges extras into the resolved
+entries list (`source: 'extra'`, `extra_id`) after the primary pattern/override resolution, not
+inside `resolveEntries()` itself — that function's whole job is date-range materialization and
+override-beats-pattern precedence, and an extra needs neither: it's unconditionally additive
+regardless of what the primary slot resolved (or failed to resolve) for that date, including a day
+with no primary shift at all.
+
+CRUD lives in its own router, `server/routes/schedule-extras.js` (mounted at
+`/api/v1/schedule/extras`, same "own file to dodge a cycle" reason as `schedule-feed.js` and
+`schedule-preferences.js` — it calls `syncScheduleRemindersForUser()` after every write for an
+immediate resync): `GET /` (list), `POST /` (single day), `POST /fill` (a date range in one call,
+capped at `MAX_FILL_DAYS` like `/overrides/fill` but a plain insert loop, no `ON CONFLICT` upsert
+needed since every row is independent), `PUT /:id` and `DELETE /:id` — addressed by the extra's own
+id, never by `(user_id, date_key)` like overrides, since a day can hold more than one.
+
+**ICS export:** the UID scheme widens for extras only (`schedule-entry-{userId}-{dateKey}@yuvomi`
+stays as-is for the primary entry; an extra appends `-extra-{id}`) — without it, two VEVENTs for the
+same user and date would share a UID, and a subscribed calendar client (Google/Apple/Outlook)
+dedupes by UID per RFC 5545, silently hiding one of the two shifts.
+
+**Shift-start reminders:** extras get their **own** `entity_type` (`schedule_extra_entry`, migration
+179, the sixth widening of `reminders.entity_type`) and their **own** configurable offset
+(`reminder_offset_minutes` above) rather than inheriting the household-wide setting — on-call
+plausibly wants a different lead time than a regular shift. No anchor table needed here, unlike
+`schedule_entry`: an extra is already a real stored row with a stable id from the moment it's
+created, so `reminders.entity_id` points directly at `schedule_extra_shifts.id`.
+`server/services/schedule-reminders.js`'s primary-path sync filters to `source !== 'extra'` before
+computing its own qualifying set — otherwise a same-day extra would collide with the primary
+anchor's `(user_id, date_key)`-keyed lookup.
+
+**Frontend:** a separate "Extra shifts" list on the Schedule page's Patterns tab (not folded into
+the grouped override editor, whose merge key assumes at most one row per `(user_id, date_key)` and
+has no per-day disambiguator), each row shown with a small distinguishing badge (also applied to the
+dashboard "who's working today" widget and the Calendar overlay) so an extra reads as *additional*
+rather than a second primary entry. There is no separate Overrides tab — the Patterns tab shows all
+three lists (patterns, overrides, extras), and one create modal reaches all three kinds via two
+toggles: **Recurring** (a pattern vs. a one-time entry) and, if one-time, **Replace** (an override,
+which may carry a free/no-shift value) vs. **Add** (an extra, which must always name a real shift).
+
+#### Schedule Custom Fields (migration 183)
+
+A household-wide registry of extra fields (e.g. "Room", "Instructor") a shift type can carry beyond
+its own name — deliberately **not** fixed columns like Timetables' `subject`/`room`/`instructor`,
+since those read as nonsensical on a work shift (a night shift has no "room"). A field is defined
+once and can attach to any number of shift types, so "Room" doesn't need retyping per shift type
+that wants it.
+
+| Column | Type | Constraint |
+|--------|------|-----------|
+| name | TEXT | NOT NULL |
+| created_by | INTEGER | FK → Users (SET NULL) — decides who may rename/delete it |
+| created_at / updated_at | TEXT | ISO 8601 |
+
+Anyone may create one; renaming or deleting is the creator's call or an admin's (`ownTypeOrAdmin()`,
+reused verbatim from Shift Types — it only reads `created_by`). Deleting a field cascades (unlike a
+shift type's `isStillReferenced` 409 guard): it's a deliberate, frontend-confirmed action, not an
+accidental loss of schedule meaning.
+
+Migration 188 also creates its two dependent tables up front — `schedule_shift_type_fields`
+(which shift types a field is attached to, in what order, and whether its value shows in the
+calendar-overlay entry) and `schedule_custom_field_values` (the per-occurrence value, polymorphic
+across `schedule_pattern_days`/`schedule_overrides`/`schedule_extra_shifts` via an `entry_type`/
+`entry_id` pair — the same compromise `reminders.entity_id` already makes, since `entry_id` varies by
+table and cannot carry a real foreign key). Both dependent tables, and every display surface that
+reads `show_in_overlay`, are fully wired now (see below).
+
+**Attaching fields to a shift type.** `PUT /api/v1/schedule/shift-types/{id}/fields` (body
+`{fields: [{custom_field_id, position, show_in_overlay}]}`) always replaces the shift type's whole
+attachment set in one transaction — same shape as `PUT /patterns/{id}/days`, for the same reason
+(no natural way to tell "unchanged" from "removed" apart in a submitted list). Rejects a
+`custom_field_id` that doesn't exist or repeats within one payload. Guarded by `ownTypeOrAdmin()` on
+the shift type, same rule as editing the type itself. `GET /shift-types` (and the `POST`/`PUT`
+single-resource responses) embed each type's `fields: [{id, name, position, show_in_overlay}]`,
+ordered by `position`.
+
+**Frontend:** a shift type's card gains a second, independently-saved "Custom fields" section
+(`shiftTypeFieldsEditor()`), collapsed via the shared `advancedSection()` disclosure component and
+only rendered at all when the household has defined at least one field — a shift type with nothing
+attached (the common work-shift case) stays exactly as compact as before. Attaching, detaching,
+reordering, and toggling "show on calendar" are all local DOM edits, same as the cycle-day editor;
+nothing is written until its own Save button is pressed. Reordering offers **both** a drag handle
+(`public/utils/sortable.js`'s `makeSortable()`) **and** keyboard-operable up/down buttons side by
+side — the wrapper's own rule is that drag is never the only path, and a structural guard
+(`test-frontend-audit.js`) enforces it for every `makeSortable()` caller in the codebase.
+
+**Capturing a value per occurrence.** Once a shift type carries attached fields, any occurrence using
+it — a pattern day, an override, or an extra shift — can record its own value for each one. All three
+write paths accept a `field_values` object (`{custom_field_id: value}`, values trimmed, max 500
+chars, blanks silently dropped) validated against the fields actually attached to the occurrence's
+*effective* shift type (the new one on a replace, not one being left behind); a field not attached is
+rejected. `PUT /patterns/{id}/days` folds `field_values` into its existing per-row payload and applies
+them inside the same delete-all/insert-all transaction, keyed to each row's fresh id — no separate
+staleness window, since capture and id assignment happen in one request. `PUT /overrides/{dateKey}`
+and `POST /overrides/fill` (and their extra-shift equivalents) follow the same sharing rule
+`note` already established: a fill applies one set of values to every day in the range, not a value
+per day. Every read endpoint (`GET /patterns/{id}/days`, `GET /overrides`, `GET /extras`) embeds
+`field_values` per row; every delete path (`DELETE /overrides/{dateKey}`, `DELETE /overrides`,
+`DELETE /extras/{id}`) explicitly deletes the matching `schedule_custom_field_values` rows first,
+since `entry_id` carries no real foreign key for a cascade to ride on.
+
+**Frontend (capture):** the cycle-day editor, the override create/edit modals, and the extra-shift
+create/edit modals all render a field-input block right after their shift-type selector, sourced from
+that type's attached fields (`dayRowFieldsHtml()`, one function shared by all three editors) and
+rebuilt whenever the selected shift type changes — a type with no fields shows no block at all. The
+cycle-day editor reacts through `renderShell()`'s existing delegate; the three modals live outside
+`root` (`document.body`) and wire their own `change` listener per shift-type select
+(`wireOccurrenceFieldReactivity()`) the same way `pick-shift-icon` already has to. `overrideGroups()`/
+`extraGroups()` (the client-side "collapse consecutive identical days into one row" summarizers) now
+also require matching `field_values` to merge two days into the same group, the same rule they already
+apply to `note` — two adjacent days with different values are never one range, even if their shift
+type and note happen to match.
+
+**Displaying `show_in_overlay` values.** `scheduleData()` (the single function every consumer of
+resolved entries goes through — `GET /entries`, the ICS feed, the reminders sync) embeds each
+resolved entry's `field_values` (keyed to the right id column for its `source` — `pattern_day_id`,
+`override_id`, or `extra_id`, three separate `fieldValuesFor()` lookups since an entry's identity
+column depends on where it came from) and each `shift_type`'s own attached-field list, batched rather
+than N+1 per entry. `resolveEntries()` itself (`server/services/schedule.js`) stays untouched — it
+already doesn't know about extras or shift-type embedding either; both are merged in by the caller,
+same as before.
+
+A field only reaches a display surface when its `show_in_overlay` flag is set - filling one in
+without the flag keeps it purely informational, visible in the editors but nowhere else. Three
+surfaces read it, each via its own small `overlayMeta()`/`scheduleOverlayMeta()` (the exact same
+computation — note, then every overlay-visible field with a value, `· `-joined — reimplemented
+independently in each context rather than shared, matching this module's existing convention: every
+schedule-entry rendering helper already has its own copy per file, e.g. `clockLabel()` in
+`schedule.js` versus `scheduleTimeLabel()` in `calendar.js`, since the two pages have never imported
+from each other):
+- The Schedule page's own Today card (`renderToday()`), appended to the existing owner/time meta line.
+- The Calendar module's overlay tooltip (`scheduleEntryTitle()` in `public/pages/calendar.js`) — the
+  chip/block label itself stays compact; only the hover title grows, matching how `note` already only
+  ever showed there and not on the chip.
+- The Schedule ICS feed (`server/services/schedule-ics.js`'s `buildVEvent()`): `DESCRIPTION` now comes
+  from `overlayMeta()` instead of `entry.note` directly, so a subscribed calendar app's event detail
+  view shows the same line a browser would.
+
+The dashboard "who's working today" widget deliberately does **not** show this — its rows are a
+single compact line (avatar, name, shift) with no existing meta slot, and adding one would be a
+bigger layout change than the value justifies for a glanceable tile.
+
+**Overtime flag + print (Schedule v3):** the Statistics tab checks every rolling 7-day window
+within the selected range against a per-user weekly-hours target (`schedule_weekly_hours`, see
+Personal preferences below; 40 by default) and, if any window's worked-hours total exceeds it, adds
+a third, warning-styled metric card showing the worst window's excess. Deliberately a rolling window,
+not fixed calendar weeks or an average over the whole range: a fixed week would cut a contiguous
+run of shifts that straddles a week boundary in half, and an average over the whole range let a
+quiet week elsewhere in the same month cancel out a real overtime week (most people don't work all
+7 days, so spreading the weekly target evenly across every calendar day in the range set a target a
+real week's hours could rarely cross). Only the worst window's excess is reported, never the sum
+across all crossings - overlapping windows share days, so summing would count the same hours
+repeatedly. A **Print** action in the same tab relies on the app's existing
+`@media print` baseline (`public/styles/layout.css`) layered with Schedule-specific print rules
+(`public/styles/schedule.css`) that hide the filters/tabs and lay out the two statistics tables for a
+clean page - no server-side PDF generation, the browser's native print-to-PDF does the rest.
+
+**Read-only export feed (Schedule v3):** Settings → Personal → Feed subscriptions → a schedule
+feed card exposes the signed-in member's own resolved shifts (a rolling window, 30 days back to
+365 days ahead) as a `webcal://`/`https://` ICS feed. Unlike the calendar and inventory-deadlines
+feeds, this one is personal on *both* axes — the secret token (`users.schedule_feed_token`,
+migration 171, partial UNIQUE index) identifies the subscriber, and the feed content itself is
+that subscriber's own entries only (`scheduleData(from, to, userId)` called with a real
+`userId`, never household-wide). Free/no-entry days are skipped — a feed of "nothing happening"
+days would be noise in a subscribed calendar app. Served by an unauthenticated
+`GET /feed/schedule/:token.ics` route outside `/api/v1` (rate-limited to 30 requests/minute,
+recomputed on every request), managed via `GET/POST regenerate/DELETE /api/v1/schedule/feed`
+(each member manages only their own token). See `server/services/schedule-ics.js`.
+
+**Personal preferences (Schedule v3):** `GET/PUT /api/v1/schedule/preferences`
+(`{ reminderOffsetMinutes, weeklyHours }`, `server/routes/schedule-preferences.js`) holds two
+per-user settings, both nullable (either field may be omitted from a `PUT` to leave it unchanged, or
+set to `null` to reset it to its default):
+
+- **Shift-start reminders:** an opt-in push notification before an upcoming shift begins.
+  `reminderOffsetMinutes: null` (the default) disables it; setting it also triggers an immediate
+  resync so the change takes effect without waiting for the next periodic pass. A pattern-derived
+  shift is computed on read and has no stored row to hang a reminder off of, unlike every other
+  reminder origin - `schedule_reminder_entries` (migration v178) is a small anchor table, one row per
+  `(user_id, date_key)`, that `server/services/schedule-reminders.js`'s periodic sync
+  (`syncAllScheduleReminders()`, called from the same notification pass as the pantry sync) creates
+  for each upcoming qualifying day within a rolling 7-day window and cleans up once the day falls out
+  of the window or stops qualifying. Only entries with a shift type carrying a `start_time`
+  qualify - a free day has no start, and a timeless type (vacation, sick) has nothing to count down
+  to, matching the ICS feed's "all day" rule above. The reminder fires at the shift's start time
+  (converted from the household's wall-clock zone) minus the configured offset; a target that has
+  already passed when the sync runs is not created, so a change doesn't retroactively fire for a
+  shift that's already underway. `schedule_entry` is a **derived** reminder type like `pantry_item`
+  (see Reminders below) - the sync rebuilds it every pass, so it cannot be hand-set through the
+  generic reminders API.
+- **Weekly-hours target (`schedule_weekly_hours`, migration v179):** the personal full-time figure
+  the Statistics tab's overtime flag scales against (see "Overtime flag + print" above), `null`
+  falling back to 40h/week. Per-user rather than a household field, since a part-time and a full-time
+  member of the same household have different targets and the overtime card evaluates each member's
+  own range.
 
 ### Access Permissions (migration v74)
 
@@ -3422,7 +3646,7 @@ Off by default. Four tabs (shift types, patterns, overrides, statistics) plus a 
   call (e.g. a vacation), instead of one `PUT` per day — see Schedule Overrides above for its cap.
   The client always confirms before submitting, since it silently overwrites any existing overrides
   in range the way the single-date `PUT` already does, just at a larger blast radius.
-- **Grouped display and range editing:** the Overrides tab groups consecutive days for the same
+- **Grouped display and range editing:** the Overrides section (Patterns tab) groups consecutive days for the same
   member with the same shift type (or free day) and note into a single row — display and
   bulk-action only, the table stays exactly one row per day. Editing a group shows its current
   From/To as editable fields; saving reconciles automatically (`POST /overrides/fill` for the new

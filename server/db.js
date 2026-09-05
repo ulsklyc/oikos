@@ -7221,6 +7221,234 @@ const MIGRATIONS = [
         WHERE cycle_feed_token IS NOT NULL;
     `,
   },
+  {
+    version: 181,
+    description: 'Schedule: an optional icon alongside a shift type\'s color (#786 follow-up)',
+    // Ein Lucide-Name wie ueberall sonst, wo ein Symbol erst zur Laufzeit
+    // feststeht (quick-links, Kalender-Termine) - nullable, weil bestehende
+    // Schichtarten schon ohne Icon leben und weiterhin duerfen.
+    up: `
+      ALTER TABLE schedule_shift_types ADD COLUMN icon TEXT;
+    `,
+  },
+  {
+    version: 182,
+    description: 'add per-user read-only schedule feed token',
+    up: `
+      -- Gleiches Muster wie Migration 61/144, aber hier ist der Inhalt selbst
+      -- schon persoenlich (die eigenen aufgeloesten Schichten), nicht nur der
+      -- Zugriff - anders als beim haushaltweiten Inventar-Fristen-Feed.
+      ALTER TABLE users ADD COLUMN schedule_feed_token TEXT;
+
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_users_schedule_feed_token
+        ON users(schedule_feed_token)
+        WHERE schedule_feed_token IS NOT NULL;
+    `,
+  },
+  {
+    version: 183,
+    description: 'Schedule: shift-start reminders - widen reminders for schedule_entry, add an anchor table for pattern days',
+    foreignKeysOff: true,
+    // DIE SECHSTE ERWEITERUNG DERSELBEN SPALTE, gleiche Bauart wie v137/v141/v148/v162/v177.
+    up: `
+      CREATE TABLE reminders_new (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        entity_type TEXT    NOT NULL CHECK(entity_type IN ('task', 'event', 'subscription', 'inventory_item', 'inventory_tracked_date', 'pantry_item', 'cycle_period', 'cycle_log_nudge', 'schedule_entry')),
+        entity_id   INTEGER NOT NULL,
+        remind_at   TEXT    NOT NULL,
+        dismissed   INTEGER NOT NULL DEFAULT 0,
+        created_by  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+        pushed_at   TEXT,
+        assigned_from INTEGER REFERENCES users(id) ON DELETE SET NULL
+      );
+      INSERT INTO reminders_new (id, entity_type, entity_id, remind_at, dismissed, created_by, created_at, pushed_at, assigned_from)
+        SELECT id, entity_type, entity_id, remind_at, dismissed, created_by, created_at, pushed_at, assigned_from FROM reminders;
+      DROP TABLE reminders;
+      ALTER TABLE reminders_new RENAME TO reminders;
+      CREATE INDEX idx_reminders_entity ON reminders(entity_type, entity_id);
+      CREATE INDEX idx_reminders_remind ON reminders(remind_at);
+      CREATE INDEX idx_reminders_user ON reminders(created_by);
+      CREATE INDEX idx_reminders_assigned_from ON reminders(assigned_from);
+
+      -- Ein Musterzyklus-Tag ist keine gespeicherte Zeile (das ist der ganze
+      -- Punkt von "computed on read", siehe resolveEntries()) und hat deshalb
+      -- keine stabile Id, an die reminders.entity_id haengen koennte - anders
+      -- als bei jedem bisherigen entity_type, wo die Zeile schon existiert.
+      -- Diese Tabelle ist NICHT die Wahrheit ueber den Schichtplan (die bleibt
+      -- resolveEntries()); sie ist nur ein Anker je (Nutzer, Tag), den der
+      -- periodische Sync (server/services/schedule-reminders.js) fuer sein
+      -- rollierendes Fenster anlegt und wieder abraeumt, sobald der Tag aus
+      -- dem Fenster faellt oder keine Erinnerung mehr braucht.
+      --
+      -- pattern_day_id steht von Anfang an hier (nicht erst ab Migration 187):
+      -- ein Musterzyklus-Tag kann mehrere Klassen tragen (Stundenplan, siehe
+      -- schedule_pattern_days weiter unten), jede mit ihrem eigenen Anker, und
+      -- diese Tabelle hat vor dem allerersten Release noch nie eine andere
+      -- Form gehabt - ein Rebuild in einer spaeteren Migration haette nur eine
+      -- Tabelle abgerissen, die niemand je mit der alten Form befuellt hat.
+      -- NULL bleibt fuer einen Override-Anker (hoechstens einer je Tag).
+      CREATE TABLE schedule_reminder_entries (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id        INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        date_key       TEXT    NOT NULL,
+        shift_type_id  INTEGER NOT NULL REFERENCES schedule_shift_types(id) ON DELETE CASCADE,
+        pattern_day_id INTEGER
+      );
+      CREATE UNIQUE INDEX idx_schedule_reminder_entries_slot
+        ON schedule_reminder_entries(user_id, date_key, COALESCE(pattern_day_id, 0));
+
+      -- NULL = abgeschaltet (Standard), sonst der Vorlauf in Minuten vor
+      -- Schichtbeginn. Anders als calendar_feed_token keine eigene
+      -- Aktiv/Inaktiv-Spalte: der Vorlauf selbst ist der Schalter, wie schon
+      -- bei den Vorrats-Ablauferinnerungen (EXPIRY_REMINDER_OFFSET_DAYS).
+      ALTER TABLE users ADD COLUMN schedule_reminder_offset_minutes INTEGER;
+    `,
+  },
+  {
+    version: 184,
+    description: 'Schedule: a personal weekly-hours target for the overtime flag',
+    up: `
+      -- NULL faellt auf den bisherigen festen Wert (40) zurueck - ein
+      -- Bestandshaushalt sieht also keinen stillen Wechsel. Personenbezogen
+      -- statt haushaltweit: ein Teilzeit- und ein Vollzeit-Mitglied im
+      -- selben Haushalt haben unterschiedliche Sollstunden, und die
+      -- Ueberstundenkarte in der Statistik rechnet je Person.
+      ALTER TABLE users ADD COLUMN schedule_weekly_hours INTEGER;
+    `,
+  },
+  {
+    version: 185,
+    description: 'Schedule: extra shifts, additive to the primary pattern/override slot (on-call alongside a regular shift)',
+    // Bewusst OHNE UNIQUE(user_id, date_key) - anders als schedule_overrides,
+    // dessen genau eine Zeile je Tag der ganze Punkt ist. Ein "extra" ist
+    // additiv zu dem, was resolveEntries() fuer den Tag ohnehin ausgibt (auch
+    // wenn das nichts ist - ein reiner Bereitschaftstag ohne regulaere Schicht
+    // braucht keine Sonderbehandlung), nie ein Ersatz dafuer, daher beliebig
+    // viele Zeilen je Nutzer und Tag, auch mit demselben shift_type_id.
+    // shift_type_id ist NOT NULL, weil ein Extra nur existiert, um eine
+    // zusaetzliche Schicht hinzuzufuegen - anders als bei einem Override gibt
+    // es kein "Extra, das ausdruecklich frei bedeutet".
+    up: `
+      CREATE TABLE schedule_extra_shifts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        date_key TEXT NOT NULL,
+        shift_type_id INTEGER NOT NULL REFERENCES schedule_shift_types(id) ON DELETE RESTRICT,
+        note TEXT,
+        reminder_offset_minutes INTEGER,
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+      );
+      CREATE INDEX idx_schedule_extra_shifts_user ON schedule_extra_shifts(user_id, date_key);
+    `,
+  },
+  {
+    version: 186,
+    description: 'Reminders: widen for schedule_extra_entry, extra shifts get their own independent reminders',
+    foreignKeysOff: true,
+    // DIE SIEBTE ERWEITERUNG DERSELBEN SPALTE, gleiche Bauart wie v137/v141/v148/v162/v177/v183.
+    // Anders als schedule_entry (Migration 183) braucht dieser Typ KEINE
+    // Anker-Tabelle: eine schedule_extra_shifts-Zeile ist schon eine echte,
+    // gespeicherte Zeile mit eigener stabiler Id, sobald sie angelegt wird -
+    // reminders.entity_id zeigt direkt darauf.
+    up: `
+      CREATE TABLE reminders_new (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        entity_type TEXT    NOT NULL CHECK(entity_type IN ('task', 'event', 'subscription', 'inventory_item', 'inventory_tracked_date', 'pantry_item', 'cycle_period', 'cycle_log_nudge', 'schedule_entry', 'schedule_extra_entry')),
+        entity_id   INTEGER NOT NULL,
+        remind_at   TEXT    NOT NULL,
+        dismissed   INTEGER NOT NULL DEFAULT 0,
+        created_by  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+        pushed_at   TEXT,
+        assigned_from INTEGER REFERENCES users(id) ON DELETE SET NULL
+      );
+      INSERT INTO reminders_new (id, entity_type, entity_id, remind_at, dismissed, created_by, created_at, pushed_at, assigned_from)
+        SELECT id, entity_type, entity_id, remind_at, dismissed, created_by, created_at, pushed_at, assigned_from FROM reminders;
+      DROP TABLE reminders;
+      ALTER TABLE reminders_new RENAME TO reminders;
+      CREATE INDEX idx_reminders_entity ON reminders(entity_type, entity_id);
+      CREATE INDEX idx_reminders_remind ON reminders(remind_at);
+      CREATE INDEX idx_reminders_user ON reminders(created_by);
+      CREATE INDEX idx_reminders_assigned_from ON reminders(assigned_from);
+    `,
+  },
+  {
+    version: 187,
+    description: 'Schedule: multiple pattern days at the same cycle position (timetables, not just one shift/day)',
+    foreignKeysOff: true,
+    // schedule_pattern_days trug bisher UNIQUE(pattern_id, position) - genau
+    // EIN Schichttyp je Zyklustag. Fuer einen Stunden-/Vorlesungsplan reicht
+    // das nicht: ein Wochentag traegt dort mehrere Bloecke zu verschiedenen
+    // Zeiten (Mathe 8-9, Bio 9-10, ...), jeder sein eigener shift_type_id.
+    // SQLite kennt kein ALTER TABLE ... DROP CONSTRAINT, daher der Neubau -
+    // rein additiv/rueckwirkungsfrei, jede bestehende Zeile erfuellt die
+    // lockerere Form schon 1:1.
+    //
+    // schedule_reminder_entries traegt pattern_day_id bereits seit ihrer
+    // Entstehung (Migration 183) - kein zweiter Rebuild hier noetig, siehe
+    // deren eigener Kommentar.
+    up: `
+      CREATE TABLE schedule_pattern_days_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        pattern_id INTEGER NOT NULL REFERENCES schedule_patterns(id) ON DELETE CASCADE,
+        position INTEGER NOT NULL CHECK (position >= 0),
+        shift_type_id INTEGER REFERENCES schedule_shift_types(id) ON DELETE RESTRICT
+      );
+      INSERT INTO schedule_pattern_days_new (id, pattern_id, position, shift_type_id)
+        SELECT id, pattern_id, position, shift_type_id FROM schedule_pattern_days;
+      DROP TABLE schedule_pattern_days;
+      ALTER TABLE schedule_pattern_days_new RENAME TO schedule_pattern_days;
+      CREATE INDEX idx_schedule_pattern_days_pattern_position ON schedule_pattern_days(pattern_id, position);
+    `,
+  },
+  {
+    version: 188,
+    description: 'Schedule: custom field registry, per-shift-type assignment, and per-occurrence values',
+    up: `
+      CREATE TABLE schedule_custom_fields (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        name        TEXT    NOT NULL,
+        created_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+        updated_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+      );
+      CREATE TRIGGER trg_schedule_custom_fields_updated_at AFTER UPDATE ON schedule_custom_fields FOR EACH ROW BEGIN
+        UPDATE schedule_custom_fields SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = OLD.id; END;
+
+      -- Welche Felder an welchem Schichttyp haengen, in welcher Reihenfolge und
+      -- ob der Wert in der Kalender-Overlay-Zeile mitgezeigt wird. Ein Feld
+      -- (z.B. "Raum") ist einmal definiert und kann an vielen Schichttypen
+      -- haengen - deshalb eine eigene Zuordnungstabelle statt einer Spalte an
+      -- schedule_custom_fields.
+      CREATE TABLE schedule_shift_type_fields (
+        id               INTEGER PRIMARY KEY AUTOINCREMENT,
+        shift_type_id    INTEGER NOT NULL REFERENCES schedule_shift_types(id) ON DELETE CASCADE,
+        custom_field_id  INTEGER NOT NULL REFERENCES schedule_custom_fields(id) ON DELETE CASCADE,
+        position         INTEGER NOT NULL DEFAULT 0,
+        show_in_overlay  INTEGER NOT NULL DEFAULT 0 CHECK (show_in_overlay IN (0, 1)),
+        UNIQUE (shift_type_id, custom_field_id)
+      );
+      CREATE INDEX idx_schedule_shift_type_fields_type ON schedule_shift_type_fields(shift_type_id, position);
+
+      -- Der eigentliche Wert je Vorkommen. entry_id ist bewusst OHNE echten
+      -- Fremdschluessel (polymorph ueber drei Elterntabellen - schedule_pattern_days,
+      -- schedule_overrides, schedule_extra_shifts - dasselbe Zugestaendnis wie
+      -- reminders.entity_id). custom_field_id zeigt dagegen immer auf genau eine
+      -- Tabelle und traegt deshalb einen echten Fremdschluessel. "Keine Zeile"
+      -- heisst "nicht gesetzt" - eine leere Zeichenkette wird nie gespeichert.
+      CREATE TABLE schedule_custom_field_values (
+        id               INTEGER PRIMARY KEY AUTOINCREMENT,
+        entry_type       TEXT    NOT NULL CHECK (entry_type IN ('pattern_day', 'override', 'extra_shift')),
+        entry_id         INTEGER NOT NULL,
+        custom_field_id  INTEGER NOT NULL REFERENCES schedule_custom_fields(id) ON DELETE CASCADE,
+        value            TEXT    NOT NULL CHECK (length(value) BETWEEN 1 AND 500),
+        UNIQUE (entry_type, entry_id, custom_field_id)
+      );
+      CREATE INDEX idx_schedule_custom_field_values_entry ON schedule_custom_field_values(entry_type, entry_id);
+    `,
+  },
 ];
 
 /**

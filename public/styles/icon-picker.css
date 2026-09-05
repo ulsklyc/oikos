@@ -27,12 +27,22 @@
   background: var(--color-overlay);
 }
 
-.icon-picker__form {
+.icon-picker__body {
   display: flex;
   flex-direction: column;
-  /* Ohne die Höhe hier bleibt das Formular auf seiner Inhaltshöhe stehen und
+  /* Ohne die Höhe hier bleibt der Inhalt auf seiner natürlichen Höhe stehen und
    * der Deckel des Dialogs greift nicht - das Raster scrollte dann nicht,
-   * sondern wuchs aus dem Rahmen heraus. */
+   * sondern wuchs aus dem Rahmen heraus, und die Fußzeile (Löschen/Abbrechen)
+   * wurde vom `overflow: hidden` des Dialogs abgeschnitten statt erreichbar zu
+   * bleiben - auf einem kurzen mobilen Viewport ganz aus dem Bild.
+   *
+   * FUND: diese Regel stand auf `.icon-picker__form`, einer Klasse, die im
+   * erzeugten Markup (buildDialog() unten) nirgends vorkommt - der Wrapper
+   * heisst `.icon-picker__body`. Ohne Treffer griff die ganze Flex/Scroll-Kette
+   * seit Einfuehrung des Dialogs (#873) nie, auf keiner seiner drei
+   * Verwendungsstellen (Schnellzugriffe, Kalender, jetzt Schichtplan) - nur
+   * bei genuegend Bildschirmhoehe (Desktop) blieb genug Platz, dass niemand es
+   * bemerkte. */
   max-height: inherit;
   min-height: 0;
 }

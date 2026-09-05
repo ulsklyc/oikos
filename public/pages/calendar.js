@@ -2036,10 +2036,22 @@ function scheduleEntryLabel(entry) {
   return owner ? shift + " · " + owner : shift;
 }
 
+// Note plus jedes ueberlagerungssichtbare eigene Feld mit einem Wert (Migration
+// 181) - dieselbe Berechnung wie schedule.js' overlayMeta(), hier eigenstaendig
+// nachgebaut statt importiert: diese Datei haelt schon fuer jede andere
+// Schichtplan-Anzeigeformel (scheduleTimeLabel, scheduleEntryLabel, ...) eine
+// eigene, unabhaengige Kopie statt schedule.js komplett zu importieren.
+function scheduleOverlayMeta(entry) {
+  const overlayFields = (entry.shift_type?.fields ?? []).filter((field) => field.show_in_overlay && entry.field_values?.[field.id]);
+  return [entry.note, ...overlayFields.map((field) => `${field.name}: ${entry.field_values[field.id]}`)].filter(Boolean).join(" · ");
+}
+
 function scheduleEntryTitle(entry) {
   const owner = scheduleOwnerName(entry);
   const time = scheduleTimeLabel(entry.shift_type);
-  return entry.shift_type.name + (owner ? " · " + owner : "") + (time ? " · " + time : "");
+  const extra = entry.source === 'extra' ? " · " + t('schedule.extraBadgeLabel') : "";
+  const overlay = scheduleOverlayMeta(entry);
+  return entry.shift_type.name + (owner ? " · " + owner : "") + (time ? " · " + time : "") + extra + (overlay ? " · " + overlay : "");
 }
 
 function scheduleIsFullDayShift(entry) {
@@ -2054,11 +2066,19 @@ function scheduleTimeLabel(type) {
   return type.start_time + "–" + type.end_time + (crossesDay ? " +1" : "") + (fullDay ? " · 24 h" : "");
 }
 
+// Additiv zu Muster/Override, nie ein Ersatz (server/routes/schedule-extras.js)
+// - dieselbe Kennzeichnung wie in schedule.js/dashboard.js, damit Bereitschaft
+// neben einer regulaeren Schicht auch in der Kalender-Ueberlagerung als
+// ZUSAETZLICH erkennbar bleibt.
+function scheduleEntryExtraBadge(entry) {
+  return entry.source === 'extra' ? `<i data-lucide="layers" class="schedule-entry__extra-badge" aria-label="${esc(t('schedule.extraBadgeLabel'))}"></i>` : '';
+}
+
 function renderScheduleChip(entry, className = 'allday-holiday') {
   const type = entry.shift_type;
   const label = scheduleEntryLabel(entry);
   const start = type.start_time ? '<small class="schedule-entry__start">' + esc(type.start_time) + '</small>' : '';
-  return `<div class="${className} schedule-entry" style="--holi-color:${esc(type.color)}" title="${esc(scheduleEntryTitle(entry))}"><span>${esc(label)}</span>${start}</div>`;
+  return `<div class="${className} schedule-entry" style="--holi-color:${esc(type.color)}" title="${esc(scheduleEntryTitle(entry))}"><span>${esc(label)}</span>${scheduleEntryExtraBadge(entry)}${start}</div>`;
 }
 function renderScheduleTimeBlock(entry, className) {
   const type = entry.shift_type;
@@ -2066,7 +2086,21 @@ function renderScheduleTimeBlock(entry, className) {
   const end = timeToMinutes(type.end_time);
   const duration = Math.max((end > start ? end : 24 * 60) - start, 30);
   const bounds = className === 'week-event' ? 'left:2px;width:calc(100% - 4px);' : 'left:calc(4px);width:calc(100% - 14px);';
-  return `<div class="${className} schedule-time-block" style="top:${hourOffset(start)};height:calc(${hourOffset(duration)} - 4px);${bounds}--ev-color:${esc(type.color)}" title="${esc(scheduleEntryTitle(entry))}"><span>${esc(scheduleEntryLabel(entry))}</span><small>${esc(scheduleTimeLabel(type))}</small></div>`;
+  // Sichtbar statt nur im title: .schedule-time-block traegt pointer-events:none
+  // (es ist eine Hintergrundflaeche, echte Termine malen darueber, siehe die
+  // Begruendung an der Klasse in calendar.css) - ein Hover erreicht dieses
+  // Element in der Praxis kaum je, der title blieb also meist ungelesen. Eine
+  // DRITTE Zeile war bei den ueblichen 30-60-min-Bloecken (Wochenansicht, schmale
+  // Spalte) nie zu sehen: Titel+Uhrzeit fuellten den Block schon als
+  // unvorhersehbar umgebrochener Fliesstext, bevor eine eigene Meta-Zeile
+  // ueberhaupt Platz gehabt haette. Jetzt zwei FESTE einzeilige Zeilen (Titel,
+  // Uhrzeit+Feldwert zusammen) statt Fliesstext - das Feld faehrt auf der
+  // Uhrzeit-Zeile mit, statt eine eigene zu brauchen, und wird selbst dort per
+  // Ellipse gekuerzt statt spurlos unter der Blockkante zu verschwinden.
+  const overlay = scheduleOverlayMeta(entry);
+  const time = esc(scheduleTimeLabel(type));
+  const timeLine = overlay ? `${time} · ${esc(overlay)}` : time;
+  return `<div class="${className} schedule-time-block" style="top:${hourOffset(start)};height:calc(${hourOffset(duration)} - 4px);${bounds}--ev-color:${esc(type.color)}" title="${esc(scheduleEntryTitle(entry))}"><span class="schedule-time-block__title">${esc(scheduleEntryLabel(entry))}${scheduleEntryExtraBadge(entry)}</span><small class="schedule-time-block__time">${timeLine}</small></div>`;
 }
 
 function monthDayAriaLabel(date, total) {
@@ -3059,6 +3093,8 @@ export const __test = {
   eventIconHtml,
   sameColor,
   EVENT_COLORS,
+  renderScheduleChip,
+  scheduleEntryTitle,
 };
 
 function renderAgendaEvent(ev, dayStr) {

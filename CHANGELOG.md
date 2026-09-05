@@ -479,6 +479,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   noticed: a permission pointing nowhere looks like one that holds. A guard now compares each pin
   against the lockfile, so the next bump turns the suite red instead of leaving a dead pin behind.
 
+### Added
+
+- **The Schedule module gained a quick-start for shift types, a range fill for overrides, grouped
+  range display and editing, and a "who's working today" dashboard widget.** A household with no
+  shift types yet can create seven common presets (Early/Late/Night/Day/24-hour, plus Vacation and
+  Sick - both without a start/end time, since an absence is already a valid "all day" shift type,
+  not a new concept) in one click instead of one at a time. Marking a whole date range as free (or
+  on a specific shift) - a vacation, a temporary reassignment - now takes one action instead of one
+  per day, capped separately from the read-side range limit since a fill writes real rows rather
+  than computing them on read. The Overrides tab groups consecutive same-type days into a single row
+  instead of one per day, and editing a group's From/To reconciles the change automatically - no more
+  deleting fourteen rows one at a time to adjust a two-week range. An opt-in dashboard widget shows
+  who has a shift or is free today, off by default like the module itself.
+
+- **A shift type can carry its own icon, and the module gained an overtime warning with print
+  support, a personal calendar feed, and opt-in shift-start reminders.** The same icon picker used
+  elsewhere in the app now applies to shift types too, shown on shift-type cards, override rows, the
+  dashboard widget, and the Today list. A configurable weekly-hours target flags overtime with a
+  warning-styled metric card on the Statistics tab and adds a Print action. A personal, read-only ICS
+  feed (Settings → Personal → Feed subscriptions) lets a member subscribe to their own resolved
+  schedule from any calendar app, alongside the existing household calendar and inventory-deadline
+  feeds already there. An opt-in push reminder can fire a configurable number of minutes before a
+  shift starts, tracked by a small rolling 7-day sync rather than a stored row per occurrence, since a
+  pattern-derived shift doesn't otherwise have one to hang a reminder off of.
+
+- **A member can now be on-call alongside a regular shift, and shift planning consolidates into one
+  tab.** "Extra shifts" stack additively next to whatever a pattern or override already resolves for
+  a day - unlike the primary slot, any number can be added per person per day, useful for on-call
+  duty layered on top of a scheduled shift. The former Overrides tab is gone: Patterns, Overrides, and
+  Extra shifts now live together under a renamed "Planning" tab, and one create dialog reaches all
+  three through a single Pattern/Override/Extra picker. A cycle day can also carry more than one shift
+  type now (several class periods in a row, not just one work shift) - the day editor grows add/remove
+  rows instead of a single dropdown.
+
+- **Which shift-type quick-start templates appear is now a household preference.** An admin can hide
+  the Work, School, or University quick-start button from Settings → Modules → Module options, for a
+  household that only ever uses one of them. Hiding a template only removes its button; shift types
+  already created from it stay exactly as they are.
+
+- **Shift types can now carry custom fields, defined once and reused across as many shift types as
+  want them** (e.g. a "Room" field shared by every school-period shift type, or a "Client" field on a
+  work shift type) - deliberately not fixed columns like a timetable app's `room`/`instructor`, which
+  would be nonsensical on a work shift with no room or instructor at all. A new "Custom fields"
+  section on the Schedule module's Shift types tab manages the registry itself (create, rename,
+  delete - any member may add one, only its creator or an admin may change or remove it). Each shift
+  type's own card gains a second, collapsed section for attaching any number of these fields,
+  reordering them (drag or keyboard up/down buttons), and choosing whether each one's value shows on
+  the calendar overlay - hidden entirely for a shift type with none attached, so a household that
+  never touches this stays looking exactly as it did before. A pattern day, an override, or an extra
+  shift using a shift type with attached fields can now record its own value for each one - the
+  cycle-day editor and both the override and extra-shift create/edit modals grow a field-input block
+  right after their shift-type picker, appearing only for a type that actually has fields and rebuilt
+  whenever the picked type changes. Filling in a room for one Monday and a different one the next
+  works exactly like giving them different notes already did. A field only reaches the calendar
+  overlay, the Today card, and the subscribed ICS feed if it's explicitly flagged to show there - a
+  field can be filled in and stay purely informational (visible in the editors, nowhere else) if
+  that's all it's meant to be. "Room: 204" now shows up right alongside the shift name wherever a
+  resolved entry is already summarized.
+
+### Fixed
+
+- **The shift-type colour picker no longer spans the full row on a phone.** `width: 100%` stretched
+  the native colour input to fill its grid cell; on the mobile layout, where the two-column form
+  collapses to one, that cell is the whole form width. It now carries a fixed size, matching the
+  compact colour swatches used elsewhere in the app.
+
 ## [2.62.0] - 2026-09-01
 
 ### Added

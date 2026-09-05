@@ -43,6 +43,17 @@ const TOGGLES = [
   },
 ];
 
+// Nicht Teil von TOGGLES: das sind DREI Kontrollkästchen ueber EINEM
+// Praeferenz-Schluessel (ein Array von Vorlagen-Schluesseln, die AUSGEBLENDET
+// sind), nicht ein Schluessel je Schalter. Angehakt heisst sichtbar - die
+// gespeicherte Form ist die Ausblendliste, dieselbe Umkehrung wie bei
+// disabled_modules/hidden_modules anderswo in diesem Baum.
+const SCHEDULE_TEMPLATES = [
+  ['work', 'schedule.templateWork'],
+  ['school', 'schedule.templateSchool'],
+  ['university', 'schedule.templateUniversity'],
+];
+
 function checkedState(preferences) {
   return new Map(TOGGLES.map((toggle) => [toggle.id, toggle.read(preferences)]));
 }
@@ -106,6 +117,19 @@ function renderPage(container, preferences) {
         })}
       </div>
     </section>
+
+    <section class="settings-section">
+      <h2 class="settings-section__title">${t('nav.schedule')}</h2>
+      <div class="settings-card">
+        <h3 class="settings-card__title">${t('settings.scheduleTemplatesTitle')}</h3>
+        <p class="form-hint">${t('settings.scheduleTemplatesHint')}</p>
+        ${SCHEDULE_TEMPLATES.map(([key, labelKey]) => toggleRowHtml({
+          label: t(labelKey),
+          checked: !(preferences.schedule_hidden_templates ?? []).includes(key),
+          attrs: { id: `schedule-template-${key}`, 'data-template': key },
+        })).join('')}
+      </div>
+    </section>
   `);
 }
 
@@ -129,6 +153,26 @@ function bindEvents(container) {
         window.yuvomi?.showToast(error.message || t('common.errorGeneric'), 'danger');
       } finally {
         if (input.isConnected) input.disabled = false;
+      }
+    });
+  }
+
+  // Kein Eintrag in TOGGLES: die drei Kontrollkaestchen teilen sich EINEN
+  // Praeferenz-Schluessel (die Ausblendliste), ein Klick muss also alle drei
+  // aktuellen Zustaende einsammeln, nicht nur den eigenen.
+  const templateInputs = SCHEDULE_TEMPLATES.map(([key]) => container.querySelector(`#schedule-template-${key}`));
+  for (const input of templateInputs) {
+    input?.addEventListener('change', async () => {
+      templateInputs.forEach((el) => { if (el) el.disabled = true; });
+      try {
+        const hidden = templateInputs.filter((el) => el && !el.checked).map((el) => el.dataset.template);
+        await savePreferences({ schedule_hidden_templates: hidden });
+        window.yuvomi?.showToast(t('settings.scheduleTemplatesSaved'), 'success');
+      } catch (error) {
+        input.checked = !input.checked;
+        window.yuvomi?.showToast(error.message || t('common.errorGeneric'), 'danger');
+      } finally {
+        templateInputs.forEach((el) => { if (el?.isConnected) el.disabled = false; });
       }
     });
   }

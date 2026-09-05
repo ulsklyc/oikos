@@ -16,7 +16,7 @@ import { tokenAllows } from '../scopes.js';
 const log    = createLogger('Reminders');
 const router = express.Router();
 
-const VALID_ENTITY_TYPES = ['task', 'event', 'subscription', 'inventory_item', 'inventory_tracked_date', 'pantry_item', 'cycle_period', 'cycle_log_nudge'];
+const VALID_ENTITY_TYPES = ['task', 'event', 'subscription', 'inventory_item', 'inventory_tracked_date', 'pantry_item', 'cycle_period', 'cycle_log_nudge', 'schedule_entry', 'schedule_extra_entry'];
 
 /**
  * Nach jedem Schreibvorgang an den Erinnerungen eines Termins: die Zugewiesenen
@@ -51,6 +51,18 @@ function syncEventFanout(entityType, entityId, userId) {
  * binnen einer Minute weg, und zwar spurlos - ihn anzunehmen wäre eine Zusage,
  * die niemand hält. Ein ehrliches 400 sagt es sofort.
  *
+ * `schedule_entry` gehört aus demselben Grund dazu:
+ * server/services/schedule-reminders.js stellt seine Zeile bei jedem Lauf neu
+ * her, und `entity_id` zeigt zudem auf einen Anker
+ * (`schedule_reminder_entries`), den ein Aufrufer von aussen gar nicht bilden
+ * könnte.
+ *
+ * `schedule_extra_entry` ebenso: derselbe periodische Sync stellt sie her,
+ * auch wenn `entity_id` hier direkt auf eine echte `schedule_extra_shifts`-
+ * Zeile zeigt statt auf einen Anker - der Vorlauf selbst
+ * (`reminder_offset_minutes`) ist nur ueber die Extra-Routen aenderbar, nicht
+ * ueber diesen generischen Router.
+ *
  * WARUM NICHT AUCH `subscription`, `inventory_item`, `inventory_tracked_date`.
  * Auch sie werden abgeleitet, aber nur beim SCHREIBEN ihres Objekts: dort hält
  * ein handgesetzter Termin bis zur nächsten Änderung des Abos oder Geräts, und
@@ -71,7 +83,7 @@ function syncEventFanout(entityType, entityId, userId) {
  * Die LESEWEGE (GET) kennen alle Typen weiter: der Erinnerungs-Toast muss eine
  * abgeleitete Meldung anzeigen und wegwischen können.
  */
-const DERIVED_ENTITY_TYPES = ['pantry_item', 'cycle_period', 'cycle_log_nudge'];
+const DERIVED_ENTITY_TYPES = ['pantry_item', 'cycle_period', 'cycle_log_nudge', 'schedule_entry', 'schedule_extra_entry'];
 
 /* DIESER ROUTER IST EINE MISCHSTELLE, UND SEIN PFAD SAGT DAS NICHT.
  *
@@ -105,6 +117,8 @@ const ORIGIN_MODULE = Object.freeze({
   pantry_item:            'pantry',
   cycle_period:           'health',
   cycle_log_nudge:        'health',
+  schedule_entry:         'schedule',
+  schedule_extra_entry:   'schedule',
 });
 
 /**
@@ -169,6 +183,14 @@ router.get('/pending', (req, res) => {
           WHEN 'pantry_item' THEN (SELECT name FROM pantry_items WHERE id = r.entity_id)
           WHEN 'cycle_period' THEN (SELECT anchor_date FROM cycle_reminder_anchors WHERE id = r.entity_id)
           WHEN 'cycle_log_nudge' THEN (SELECT anchor_date FROM cycle_reminder_anchors WHERE id = r.entity_id)
+          WHEN 'schedule_entry' THEN (
+            SELECT t.name FROM schedule_reminder_entries e JOIN schedule_shift_types t ON t.id = e.shift_type_id
+            WHERE e.id = r.entity_id
+          )
+          WHEN 'schedule_extra_entry' THEN (
+            SELECT t.name FROM schedule_extra_shifts e JOIN schedule_shift_types t ON t.id = e.shift_type_id
+            WHERE e.id = r.entity_id
+          )
         END AS entity_title
       FROM reminders r
       WHERE r.created_by  = ?

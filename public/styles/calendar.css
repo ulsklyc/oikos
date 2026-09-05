@@ -1991,6 +1991,27 @@
   z-index: 0;
 }
 
+/* Migration 188 (eigene Felder): note plus jedes ueberlagerungssichtbare Feld
+ * mit einem Wert, auf der Uhrzeit-Zeile statt nur im (durch
+ * pointer-events:none praktisch unerreichbaren) title. Zwei FESTE Zeilen statt
+ * des vorherigen Fliesstexts (Titel+Badge, Uhrzeit+Feldwert), jede einzeilig
+ * mit Ellipse: bei den ueblichen 30-60-min-Bloecken der Wochenansicht fuellte
+ * unvorhersehbar umbrechender Fliesstext den knappen Block schon mit
+ * Titel+Uhrzeit, eine dritte Zeile fuer das Feld blieb praktisch immer unter
+ * der Blockkante verborgen (overflow:clip). Mit dem Feld AUF der Uhrzeit-Zeile
+ * reicht der Platz, den Titel+Uhrzeit ohnehin schon beanspruchten. */
+.schedule-time-block__title,
+.schedule-time-block__time {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.schedule-time-block__time {
+  opacity: .85;
+}
+
 .cal-toolbar__schedule-warning {
   display: inline-flex;
   align-items: center;
@@ -2004,5 +2025,12 @@
   flex: 0 0 auto;
   font: inherit;
   font-variant-numeric: tabular-nums;
+  opacity: .82;
+}
+
+.schedule-entry__extra-badge {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 auto;
   opacity: .82;
 }

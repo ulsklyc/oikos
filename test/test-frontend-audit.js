@@ -1463,7 +1463,7 @@ test('module-specific settings leaves only reference their owned preferences and
     },
     '../public/settings/pages/modules-options.js': {
       endpoints: ['/preferences'],
-      preferences: ['budget_mode', 'health_cycle_enabled', 'housekeeping_payment_tasks', 'tasks_subtasks_expanded'],
+      preferences: ['budget_mode', 'health_cycle_enabled', 'housekeeping_payment_tasks', 'tasks_subtasks_expanded', 'schedule_hidden_templates'],
     },
   };
 
@@ -1580,9 +1580,18 @@ test('module-specific settings leaves preserve their required controls and behav
   for (const id of ['budget-mode-personal', 'health-cycle-enabled', 'housekeeping-payment-tasks', 'tasks-subtasks-expanded']) {
     assert.match(options, controlIdPattern(id));
   }
+  // Die drei Schichtplan-Vorlagen-Kontrollkaestchen teilen sich EINE
+  // `.map(...)`-Aufrufstelle statt vier einzelner TOGGLES-Eintraege (ein
+  // Array-Praeferenzwert, nicht ein Schluessel je Schalter) - deshalb kein
+  // literales `id: 'schedule-template-work'` im Quelltext, das
+  // `controlIdPattern` finden koennte. Die erzeugende Vorlage selbst pruefen.
+  assert.match(options, /const SCHEDULE_TEMPLATES = \[/);
+  assert.match(options, /id: `schedule-template-\$\{key\}`/, 'the three schedule template checkboxes must use the reviewed id pattern');
   // Genau diese Schalter, sonst nichts: sie kommen aus dem geteilten Primitiv,
-  // deshalb zählt das Blatt keine `<input>`-Literale mehr.
-  assert.equal([...options.matchAll(/toggleRowHtml\(\{/g)].length, 4);
+  // deshalb zählt das Blatt keine `<input>`-Literale mehr. Fuenf statt vier
+  // Fundstellen im QUELLTEXT, nicht Aufrufe zur Laufzeit: die drei
+  // Schichtplan-Vorlagen teilen sich die eine `.map(...)`-Aufrufstelle oben.
+  assert.equal([...options.matchAll(/toggleRowHtml\(\{/g)].length, 5);
   assert.equal([...options.matchAll(/<(?:input|select|textarea)\b/g)].length, 0);
   assert.equal([...options.matchAll(/getPreferences\(\)/g)].length, 1);
   assert.match(options, /budget_mode: checked \? 'personal' : 'shared'/);
@@ -15571,4 +15580,42 @@ test('PAGE composition: there is no toolbar rail element anywhere under public/'
   const layout = read('../public/styles/layout.css');
   assert.match(layout, /\.app-page--reading\s*>\s*\.app-page__body/,
     'reading body must own page-inline-pad gutters');
+});
+
+// --------------------------------------------------------------------------
+// SYMBOLAUSWAHL: die Scroll-Klasse der CSS trifft den Wrapper des Dialogs
+//
+// Gefunden auf einem echten Mobilgeraet (Schichtplan v3, Symbol-Feld): die CSS
+// setzte `display:flex; flex-direction:column; max-height:inherit;
+// min-height:0` auf `.icon-picker__form`, das erzeugte Markup in
+// buildDialog() (public/components/icon-picker.js) baut aber einen Wrapper
+// mit der Klasse `.icon-picker__body`. Ohne Treffer griff die Flex/Scroll-
+// Kette nie: das Ergebnis-Raster wuchs auf seine natuerliche Hoehe statt zu
+// scrollen, und die Fusszeile (Loeschen/Abbrechen) landete unterhalb des
+// `max-height`+`overflow:hidden` des Dialogs - auf kurzen Viewports komplett
+// abgeschnitten und unerreichbar. Betraf alle drei Verwendungsstellen
+// (Schnellzugriffe, Kalender, Schichtplan) gleichermassen, seit #873 - auf
+// dem Desktop blieb genug Raum, dass es nie auffiel.
+// --------------------------------------------------------------------------
+test('die Scroll-Klasse der Symbolauswahl-CSS trifft einen wirklich erzeugten Wrapper', () => {
+  const js = read('../public/components/icon-picker.js');
+  const css = read('../public/styles/icon-picker.css');
+
+  const wrapperMatch = /<div class="(icon-picker__\w+)">/.exec(js);
+  assert.ok(wrapperMatch, 'buildDialog() baut keinen icon-picker__*-Wrapper mehr - Guard veraltet');
+  const wrapperClass = wrapperMatch[1];
+
+  assert.ok(css.includes(`.${wrapperClass} {`),
+    `Die CSS setzt keine Regel fuer ".${wrapperClass}" - genau der Wrapper, den `
+    + 'buildDialog() tatsaechlich erzeugt. Ohne eine Regel hier bekommt der Dialog keinen '
+    + 'Flex-Kontext, das Ergebnis-Raster scrollt nicht und die Fusszeile (Loeschen/'
+    + 'Abbrechen) kann vom `overflow: hidden` des <dialog> abgeschnitten werden - auf '
+    + 'kurzen Viewports unerreichbar.');
+
+  const rule = new RegExp(`\\.${wrapperClass}\\s*\\{[^}]*\\}`).exec(css)[0];
+  for (const prop of ['display: flex', 'flex-direction: column', 'min-height: 0']) {
+    assert.ok(rule.includes(prop),
+      `.${wrapperClass} traegt kein "${prop}" - ohne das gibt der Wrapper seine Hoehe `
+      + 'nicht an .icon-picker__results weiter, das Raster scrollt dann nicht.');
+  }
 });
