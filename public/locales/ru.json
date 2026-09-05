@@ -903,6 +903,7 @@
         "toggleHolidays": "Праздничные дни",
         "toggleSchool": "Школьные каникулы",
         "toggleBirthdays": "Дни рождения",
+        "toggleMonthTitles": "Названия событий",
         "assignedToMe": "Назначенные мне",
         "deleteRecurringTitle": "Удалить повторяющееся событие",
         "recurringScopeLabel": "Применяется к",

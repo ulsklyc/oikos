@@ -1303,6 +1303,90 @@ test('matchesRRuleByday filtert nicht, wo UTC- und Ortsdatum auseinanderfallen',
 });
 
 // --------------------------------------------------------
+// Monatszelle am Telefon: Punkte oder Titelzeilen (Schalter im Filter-Blatt)
+// --------------------------------------------------------
+
+test('Monatsflaeche traegt die Titel-Modifier-Klasse nur, wenn der Schalter an ist', () => {
+  assert(calendarHelpers.monthViewClasses(false) === 'month-view',
+    'aus heisst: keine zweite Klasse, also exakt die Basisfassung');
+  assert(calendarHelpers.monthViewClasses(true).split(' ').includes('month-view--titles'),
+    'an heisst: die Modifier-Klasse, an der die 639er-Query haengt');
+  assert(calendarHelpers.monthViewClasses(true).split(' ').includes('month-view'),
+    'die Basisklasse bleibt - sie traegt Flex-Richtung und Ueberlauf der Flaeche');
+});
+
+// DER LEERE STRING IST DER FALL, DER ZAEHLT: getPropertyValue() liefert ihn,
+// wo die Property nirgends gesetzt ist, und `parseInt('') > 0` ist NaN > 0.
+// Ohne diese Umsetzung stuende dort still `NaN` als Deckel, und Math.min(x, NaN)
+// ist NaN - jede Zelle haette am Ende keinen einzigen Chip gezeigt.
+test('Der Sichtbarkeits-Deckel liest 0, leer und Unfug alle als "kein Deckel"', () => {
+  const { monthDayVisibleCap } = calendarHelpers;
+  for (const raw of ['', ' ', '0', 'auto', 'none', '-3']) {
+    assert(monthDayVisibleCap(raw) === Infinity,
+      `${JSON.stringify(raw)} muss "kein Deckel" heissen, war ${monthDayVisibleCap(raw)}`);
+  }
+  assert(monthDayVisibleCap('4') === 4, 'die gesetzte Zahl gilt');
+  assert(monthDayVisibleCap(' 4 ') === 4, 'getPropertyValue liefert den Wert mit Rand-Leerraum');
+});
+
+test('Die Titelfassung wohnt in derselben Query wie die Punktfassung', () => {
+  const rules = [...eachRule(calendarCss)].filter((r) => r.selector.includes('.month-view--titles'));
+  assert(rules.length > 0, '.month-view--titles hat keine einzige Regel - der Schalter waere folgenlos');
+  for (const rule of rules) {
+    assert(rule.at.some((a) => /max-width:\s*639px/.test(a)),
+      `${rule.selector.trim()} steht ausserhalb der 639er-Query - auf dem Desktop zeigt die `
+      + 'Monatszelle ohnehin Titel, eine Regel dort aendert nur, was schon stimmt');
+  }
+});
+
+// Die Punktfassung ist die VORGABE und muss es bleiben: waere sie unbedingt
+// geschnitten, gaebe der Schalter die Titelzeilen nie frei; waere sie ganz weg,
+// haette das Update jedes Telefon ungefragt umgebaut.
+test('Die Punktfassung gilt genau dann, wenn die Titelfassung nicht gewaehlt ist', () => {
+  const dotRules = [...eachRule(calendarCss)].filter((r) =>
+    /border-radius:\s*var\(--radius-full\)/.test(r.body)
+    && r.selector.includes('.month-day')
+    && r.at.some((a) => /max-width:\s*639px/.test(a)));
+  assert(dotRules.length > 0, 'die Punktgeometrie der Monatszelle ist verschwunden');
+  for (const rule of dotRules) {
+    assert(rule.selector.includes(':not(.month-view--titles)'),
+      `${rule.selector.trim()} macht Punkte ohne die Bedingung - der Schalter kaeme nie gegen sie an`);
+  }
+});
+
+// Der Klipp-Guard MUSS jede Fassungsregel ueberwiegen, die `display` setzt.
+// Bei Gleichstand gewinnt die spaetere Regel, und die Fassungen stehen weiter
+// unten in der Datei - ein geklippter Chip waere wieder sichtbar, waehrend das
+// "+N" darunter ihn weiterzaehlt. Genau so ist es beim Bau dieses Schalters
+// passiert: `:not(.month-view--titles)` zaehlt sein Argument mit, und mit dem
+// urspruenglichen `.month-day` davor stand die Punktfassung selbst auf vier.
+//
+// GEZAEHLT WIRD NUR, WER `display` SETZT. Die erste Fassung dieses Guards nahm
+// jede Regel mit der Modifier-Klasse und stolperte ueber
+// `.month-view--titles .cal-task-chip .priority-dot` - vier Klassen, aber sie
+// setzt eine Breite auf einem ANDEREN Element und kann mit dem Klipp-Guard nie
+// kollidieren. Ein Guard, der solche Regeln mitzaehlt, erzwingt eine
+// Spezifitaets-Ruestung gegen einen Konflikt, den es nicht gibt.
+test('Der Klipp-Guard steht ueber jeder Fassungsregel, die display setzt', () => {
+  const clip = [...eachRule(calendarCss)].find((r) => r.selector.includes('.is-clipped')
+    && r.selector.includes('.month-day'));
+  assert(clip, 'die .is-clipped-Regel des Monatsrasters fehlt');
+  // Spezifitaet zaehlt das :not()-Argument mit - deshalb einfach alle
+  // Klassen-Token des Selektors, inklusive derer in der Klammer.
+  const classes = (sel) => (sel.split(',')[0].match(/\.[a-zA-Z][\w-]*/g) ?? []).length;
+  const variant = [...eachRule(calendarCss)].filter((r) =>
+    (r.selector.includes('.month-view--titles') || r.selector.includes(':not(.month-view--titles)'))
+    && /(?:^|;)\s*display\s*:/.test(r.body));
+  assert(variant.length > 0, 'keine Fassungsregel setzt display - dann prueft dieser Guard nichts');
+  for (const rule of variant) {
+    assert(classes(clip.selector) > classes(rule.selector),
+      `.is-clipped traegt ${classes(clip.selector)} Klassen, ${rule.selector.trim()} `
+      + `traegt ${classes(rule.selector)} - bei Gleichstand gewinnt die spaetere Regel, `
+      + 'und das ist die Fassung');
+  }
+});
+
+// --------------------------------------------------------
 // Ergebnis
 // --------------------------------------------------------
 console.log(`\n[Calendar-Test] Ergebnis: ${passed} bestanden, ${failed} fehlgeschlagen\n`);

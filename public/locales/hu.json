@@ -903,6 +903,7 @@
         "toggleHolidays": "Állami ünnepek",
         "toggleSchool": "Iskolai szünetek",
         "toggleBirthdays": "Születésnapok",
+        "toggleMonthTitles": "Esemény címek",
         "assignedToMe": "Hozzám rendelve",
         "deleteRecurringTitle": "Ismétlődő esemény törlése",
         "recurringScopeLabel": "Erre vonatkozik",

@@ -903,6 +903,7 @@
         "toggleHolidays": "العطلات الرسمية",
         "toggleSchool": "العطلات المدرسية",
         "toggleBirthdays": "أعياد الميلاد",
+        "toggleMonthTitles": "عناوين المواعيد",
         "assignedToMe": "المُسندة إليّ",
         "deleteRecurringTitle": "حذف الحدث المتكرر",
         "recurringScopeLabel": "ينطبق على",

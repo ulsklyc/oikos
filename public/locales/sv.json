@@ -903,6 +903,7 @@
         "toggleHolidays": "Helgdagar",
         "toggleSchool": "Skollov",
         "toggleBirthdays": "Födelsedagar",
+        "toggleMonthTitles": "Händelsetitlar",
         "assignedToMe": "Tilldelade mig",
         "deleteRecurringTitle": "Ta bort återkommande händelse",
         "recurringScopeLabel": "Gäller",

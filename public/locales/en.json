@@ -903,6 +903,7 @@
         "toggleHolidays": "Public Holidays",
         "toggleSchool": "School Holidays",
         "toggleBirthdays": "Birthdays",
+        "toggleMonthTitles": "Event titles",
         "assignedToMe": "Assigned to me",
         "deleteRecurringTitle": "Delete recurring event",
         "recurringScopeLabel": "Applies to",

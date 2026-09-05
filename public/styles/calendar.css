@@ -202,6 +202,17 @@
 }
 
 .month-grid {
+  /* Deckel fuer die sichtbaren Chips je Zelle, gelesen von fitMonthDayCells
+   * (calendar.js). 0 heisst "kein Deckel": es entscheidet allein die reale
+   * Zellhoehe, wie viele Bars stehen bleiben. Nur die Titelfassung am Telefon
+   * setzt ihn (siehe ganz unten) - dort ist "vier Zeilen, dann +N" eine
+   * Zusage und nicht ein Nebenprodukt der Geraetehoehe.
+   *
+   * ALS CUSTOM PROPERTY, NICHT ALS ZAHL IM JS: die Schwelle, ab der die
+   * Titelfassung gilt, steht in der Media Query weiter unten. Ein zweites
+   * `matchMedia` im JS waere dieselbe Grenze an einer zweiten Stelle - der
+   * Fehler, den MOBILE_MEDIA_QUERY (calendar.js) schon einmal bezahlt hat. */
+  --month-day-max-visible: 0;
   flex: 1;
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -408,11 +419,19 @@
 
 /* Von fitMonthDayCells (Audit P2) verborgene Überzählige. Eigene Klasse statt
  * [hidden], weil die Chip-Basisregeln display:flex/inline-flex tragen und das
- * UA-[hidden] überstimmen würden; die Dreifach-Klasse (0,3,0) schlägt auch die
- * mobilen Punkt-Overrides (.month-day .month-day__event, 0,2,0). */
-.month-day .month-day__event.is-clipped,
-.month-day .cal-task-chip.is-clipped,
-.month-day .month-day__holiday.is-clipped {
+ * UA-[hidden] überstimmen würden.
+ *
+ * VIERFACH (0,4,0) SEIT DEM TITEL-SCHALTER, und die Sprosse ist gekauft, nicht
+ * geschenkt: die Punktfassung traegt `:not(.month-view--titles)`, und ein
+ * `:not()` zaehlt sein Argument mit. Mit dem urspruenglichen `.month-day`
+ * davor stand sie damit selbst auf 0,4,0 - Gleichstand mit dieser Regel, und
+ * sie steht spaeter in der Datei. Ihr `display: inline-flex` gewann, jeder
+ * geklippte Chip war wieder da, und das "+N" zaehlte ihn trotzdem mit.
+ * Deshalb sind beide Fassungen auf hoechstens drei Klassen geschnitten und
+ * diese Regel auf vier; test:calendar prueft genau diesen Abstand. */
+.month-grid .month-day .month-day__event.is-clipped,
+.month-grid .month-day .cal-task-chip.is-clipped,
+.month-grid .month-day .month-day__holiday.is-clipped {
   display: none;
 }
 
@@ -1756,10 +1775,27 @@
 }
 
 /* --------------------------------------------------------
- * Monat auf Mobile: Ereignis-Punkte statt unlesbarer 1-Buchstaben-Chips.
- * Titel bleiben Agenda/Tag vorbehalten; hier zählt nur „etwas ist los".
- * (Nach der kanonischen .month-day__holiday-Regel platziert, damit die
- *  Reihenfolge stimmt und die Punkt-Overrides greifen.)
+ * Monat auf Mobile: ZWEI FASSUNGEN, und der Schalter dazwischen wohnt im
+ * Filter-Blatt (Darstellung -> "Termintitel", calendar.js).
+ *
+ * PUNKTE sind die Vorgabe und bleiben unveraendert: unlesbare
+ * 1-Buchstaben-Chips waren die Alternative, gegen die sie gebaut wurden, und
+ * ihr WCAG-1.4.11-Ring ist nachgemessen (Begruendung an der Regel selbst).
+ *
+ * TITELZEILEN sind die zweite Lesart, fuer den Haushalt, der den Monat
+ * ueberfliegen will statt ihn Tag fuer Tag aufzuklappen: derselbe Chip, nur
+ * auf --text-2xs (10px) geschrumpft und mit Ellipsis. "Zahnarzt" steht dann
+ * als "Zahnar…", und das ist mehr als ein blauer Punkt.
+ *
+ * DIE PUNKT-REGELN SIND GEGEN `:not(.month-view--titles)` GESCHNITTEN,
+ * statt in der Titelfassung einzeln zurueckgenommen zu werden. Der Unterschied
+ * ist nicht Geschmack: die Punktregel ersetzt Flaeche UND Tinte
+ * (`background: var(--ev-color)` statt des color-mix-Rezepts der Basisregel),
+ * ein Ueberschreiben haette also das Kontrastrezept ein zweites Mal
+ * hingeschrieben - zwei Orte, an denen dieselbe nachgemessene Zusage steht,
+ * und einer davon faellt beim naechsten Mal hinten runter. So erbt die
+ * Titelfassung schlicht die Basisregel, und diese Datei fuehrt das Rezept
+ * genau einmal.
  * -------------------------------------------------------- */
 @media (max-width: 639px) {
   .month-day {
@@ -1774,9 +1810,9 @@
    * die Farbe ist hier die einzige Unterscheidung zwischen zwei Terminen.
    * 10px ist der kleinste Wert der Skala, bei dem Ring UND Farbe zusammen
    * lesbar bleiben. */
-  .month-day .month-day__event,
-  .month-day .cal-task-chip,
-  .month-day .month-day__holiday {
+  .month-view:not(.month-view--titles) .month-day__event,
+  .month-view:not(.month-view--titles) .cal-task-chip,
+  .month-view:not(.month-view--titles) .month-day__holiday {
     display: inline-flex;
     width: var(--space-2h);
     height: var(--space-2h);
@@ -1810,12 +1846,12 @@
    * NICHT `--color-border-strong`, obwohl der Name danach klingt: er ist fuer
    * feine Linien gebaut und misst gegen Weiss 1,65:1 - er haette genau den
    * Fehler wiederholt, den er beheben soll. */
-  .month-day .month-day__event {
+  .month-view:not(.month-view--titles) .month-day__event {
     background: var(--ev-color);
     box-shadow: inset 0 0 0 var(--space-px) var(--color-text-tertiary);
   }
 
-  .month-day .month-day__holiday {
+  .month-view:not(.month-view--titles) .month-day__holiday {
     background: var(--holi-color, var(--color-text-secondary));
     box-shadow: inset 0 0 0 var(--space-px) var(--color-text-tertiary);
   }
@@ -1828,14 +1864,14 @@
    * die Fläche.
    *
    * Der dünne Ring bleibt: er unterscheidet Aufgaben- von Terminpunkten. */
-  .month-day .cal-task-chip {
+  .month-view:not(.month-view--titles) .cal-task-chip {
     background: var(--prio-color, var(--color-text-secondary));
     box-shadow: inset 0 0 0 var(--space-px) var(--color-surface-work);
   }
 
-  .month-day .month-day__event > *,
-  .month-day .cal-task-chip > *,
-  .month-day .month-day__holiday > * {
+  .month-view:not(.month-view--titles) .month-day__event > *,
+  .month-view:not(.month-view--titles) .cal-task-chip > *,
+  .month-view:not(.month-view--titles) .month-day__holiday > * {
     display: none;
   }
 
@@ -1843,6 +1879,82 @@
     font-size: var(--text-2xs);
     line-height: 1;
     margin-top: var(--space-0h);
+  }
+
+  /* ---- Titelfassung (Schalter an) --------------------------------------
+   * Sie schreibt nur GEOMETRIE. Flaeche, Tinte und Farbkante kommen
+   * unveraendert aus den Basisregeln oben - damit gilt das dort nachgemessene
+   * Kontrastrezept (7,2-9,5:1 light / 7,8-8,9:1 dark) hier unveraendert
+   * weiter, und der Ring, den die Punktfassung braucht, ist gegenstandslos:
+   * nicht mehr die Farbflaeche allein traegt die Information, sondern der
+   * Text darauf. */
+
+  .month-view--titles .month-grid {
+    --month-day-max-visible: 4;
+  }
+
+  /* DIE ZAHL IST GERECHNET, NICHT GESCHAETZT - sie ist die Bedingung dafuer,
+   * dass "vier Zeilen" ueberhaupt eintreten kann: fitMonthDayCells zeigt nur,
+   * was in die REALE Zellhoehe passt, ein zu knapper Wert liefert also still
+   * drei Zeilen und "+N", ohne dass etwas kaputt aussieht.
+   *
+   * box-sizing ist border-box (reset.css), min-height deckt also alles:
+   *     Ziffer      20 (--space-5) + 2 Abstand               = 22
+   *     4 Zeilen    4 x (13 Text + 2 Polsterung + 1 Abstand) = 64
+   *     "+N"        13 + 1 Abstand                           = 14
+   *     Polsterung  2 + 2, Rahmen unten 1                    =  5
+   *                                                          ---
+   *                                                          105
+   * 108 laesst drei Pixel fuer das Aufrunden der Zeilenboxen.
+   *
+   * Sechs Reihen kosten damit ~650px, das Gitter scrollt am Telefon -
+   * .month-grid ist dafuer gebaut (overflow-y:auto). Nach OBEN deckelt die
+   * Hoehe nichts: grid-auto-rows:1fr laesst die Reihen auf einem hohen Geraet
+   * wachsen, und dort begrenzt --month-day-max-visible. Beide Enden brauchen
+   * ihre eigene Grenze. */
+  .month-view--titles .month-day {
+    min-height: 108px;
+  }
+
+  /* Die Ziffer gibt Platz zurueck: das 24px-Badge plus 4px Abstand kostete
+   * zwei der vier Zeilen. 20px traegt auch die zweistellige Ziffer, und der
+   * gefuellte "heute"-Kreis bleibt ein Kreis. */
+  .month-view--titles .month-day__number {
+    font-size: var(--text-xs);
+    width: var(--space-5);
+    height: var(--space-5);
+    margin-bottom: var(--space-0h);
+  }
+
+  .month-view--titles .month-day .month-day__event,
+  .month-view--titles .month-day .cal-task-chip,
+  .month-view--titles .month-day .month-day__holiday {
+    gap: var(--space-0h);
+    font-size: var(--text-2xs);
+    line-height: 1.3;
+    padding: var(--space-px) var(--space-0h);
+    margin: 0 0 var(--space-px) 0;
+  }
+
+  /* Die Vollton-Kante von 3px auf 2px: auf einer ~44px breiten Spalte nahm sie
+   * sonst ein Fuenfzehntel der Zeile, und jedes Pixel davon fehlt dem Titel vor
+   * der Ellipsis. Sie bleibt die Kante, nicht ein Rahmen. */
+  .month-view--titles .month-day .month-day__event {
+    border-inline-start-width: var(--space-0h);
+  }
+
+  /* Der Prioritaetspunkt bleibt die Rangmarke der Aufgabe (Skalen-Regel), nur
+   * proportional zur 13px-Zeile: 8px sassen darauf wie ein zweites Element. */
+  .month-view--titles .cal-task-chip .priority-dot {
+    width: var(--space-1h);
+    height: var(--space-1h);
+  }
+
+  .month-view--titles .month-day .month-day__more {
+    font-size: var(--text-2xs);
+    line-height: 1.3;
+    padding: 0 var(--space-0h);
+    margin-top: var(--space-px);
   }
 }
 
