@@ -1952,7 +1952,7 @@ function renderMonthDay(date, inMonth) {
   const evs      = eventsOnDay(date);
   const dayTasks = tasksOnDay(date);
   const dayHols  = holidaysOnDay(date);
-  const daySchedule = state.layerSchedule ? state.scheduleEntries.filter((entry) => entry.date_key === date && entry.shift_type) : [];
+  const daySchedule = scheduleEntriesOnDay(date);
   const isToday  = date === state.today;
   const classes  = monthDayClasses(date, inMonth);
 
@@ -2006,9 +2006,21 @@ function renderMonthDay(date, inMonth) {
 // aria-label der Tageszelle: lokalisiertes Datum + (falls vorhanden) Zahl der
 // Einträge, damit Tastatur/Screenreader den Tag vor dem Drill-in einordnen
 // können. Leere Tage tragen nur das Datum (die role sagt "Schaltfläche"). P1.
+/**
+ * Schichtplan-Eintraege tragen eine einzelne `user_id` statt `assigned_users` -
+ * dieser Adapter spiegelt sie in dieselbe Form, damit `passesPersonFilters()`
+ * (Termine, Aufgaben) unveraendert wiederverwendet werden kann, statt eine
+ * zweite Personen-Filter-Logik nur fuer den Schichtplan zu pflegen.
+ */
+function scheduleAsAssignable(entry) {
+  return { assigned_users: entry.user_id == null ? [] : [{ id: entry.user_id }] };
+}
+
 function scheduleEntriesOnDay(date) {
   return state.layerSchedule
-    ? state.scheduleEntries.filter((entry) => entry.date_key === date && entry.shift_type)
+    ? state.scheduleEntries.filter(
+        (entry) => entry.date_key === date && entry.shift_type && passesPersonFilters(scheduleAsAssignable(entry))
+      )
     : [];
 }
 
@@ -3095,6 +3107,8 @@ export const __test = {
   EVENT_COLORS,
   renderScheduleChip,
   scheduleEntryTitle,
+  scheduleEntriesOnDay,
+  state,
 };
 
 function renderAgendaEvent(ev, dayStr) {

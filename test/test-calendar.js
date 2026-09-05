@@ -1319,6 +1319,45 @@ test('matchesRRuleByday filtert nicht, wo UTC- und Ortsdatum auseinanderfallen',
     'mit Zonenhinweis nicht - lieber ein Vorkommen zu viel als eines lautlos verloren');
 });
 
+test('scheduleEntriesOnDay() respektiert den Personenfilter und den "Mir zugewiesen"-Filter wie Termine/Aufgaben (#1018)', () => {
+  const { scheduleEntriesOnDay, state } = calendarHelpers;
+  const savedEntries = state.scheduleEntries;
+  const savedLayer = state.layerSchedule;
+  const savedPeople = state.people;
+  const savedAssignedToMe = state.assignedToMe;
+  const savedCurrentUserId = state.currentUserId;
+  try {
+    state.layerSchedule = true;
+    state.scheduleEntries = [
+      { date_key: '2026-09-10', shift_type: { name: 'Fruehschicht' }, user_id: 1 },
+      { date_key: '2026-09-10', shift_type: { name: 'Spaetschicht' }, user_id: 2 },
+    ];
+
+    state.people = new Set();
+    state.assignedToMe = false;
+    assert(scheduleEntriesOnDay('2026-09-10').length === 2,
+      'ohne aktiven Filter zeigt der Kalender beide Personen');
+
+    state.people = new Set([1]);
+    assert(scheduleEntriesOnDay('2026-09-10').length === 1
+      && scheduleEntriesOnDay('2026-09-10')[0].user_id === 1,
+      'Personenfilter auf Person 1 muss Person 2s Schicht ausblenden - vorher zeigte der Schichtplan trotz aktivem Filter alle Personen');
+
+    state.people = new Set();
+    state.assignedToMe = true;
+    state.currentUserId = 2;
+    assert(scheduleEntriesOnDay('2026-09-10').length === 1
+      && scheduleEntriesOnDay('2026-09-10')[0].user_id === 2,
+      '"Mir zugewiesen" muss auch fuer den Schichtplan gelten, nicht nur fuer Termine/Aufgaben');
+  } finally {
+    state.scheduleEntries = savedEntries;
+    state.layerSchedule = savedLayer;
+    state.people = savedPeople;
+    state.assignedToMe = savedAssignedToMe;
+    state.currentUserId = savedCurrentUserId;
+  }
+});
+
 // --------------------------------------------------------
 // Ergebnis
 // --------------------------------------------------------
