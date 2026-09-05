@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The countdown tile's overdue grace period is now a household setting (Settings → Modules).**
+  An expired countdown used to always stay visible for a fixed 7 days before dropping off - since
+  overdue items sort to the top of the tile, a household that wanted to see fewer of them had no way
+  to shorten that window. It's now configurable (0-90 days, default 7 so existing installs see no
+  change).
+
 - **Deleting a document folder can now either keep its documents unfiled or delete the confirmed
   subtree together with its documents.** The dialog previews exact folder and document counts and
   offers destructive deletion only when the user may delete every affected document. The server

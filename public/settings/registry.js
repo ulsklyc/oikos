@@ -218,6 +218,18 @@ export const SETTINGS_LEAVES = freezeEntries([
     loader: () => import('/settings/pages/modules-rewards.js'),
   },
   {
+    // Nicht an ein einzelnes Modul gebunden (die Kachel sammelt aus Kalender
+    // UND Aufgaben, #647) - deshalb kein `module:`, wie modules-options.js.
+    id: 'modules-countdowns',
+    domainId: 'modules',
+    path: '/settings/modules/countdowns',
+    labelKey: 'settings.pageCountdownsModule',
+    descriptionKey: 'settings.pageCountdownsModuleDescription',
+    icon: 'hourglass',
+    adminOnly: true,
+    loader: () => import('/settings/pages/modules-countdowns.js'),
+  },
+  {
     id: 'sync-calendar',
     domainId: 'sync',
     path: '/settings/sync/calendar',

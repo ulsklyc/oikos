@@ -95,12 +95,19 @@ function reset() {
   get().prepare('DELETE FROM calendar_events').run();
   get().prepare('DELETE FROM tasks').run();
   get().prepare("DELETE FROM sync_config WHERE key = 'disabled_modules'").run();
+  get().prepare("DELETE FROM sync_config WHERE key = 'countdown_grace_days'").run();
 }
 
 /** Schaltet Module haushaltweit ab - wie die Admin-Seite es schreibt. */
 function disableModules(...names) {
   get().prepare("INSERT OR REPLACE INTO sync_config (key, value) VALUES ('disabled_modules', ?)")
     .run(JSON.stringify(names));
+}
+
+/** Setzt die Nachfrist (#969) - wie routes/preferences.js sie schreibt. */
+function setGraceDays(days) {
+  get().prepare("INSERT OR REPLACE INTO sync_config (key, value) VALUES ('countdown_grace_days', ?)")
+    .run(String(days));
 }
 
 // --------------------------------------------------------
@@ -215,6 +222,33 @@ test('was vorbei ist, bleibt eine Nachfrist lang stehen - und faellt danach hera
   assert.deepEqual(items.map((c) => c.days_until), [-7, -2, 0]);
   assert.ok(!items.some((c) => c.title === 'Genau raus'),
     'Tag 8 liegt ausserhalb der Nachfrist und darf nicht mehr erscheinen');
+});
+
+test('die Nachfrist ist haushaltweit einstellbar (#969) - kuerzer als der Standard', () => {
+  reset();
+  setGraceDays(3);
+  seedEvent({ title: 'Vor 2 Tagen', start: '2026-08-15' });
+  seedEvent({ title: 'Vor 4 Tagen', start: '2026-08-13' });
+  seedTask({ title: 'Aufgabe vor 2 Tagen', due: '2026-08-15' });
+  seedTask({ title: 'Aufgabe vor 4 Tagen', due: '2026-08-13' });
+
+  const items = cd({ userId: ALICE, todayKey: '2026-08-17' });
+  assert.deepEqual(
+    items.map((c) => c.title).sort(),
+    ['Aufgabe vor 2 Tagen', 'Vor 2 Tagen'].sort(),
+    'mit auf 3 Tage verkuerzter Nachfrist faellt heraus, was der Standard (7) noch zeigen wuerde',
+  );
+});
+
+test('0 Tage Nachfrist ist ein gueltiger, bewusst gesetzter Wert - keine sofortige Rueckfrage auf den Standard', () => {
+  reset();
+  setGraceDays(0);
+  seedEvent({ title: 'Heute', start: '2026-08-17' });
+  seedEvent({ title: 'Gestern', start: '2026-08-16' });
+
+  const items = cd({ userId: ALICE, todayKey: '2026-08-17' });
+  assert.deepEqual(items.map((c) => c.title), ['Heute'],
+    '0 heisst keine Nachfrist, nicht "Einstellung ignorieren und bei 7 bleiben"');
 });
 
 test('eine SERIE laeuft nicht ab - sie hat ein naechstes Mal', () => {
