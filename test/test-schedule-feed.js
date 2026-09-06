@@ -38,7 +38,7 @@ const bob = insertUser('feed-bob');
 // `DTSTART;TZID=<Zone>:...`. Die alten, nicht endverankerten Assertions unten
 // passten zufaellig auf beide Formen und pruefte damit nie wirklich die
 // Verankerung. Pin wie test-schedule-reminders.js es schon fuer die Erinnerungen tut.
-db.prepare("INSERT INTO sync_config (key, value) VALUES ('household_timezone', 'UTC')").run();
+db.prepare("INSERT OR REPLACE INTO sync_config (key, value) VALUES ('household_timezone', 'UTC')").run();
 
 /** Fuehrt `fn` mit einer anderen Haushaltszone aus, stellt UTC danach wieder her. */
 function withHouseholdTimeZone(zone, fn) {

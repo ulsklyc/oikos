@@ -401,24 +401,28 @@ async function activateView(view) {
 }
 
 /**
+ * Einen Tag vor dem ersten sichtbaren Tag mitholen: eine Nachtschicht auf dem
+ * letzten Tag der VORIGEN Woche wird sonst nie geladen, und ihre Fortsetzung
+ * auf dem ersten sichtbaren Tag der neuen Woche faellt ersatzlos weg statt zu
+ * erscheinen (Review-Fund 2026-09-05, #1022). buildOverviewLanes() rendert
+ * diesen zusaetzlichen Tag nie selbst als Spalte - er dient nur als Quelle
+ * fuer eine Fortsetzung, die auf einen Tag aus `weekDays` faellt. Die
+ * Feiertage brauchen das nicht, sie kennen keine Fortsetzung ueber Mitternacht.
+ */
+function overviewFetchRange(weekCursor, weekStartPref) {
+  const weekStart = weekStartIndex(weekStartPref);
+  const from = startOfLocalWeekKey(weekCursor, weekStart);
+  return { entriesFrom: addLocalDays(from, -1), from, to: addLocalDays(from, 6) };
+}
+
+/**
  * Woche neu laden, wenn overview.weekCursor sich aendert - die Auswahl der
  * Personen (overview.selectedIds) loest NIE einen Fetch aus, nur eine
  * Neuzeichnung; nur der Wochenwechsel tut das (siehe activateView()/
  * navigateOverviewWeek()).
  */
 async function refreshOverview() {
-  const weekStart = weekStartIndex(state.weekStartPref);
-  const from = startOfLocalWeekKey(overview.weekCursor, weekStart);
-  const to = addLocalDays(from, 6);
-  // Einen Tag vor dem ersten sichtbaren Tag mitholen: eine Nachtschicht auf
-  // dem letzten Tag der VORIGEN Woche wird sonst nie geladen, und ihre
-  // Fortsetzung auf dem ersten sichtbaren Tag der neuen Woche faellt
-  // ersatzlos weg statt zu erscheinen (Review-Fund 2026-09-05, #1022).
-  // buildOverviewLanes() rendert diesen zusaetzlichen Tag nie selbst als
-  // Spalte - er dient nur als Quelle fuer eine Fortsetzung, die auf einen Tag
-  // aus `weekDays` faellt. Die Feiertage brauchen das nicht, sie kennen keine
-  // Fortsetzung ueber Mitternacht.
-  const entriesFrom = addLocalDays(from, -1);
+  const { entriesFrom, from, to } = overviewFetchRange(overview.weekCursor, state.weekStartPref);
   const [entriesRes, holidaysRes] = await Promise.all([
     api.get(`/schedule/entries?from=${entriesFrom}&to=${to}`),
     api.get(`/calendar/holidays?from=${from}&to=${to}`).catch(() => ({ data: [] })),
@@ -1985,4 +1989,4 @@ export async function render(container, { user } = {}) {
 // bereits pur bzw. nehmen ihre Eingabe jetzt als Parameter statt sie fest aus
 // `state` zu lesen - ein Test kann so echte Tage hineingeben und das Ergebnis
 // pruefen, statt nur zu belegen, dass der Funktionsname im Quelltext steht.
-export const __test = { overrideGroups, rangeDifference, setShiftIconButtonIcon, overtimeInfo, sameFieldValues, overlayMeta, buildOverviewLanes, normalizeOverviewSelection, computeActiveHours, collapsedMinutes, isOvernightEntry, touchesVisibleDay };
+export const __test = { overrideGroups, rangeDifference, setShiftIconButtonIcon, overtimeInfo, sameFieldValues, overlayMeta, buildOverviewLanes, normalizeOverviewSelection, computeActiveHours, collapsedMinutes, isOvernightEntry, touchesVisibleDay, overviewFetchRange };

@@ -791,6 +791,20 @@ test('buildOverviewLanes() sorts each lane chronologically by start time, regard
   assert.deepEqual(labels, ['free-marker', 'early', 'late'], 'untimed first, then ascending by start time');
 });
 
+// Review-Fund 2026-09-06 (#1022, dritte Runde): die alten vier Zeilen am
+// Anfang von refreshOverview() waren nicht unabhaengig testbar - ein
+// Regression, der `entriesFrom` versehentlich wieder auf `from` setzt, haette
+// keinen Test zum Scheitern gebracht. overviewFetchRange() ist jetzt eine
+// reine Funktion mit genau diesem Vertrag.
+test('overviewFetchRange() fetches Schedule entries from one day before the visible week, holidays only from the visible week itself', async () => {
+  const { __test } = await import('../public/pages/schedule.js');
+  assert.deepEqual(
+    __test.overviewFetchRange('2026-09-10', 'monday'),
+    { entriesFrom: '2026-09-06', from: '2026-09-07', to: '2026-09-13' },
+    'entriesFrom must stay the day before from - reverting it to equal from silently drops an overnight continuation at the week boundary (#1022)',
+  );
+});
+
 // Kurskorrektur nach Live-Test (2026-09-04): eine gemeinsame, durchgehende
 // 24h-Skala zwang eine 45-Minuten-Schulstunde und eine 8-Stunden-Schicht auf
 // denselben Massstab. computeActiveHours() traegt nur noch Stunden, die
