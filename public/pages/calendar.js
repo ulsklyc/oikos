@@ -1331,7 +1331,15 @@ async function reloadCalendarEventsOnly() {
   }
 }
 
-/** Reconcile every calendar layer after a delayed destructive commit. */
+/**
+ * Reconcile every calendar layer after a delayed destructive commit.
+ *
+ * A delete changes only events, but this intentionally uses the full range
+ * loader: it makes events, range bounds, load/offline state and every rendered
+ * layer one authoritative snapshot after the five-second delay. Reusing the
+ * event-only loader would leave the next reader tempted to restore the old
+ * partial-state race this path exists to close.
+ */
 async function reloadCalendarRangeAfterDelete() {
   const { from, to } = getRangeForView(state.view, state.cursor);
   await loadRange(from, to);
@@ -4727,6 +4735,9 @@ async function deleteThisAndFollowing(event) {
     schedule: scheduleUndoableDelete,
     requestDelete: async ({ keepalive }) => {
       await api.put(`/calendar/${event.id}`, { recurrence_rule: newRule }, { keepalive });
+      // The former client-side loop patched recurrence_rule on the remaining
+      // expanded rows. The authoritative range reload below now obtains the
+      // truncated rule from the server instead of guessing that response.
     },
     isViewActive: () => Boolean(_container?.isConnected),
     reloadEvents: reloadCalendarRangeAfterDelete,

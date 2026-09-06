@@ -217,7 +217,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   delete reloads the visible range so an older in-flight response cannot bring the event back.
   Calendar loads now share one ordering guard, including quick out-and-back navigation, and
   concurrent deletes of one series reach the server in user-action order. This covers one event,
-  one recurring occurrence, this-and-following, and whole-series deletion.
+  one recurring occurrence, this-and-following, and whole-series deletion. A failed range load
+  also clears schedule warnings from the previous range instead of leaving stale warnings visible.
 - **Authorized caregivers can now correct a cared-for person's medication log entries** (#999).
   The log row now follows the same explicit care grant as recording, taking and skipping a dose;
   other family members still see it read-only, and scheduled entries keep their existing
