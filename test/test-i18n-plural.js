@@ -153,9 +153,9 @@ test('jede Pluralvariante hat einen zählenden Basisschlüssel in allen Locales'
   for (const file of files) {
     const entries = flattenLocale(JSON.parse(readFileSync(new URL(file, LOCALE_DIR), 'utf8')));
     for (const [key, value] of entries) {
-      if (!/_(one|two|few|many|other)$/.test(key)) continue;
+      if (!/_(zero|one|two|few|many|other)$/.test(key)) continue;
       if (typeof value !== 'string' || !value.includes('{{count}}')) continue;
-      const base = key.replace(/_(one|two|few|many|other)$/, '');
+      const base = key.replace(/_(zero|one|two|few|many|other)$/, '');
       assert.ok(entries.has(base), `${file}: ${key} ohne Basisschlüssel ${base}`);
       assert.match(entries.get(base), /\{\{count\}\}/, `${file}: ${base} zählt nicht`);
     }
@@ -179,6 +179,14 @@ test('jede Pluralvariante hat einen zählenden Basisschlüssel in allen Locales'
 // Schluessel. Ein Guard, der beim ersten Lauf 70-mal scheitert, wird abgeschwaecht
 // statt erfuellt - danach prueft er wieder nichts. Die Karte friert den Bestand
 // ein; jeder NEUE zaehlende Schluessel ohne Variante ist ab sofort rot.
+//
+// BEKANNTE GRENZE: erkannt wird ein zaehlender Schluessel am `{{count}}` im WERT.
+// Ein Aufrufer darf `count` aber auch nur zur Pluralwahl uebergeben, waehrend der
+// Text andere Platzhalter interpoliert - `settings.addressbooksEnabledOfTotal` macht
+// genau das (`{{enabled}} von {{total}}`, Aufruf mit `count: addressbooks.length`,
+// sync-contacts.js:163). Solche Schluessel sieht dieser Guard nicht; sie zu finden
+// hiesse, jeden `t()`-Aufruf auf ein `count:`-Argument zu lesen. Bewusst offen
+// gelassen: die haeufige Luecke ist die hier gepruefte.
 //
 // Die Kategorie sagt, WARUM der Schluessel keine Variante braucht - und sie ist
 // am AUFRUFER belegt, nicht am Wortlaut. Ein String, der klingt, als koenne er
@@ -260,6 +268,9 @@ const PLURAL_EXCEPTIONS = {
   'subscriptions.everyCycle': 'GUARDED',
   // personal-calendar.js:214 - der Wert ist die Konstante MAX_DEFAULT_REMINDERS.
   'settings.calendarDefaultRemindersMax': 'GUARDED',
+  // subscriptions.js:150-154 - dueLabel() faengt d<0, d===0 und d===1 vorher ab,
+  // diese Zeile sieht nur noch d >= 2.
+  'subscriptions.dueInDays': 'GUARDED',
 
   // --- echte Luecken, eingefroren statt behoben ---------------------------
   // Alle unten sind bei n=1 grammatisch falsch und n=1 ist erreichbar.
@@ -288,7 +299,6 @@ const PLURAL_EXCEPTIONS = {
   'tasks.navLabelOverdue': 'TODO_ONE',              // router.js:1151, Guard ist `> 0`
   'subscriptions.listCount': 'TODO_ONE',
   'subscriptions.overdueDays': 'TODO_ONE',
-  'subscriptions.dueInDays': 'TODO_ONE',
   'subscriptions.reminderMeta': 'TODO_ONE',
   'subscriptions.metaInUseWarning': 'TODO_ONE',     // umgeht den Plural im String: „Abonnement(s)"
   'settings.recipeProviderDeleteAccountConfirm': 'TODO_ONE',
@@ -306,9 +316,13 @@ test('ein zaehlender Schluessel ohne Variante steht in der Ausnahmekarte (#1010)
   const entries = flattenLocale(localeFile('de'));
   const ohneVariante = [];
   for (const [key, value] of entries) {
-    if (/_(one|two|few|many|other)$/.test(key)) continue;
+    if (/_(zero|one|two|few|many|other)$/.test(key)) continue;
     if (typeof value !== 'string' || !value.includes('{{count}}')) continue;
-    if (entries.has(`${key}_one`)) continue;
+    // Nicht nur `has()`: ein `_one`, das null, eine Zahl oder ein leerer String ist,
+    // faellt zur Laufzeit auf den Plural-Basisschluessel zurueck (oder laesst `t()`
+    // `.replace()` auf einem Nicht-String rufen) - die Variante waere da und wirkungslos.
+    const variante = entries.get(`${key}_one`);
+    if (typeof variante === 'string' && variante.trim() !== '') continue;
     ohneVariante.push(key);
   }
 
