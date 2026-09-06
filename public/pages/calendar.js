@@ -775,8 +775,9 @@ function calendarMetaIconHtml(icon) {
   return `<i data-lucide="${icon}" class="calendar-meta-icon icon-sm" aria-hidden="true"></i>`;
 }
 
-function calendarRepeatIconHtml() {
-  return '<i data-lucide="repeat" class="calendar-repeat-icon icon-sm" aria-hidden="true"></i>';
+function calendarRepeatIconHtml(event) {
+  if (!event?.recurrence_rule && !event?.is_recurring_instance) return '';
+  return `<span class="calendar-repeat-icon" role="img" aria-label="${esc(t('calendar.recurringEvent'))}"><i data-lucide="repeat" class="icon-sm" aria-hidden="true"></i></span>`;
 }
 
 function eventIconElement(icon, className = 'event-icon') {
@@ -2060,7 +2061,7 @@ function renderMonthDay(date, inMonth) {
          data-id="${ev.id}"
          style="${eventSurfaceStyle(ev)}"
          title="${esc(ev.title)}${ev.cal_name ? ' · ' + esc(ev.cal_name) : ''}${chipAssigneeTitleSuffix(ev)}"
-    ><span>${esc(ev.title)}</span></div>
+    >${calendarRepeatIconHtml(ev)}<span>${esc(ev.title)}</span></div>
   `).join('');
 
   const taskHtml = taskShown.map((tk) => renderTaskChip(tk, { interactive: false, icon: false })).join('');
@@ -2204,7 +2205,7 @@ function renderWeekView(container) {
             ${alldayEvs[i].map((ev) => `
               <div class="allday-event" data-id="${ev.id}"
                    style="${eventSurfaceStyle(ev)}"
-                   title="${esc(ev.title)}${ev.cal_name ? ' · ' + ev.cal_name : ''}${chipAssigneeTitleSuffix(ev)}">${eventIconHtml(ev.icon, 'event-icon event-icon--compact')}<span>${esc(ev.title)}</span>${chipAssigneeStack(ev, { size: 16, maxVisible: 3 })}</div>
+                   title="${esc(ev.title)}${ev.cal_name ? ' · ' + ev.cal_name : ''}${chipAssigneeTitleSuffix(ev)}">${eventIconHtml(ev.icon, 'event-icon event-icon--compact')}${calendarRepeatIconHtml(ev)}<span>${esc(ev.title)}</span>${chipAssigneeStack(ev, { size: 16, maxVisible: 3 })}</div>
             `).join('')}
             ${tasksOnDay(d).map(renderTaskChip).join('')}
           </div>
@@ -2298,7 +2299,7 @@ function renderWeekEvent(ev, layout = null) {
     <div class="week-event" data-id="${ev.id}"
          style="top:${top};height:${height};left:${left};width:${width};${eventSurfaceStyle(ev)}"
          title="${esc(ev.title)}${chipAssigneeTitleSuffix(ev)}">
-      <div class="week-event__title">${eventIconHtml(ev.icon, 'event-icon event-icon--compact')}<span>${esc(ev.title)}</span>${(ev.recurrence_rule || ev.is_recurring_instance) ? calendarRepeatIconHtml() : ''}${chipAssigneeStack(ev, { size: 14, maxVisible: 2 })}</div>
+      <div class="week-event__title">${eventIconHtml(ev.icon, 'event-icon event-icon--compact')}${calendarRepeatIconHtml(ev)}<span>${esc(ev.title)}</span>${chipAssigneeStack(ev, { size: 14, maxVisible: 2 })}</div>
       <div class="week-event__time">${formatTime(ev.start_datetime)}${ev.end_datetime ? '–' + formatTime(ev.end_datetime) : ''}</div>
     </div>
   `;
@@ -2440,7 +2441,7 @@ function renderDayView(container) {
           ${allday.map((ev) => `
             <div class="allday-event" data-id="${ev.id}"
                  style="${eventSurfaceStyle(ev)}"
-                 title="${esc(ev.title)}${ev.cal_name ? ' · ' + ev.cal_name : ''}${chipAssigneeTitleSuffix(ev)}">${eventIconHtml(ev.icon, 'event-icon event-icon--compact')}<span>${esc(ev.title)}</span>${chipAssigneeStack(ev, { size: 16, maxVisible: 3 })}</div>`).join('')}
+                 title="${esc(ev.title)}${ev.cal_name ? ' · ' + ev.cal_name : ''}${chipAssigneeTitleSuffix(ev)}">${eventIconHtml(ev.icon, 'event-icon event-icon--compact')}${calendarRepeatIconHtml(ev)}<span>${esc(ev.title)}</span>${chipAssigneeStack(ev, { size: 16, maxVisible: 3 })}</div>`).join('')}
           ${tasksOnDay(state.cursor).map(renderTaskChip).join('')}
         </div>
       </div>` : ''}
@@ -2533,7 +2534,7 @@ function renderDayEvent(ev, layout = null) {
          title="${esc(ev.title)}${ev.location ? ' · ' + esc(fmtLocation(ev.location)) : ''}${chipAssigneeTitleSuffix(ev)}">
       <span class="day-event__spine" aria-hidden="true"></span>
       <span class="day-event__text">
-        <span class="day-event__title">${hasEventIcon(ev.icon) ? eventIconHtml(ev.icon, 'event-icon event-icon--compact') : ''}<span class="day-event__name">${esc(ev.title)}</span>${(ev.recurrence_rule || ev.is_recurring_instance) ? calendarRepeatIconHtml() : ''}</span>
+        <span class="day-event__title">${hasEventIcon(ev.icon) ? eventIconHtml(ev.icon, 'event-icon event-icon--compact') : ''}${calendarRepeatIconHtml(ev)}<span class="day-event__name">${esc(ev.title)}</span></span>
         ${roomy ? `<span class="day-event__meta">${timeText}${place}</span>` : ''}
       </span>
       ${roomy ? chipAssigneeStack(ev, { size: 20, maxVisible: 2 }) : ''}
@@ -3128,6 +3129,8 @@ export const __test = {
   validDateParam,
   hasAttachment,
   attachmentUrls,
+  agendaEventAriaLabel,
+  calendarRepeatIconHtml,
   clickedTime,
   hourOffset,
   monthDayClasses,
@@ -3162,10 +3165,10 @@ function renderAgendaEvent(ev, dayStr) {
   const assignedUsers = ev.assigned_users ?? [];
   return `
     <div class="list-row agenda-event" data-id="${ev.id}" role="button" tabindex="0"
-         aria-label="${esc(ev.title)}, ${esc(timeStr)}${ev.cal_name ? ', ' + esc(ev.cal_name) : ''}${chipAssigneeLabel(ev) ? ', ' + esc(chipAssigneeLabel(ev)) : ''}">
+         aria-label="${esc(agendaEventAriaLabel(ev, timeStr))}">
       <div class="agenda-event__color" style="background:${esc(displayBg)};"></div>
       <div class="agenda-event__body">
-        <div class="agenda-event__title">${eventIconHtml(ev.icon)}<span>${esc(ev.title)}</span>${(ev.recurrence_rule || ev.is_recurring_instance) ? calendarRepeatIconHtml() : ''}</div>
+        <div class="agenda-event__title">${eventIconHtml(ev.icon)}${calendarRepeatIconHtml(ev)}<span>${esc(ev.title)}</span></div>
         <div class="agenda-event__meta">
           <span class="calendar-meta-item calendar-meta-item--time">${calendarMetaIconHtml('clock')}<span>${esc(timeStr)}</span></span>
           ${ev.location ? `<span class="calendar-meta-item calendar-meta-item--place">${calendarMetaIconHtml('map-pin')}<span>${esc(fmtLocation(ev.location))}</span></span>` : ''}
@@ -3176,6 +3179,16 @@ function renderAgendaEvent(ev, dayStr) {
       </div>
     </div>
   `;
+}
+
+function agendaEventAriaLabel(ev, timeStr) {
+  return [
+    (ev.recurrence_rule || ev.is_recurring_instance) ? t('calendar.recurringEvent') : '',
+    ev.title,
+    timeStr,
+    ev.cal_name,
+    chipAssigneeLabel(ev),
+  ].filter(Boolean).join(', ');
 }
 
 // Sichtbarkeits-Indikator (#474): nur bei eingeschränkten Terminen ein dezentes
@@ -3749,8 +3762,18 @@ function openEventModal({ mode, event = null, date = null, reminder = null, time
  */
 function wireEventForm(panel, { mode, event = null, reminder = null }) {
   const isEdit = mode === 'edit';
-  // RRULE-Events binden
-  bindRRuleEvents(panel, 'event');
+  // Der Wiederholungsbaustein kennt absichtlich keine Feld-IDs des Kalenders.
+  // Der Kalender liefert ihm das aktive Startdatum ausdrücklich: bei einem
+  // Zeit-Termin aus dem Zeitbereich, bei „ganztägig" aus dessen eigenem Feld.
+  // So bleibt die Monatsletzten-Vorschau korrekt, ohne dass ein geteilter
+  // Baustein in fremdem DOM nach einem geratenen Selektor sucht (#975).
+  const recurrenceBinding = bindRRuleEvents(panel, 'event', {
+    expandsFromStart: true,
+    getStartDate: () => readDateInput(
+      panel,
+      panel.querySelector('#modal-allday')?.checked ? '#modal-allday-start' : '#modal-start-date',
+    ),
+  });
   bindRecurringScopeChooser(panel, 'modal-edit');
   bindUserMultiSelect(panel, 'cal_assigned');
   wireVisibilityWarning(panel, '#modal-visibility', 'cal_assigned', '#modal-visibility-warning');
@@ -3809,6 +3832,7 @@ function wireEventForm(panel, { mode, event = null, reminder = null }) {
   alldayCheck.addEventListener('change', () => {
     if (alldayCheck.checked) { timeFields.style.display = 'none'; alldayFields.style.display = ''; }
     else                      { timeFields.style.display = '';     alldayFields.style.display = 'none'; }
+    recurrenceBinding.refreshMonthdayHint();
   });
   if (isEdit && event?.all_day) { timeFields.style.display = 'none'; alldayFields.style.display = ''; }
 
@@ -3958,6 +3982,8 @@ function wireEventForm(panel, { mode, event = null, reminder = null }) {
   };
   wireDateFollow('#modal-start-date', '#modal-end-date');
   wireDateFollow('#modal-allday-start', '#modal-allday-end');
+  panel.querySelector('#modal-start-date')?.addEventListener('change', recurrenceBinding.refreshMonthdayHint);
+  panel.querySelector('#modal-allday-start')?.addEventListener('change', recurrenceBinding.refreshMonthdayHint);
 
   // Dynamische Termindauer (#441): das Ende folgt dem Start um die gemerkte
   // Dauer. Ändert der Nutzer das Ende, wird die neue Dauer übernommen und bei
@@ -4249,7 +4275,13 @@ function buildEventModalContent({ mode, event, date, reminder = null, time = nul
 
     ${advancedSection(advancedFieldsHtml, { open: advancedFieldsOpen })}
 
-    ${renderRRuleFields('event', isEdit ? event.recurrence_rule : null, { allowCount: true, expandsFromStart: true })}
+    ${renderRRuleFields('event', isEdit ? event.recurrence_rule : null, {
+      allowCount: true,
+      expandsFromStart: true,
+      // Kanonischer Datums-Key aus dem Kalenderzustand. Das Widget formatiert
+      // ihn nur; es kennt weder die Zeit- noch die Ganztags-Feldnamen.
+      startDate,
+    })}
 
     ${isEdit && isLocalRecurringSeries(event) ? renderRecurringScopeChooser('modal-edit', event.start_datetime.slice(0, 10)) : ''}
 

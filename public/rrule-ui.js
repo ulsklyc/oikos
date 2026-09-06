@@ -100,7 +100,8 @@ export function buildRRule({ freq, interval, byday, until, count = null, lastDay
  * Rendert das HTML für die Wiederholungs-Felder.
  * @param {string} prefix - ID-Prefix (z.B. "task" oder "event")
  * @param {string|null} existingRule - bestehende RRULE oder null
- * @param {{ allowCount?: boolean, allowFromCompletion?: boolean, fromCompletion?: boolean, expandsFromStart?: boolean }} [opts]
+ * @param {{ allowCount?: boolean, allowFromCompletion?: boolean, fromCompletion?: boolean,
+ *           expandsFromStart?: boolean, startDate?: string }} [opts]
  *        allowCount aktiviert die "Nach N Terminen"-Endebedingung (COUNT). Nur
  *        für Kontexte mit startverankerter Expansion (Kalender). Aufgaben sind
  *        abschluss-getrieben und kennen keine COUNT-Semantik (#513).
@@ -110,8 +111,48 @@ export function buildRRule({ freq, interval, byday, until, count = null, lastDay
  *        expandsFromStart sagt, ob das Modul die Regel vom Startdatum aus
  *        ausrechnet (Kalender) oder ein einzelnes Datum fortschreibt (Aufgaben).
  *        Nur davon haengt ab, welcher Monatsletzten-Hinweis stimmt.
+ *        startDate ist ein explizit vom aufrufenden Modul gelieferter
+ *        kanonischer Datums-Key für die konkrete Kalender-Vorschau.
  * @returns {string} HTML-String
  */
+export function monthEndHintText(startDate, { expandsFromStart = false } = {}) {
+  if (!expandsFromStart) return t('rrule.lastDayOfMonthHintNext');
+
+  // Der Aufrufer liefert einen kanonischen Datums-Key. parseDateInput erlaubt
+  // zusätzlich die aktuelle Anzeigeform, aber die Kalendermathematik validiert
+  // die Bestandteile noch einmal selbst: ein Date würde den 31. Februar sonst
+  // still in den März normalisieren und eine überzeugende falsche Vorschau
+  // anzeigen.
+  const dateKey = parseDateInput(startDate);
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey);
+  if (!match) return t('rrule.lastDayOfMonthHint');
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const candidate = new Date(Date.UTC(year, month - 1, day));
+  if (candidate.getUTCFullYear() !== year
+      || candidate.getUTCMonth() !== month - 1
+      || candidate.getUTCDate() !== day) {
+    return t('rrule.lastDayOfMonthHint');
+  }
+
+  const monthEnd = new Date(Date.UTC(year, month, 0));
+  const firstDate = [
+    monthEnd.getUTCFullYear(),
+    String(monthEnd.getUTCMonth() + 1).padStart(2, '0'),
+    String(monthEnd.getUTCDate()).padStart(2, '0'),
+  ].join('-');
+
+  if (dateKey === firstDate) {
+    return t('rrule.lastDayOfMonthHintSame', { date: formatDate(dateKey) });
+  }
+  return t('rrule.lastDayOfMonthHintOverride', {
+    startDate: formatDate(dateKey),
+    firstDate: formatDate(firstDate),
+  });
+}
+
 export function renderRRuleFields(prefix, existingRule, opts = {}) {
   const allowCount = !!opts.allowCount;
   // NICHT AN `allowCount` GEHAENGT, obwohl beide heute denselben Wert haben.
@@ -222,8 +263,9 @@ export function renderRRuleFields(prefix, existingRule, opts = {}) {
              dem buildRRule sie nur dort schreibt. -->
         <div class="rrule-monthday" id="${prefix}-rrule-monthday" ${parsed.freq === 'MONTHLY' ? '' : 'hidden'}>
           <label class="toggle" style="margin:0">
-            <input type="checkbox" id="${prefix}-rrule-last-day" ${parsed.lastDay ? 'checked' : ''}
-                   aria-describedby="${prefix}-rrule-monthday-hint">
+            <input type="checkbox" id="${prefix}-rrule-last-day" ${parsed.lastDay ? 'checked' : ''}${
+              parsed.lastDay ? ` aria-describedby="${prefix}-rrule-monthday-hint"` : ''
+            }>
             <span class="toggle__track"></span>
             <span>${t('rrule.lastDayOfMonth')}</span>
           </label>
@@ -236,12 +278,12 @@ export function renderRRuleFields(prefix, existingRule, opts = {}) {
                Faelligkeitsdatum, das Liste, Ueberfaelligkeit und Countdown
                direkt lesen - sie bleibt am 15. faellig, und erst der Durchlauf
                NACH dem Abhaken faellt auf den Monatsletzten.
-               Kein Vorgriff im Feld selbst - die Startdatum-Felder heissen in
-               Kalender und Aufgaben verschieden und haengen beim Kalender am
-               Ganztags-Schalter; ein geratener Selektor waere still kaputt,
-               sobald eines umbenannt wird. -->
-          <p class="rrule-anchor__hint" id="${prefix}-rrule-monthday-hint">${
-            expandsFromStart ? t('rrule.lastDayOfMonthHint') : t('rrule.lastDayOfMonthHintNext')
+               Der Kalender liefert sein aktives Startdatum deshalb über die
+               Komponenten-Schnittstelle. Der Baustein greift nie selbst nach
+               einem Startdatum-Feld: Kalender und Aufgaben benennen es anders,
+               und im Kalender wechselt es zusätzlich mit „ganztägig". -->
+          <p class="rrule-anchor__hint" id="${prefix}-rrule-monthday-hint"${parsed.lastDay ? '' : ' hidden'}>${
+            monthEndHintText(opts.startDate, { expandsFromStart })
           }</p>
         </div>
 
@@ -352,8 +394,12 @@ export function recurrenceRow(rule, opts = {}) {
  * Bindet Events an die RRULE-Felder (Freq-Change, Day-Toggle, etc.)
  * @param {HTMLElement} root - Container-Element
  * @param {string} prefix - ID-Prefix
+ * @param {{ expandsFromStart?: boolean, getStartDate?: () => string }} [opts]
+ *        Das aufrufende Modul liefert bei Bedarf sein aktuelles Startdatum;
+ *        der RRULE-Baustein kennt keine fremden Feldselektoren.
+ * @returns {{ refreshMonthdayHint: () => void }}
  */
-export function bindRRuleEvents(root, prefix) {
+export function bindRRuleEvents(root, prefix, opts = {}) {
   const freqSelect  = root.querySelector(`#${prefix}-rrule-freq`);
   const details     = root.querySelector(`#${prefix}-rrule-details`);
   const weekdays    = root.querySelector(`#${prefix}-rrule-weekdays`);
@@ -364,8 +410,27 @@ export function bindRRuleEvents(root, prefix) {
   const untilWrap   = root.querySelector(`#${prefix}-rrule-until-wrap`);
   const countWrap   = root.querySelector(`#${prefix}-rrule-count-wrap`);
   const hint        = root.querySelector(`#${prefix}-rrule-hint`);
+  const monthdayHint = root.querySelector(`#${prefix}-rrule-monthday-hint`);
+  const lastDayInput = root.querySelector(`#${prefix}-rrule-last-day`);
 
-  if (!freqSelect) return;
+  const refreshMonthdayHint = () => {
+    if (!monthdayHint || typeof opts.getStartDate !== 'function') return;
+    monthdayHint.textContent = monthEndHintText(opts.getStartDate(), {
+      expandsFromStart: !!opts.expandsFromStart,
+    });
+  };
+
+  const syncMonthdayHintVisibility = () => {
+    if (!monthdayHint || !lastDayInput) return;
+    monthdayHint.hidden = !lastDayInput.checked;
+    if (lastDayInput.checked) {
+      lastDayInput.setAttribute('aria-describedby', monthdayHint.id || `${prefix}-rrule-monthday-hint`);
+    } else {
+      lastDayInput.removeAttribute('aria-describedby');
+    }
+  };
+
+  if (!freqSelect) return { refreshMonthdayHint };
 
   freqSelect.addEventListener('change', () => {
     const freq = freqSelect.value;
@@ -384,6 +449,7 @@ export function bindRRuleEvents(root, prefix) {
       if (freq) freqSelect.removeAttribute('aria-describedby');
       else      freqSelect.setAttribute('aria-describedby', hint.id || `${prefix}-rrule-hint`);
     }
+    refreshMonthdayHint();
     updateUnit();
   });
 
@@ -394,6 +460,10 @@ export function bindRRuleEvents(root, prefix) {
   });
 
   intervalEl?.addEventListener('input', updateUnit);
+  lastDayInput?.addEventListener('change', () => {
+    refreshMonthdayHint();
+    syncMonthdayHintVisibility();
+  });
 
   // Day-Toggle
   root.querySelectorAll(`#${prefix}-rrule-weekdays .rrule-day`).forEach(btn => {
@@ -408,6 +478,10 @@ export function bindRRuleEvents(root, prefix) {
     const interval = parseInt(intervalEl?.value, 10) || 1;
     unitEl.textContent = intervalUnitLabel(freqSelect.value, interval);
   }
+
+  refreshMonthdayHint();
+  syncMonthdayHintVisibility();
+  return { refreshMonthdayHint };
 }
 
 /**
