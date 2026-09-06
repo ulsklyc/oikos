@@ -13,6 +13,7 @@ import { getSupportedLocales, isSupportedLocale, resolveHouseholdLocale } from '
 import { householdTimeZone, isValidTimeZone } from '../utils/timezone.js';
 import { retitleBirthdayEvents } from '../services/birthdays.js';
 import { isWidgetId } from '../services/module-capabilities.js';
+import { listVisibleCategories } from '../services/note-categories.js';
 // Geteilte isomorphe Util (#620, Allowlist in test/test-layer-boundary.js):
 // dasselbe Kennungsformat, das Event-Modal und Einstellungen verwenden.
 import { parseSyncTargetValue } from '../../public/utils/sync-target.js';
@@ -267,18 +268,33 @@ function dashboardDefaults() {
   };
 }
 
+function sanitizeNoteCategoryOptions(config, userId) {
+  const visible = new Set(listVisibleCategories(db.get(), userId).map((category) => String(category.id)));
+  return config.map((widget) => {
+    if (widget.id !== 'notes' || !Array.isArray(widget.options?.categories)) return widget;
+    const categories = widget.options.categories.filter((id) => visible.has(String(id)));
+    const options = { ...widget.options };
+    if (categories.length) options.categories = categories;
+    else delete options.categories;
+    const next = { ...widget };
+    if (Object.keys(options).length) next.options = options;
+    else delete next.options;
+    return next;
+  });
+}
+
 function dashboardPersonalViews(userId) {
   const ownWidgets = cfgUserGet('dashboard_widgets', userId);
   const ownGlance = cfgUserGet('dashboard_today_glance', userId);
   const fallback = dashboardDefaults();
   return {
-    dashboard_widgets: parseWidgetConfig(ownWidgets ?? fallback.widgets),
+    dashboard_widgets: sanitizeNoteCategoryOptions(parseWidgetConfig(ownWidgets ?? fallback.widgets), userId),
     dashboard_today_glance: (ownGlance ?? fallback.glance) !== '0',
     // Die Vorgabe des Haushalts, damit die Oberflaeche zeigen kann, wohin ein
     // Zuruecksetzen fuehrt. `null` heisst: es gibt keine.
     dashboard_widgets_default: cfgGet('dashboard_widgets_default') === null
       ? null
-      : parseWidgetConfig(cfgGet('dashboard_widgets_default')),
+      : sanitizeNoteCategoryOptions(parseWidgetConfig(cfgGet('dashboard_widgets_default')), userId),
     dashboard_today_glance_default: (cfgGet('dashboard_today_glance_default') ?? '1') !== '0',
     // Folge ich der Vorgabe? Nur wer NICHTS Eigenes hinterlegt hat, tut das -
     // und nur fuer den hat "zuruecksetzen" nichts zu tun.

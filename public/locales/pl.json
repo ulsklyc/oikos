@@ -952,7 +952,21 @@
         "agendaDayEmpty": "Nic zaplanowane"
     },
     "noteCategories": {
-        "permissionLabel": "Zarządzaj domowymi kategoriami notatek"
+        "categories": "Kategorie",
+        "filterLabel": "Filtruj według kategorii",
+        "empty": "Brak kategorii.",
+        "personal": "Osobiste",
+        "household": "Domowe",
+        "noResults": "Żadna notatka nie należy do wszystkich wybranych kategorii.",
+        "deleteDetail": "Kategoria zostanie usunięta ze wszystkich notatek i filtrów pulpitu. Same notatki pozostaną bez zmian.",
+        "widgetHint": "Po wybraniu wielu kategorii wyświetlane są tylko notatki należące do wszystkich z nich. Bez wyboru wyświetlane są wszystkie notatki.",
+        "permissionLabel": "Zarządzaj domowymi kategoriami notatek",
+        "searchPlaceholder": "Wyszukaj lub utwórz kategorię...",
+        "searchResultsLabel": "Propozycje kategorii",
+        "removeAction": "Usuń kategorię {{name}}",
+        "createAction": "Utwórz i przypisz „{{name}}”",
+        "scopeLabel": "Typ kategorii",
+        "scopeHelp": "Kategorie osobiste widzisz i zarządzasz nimi tylko Ty. Z kategorii domowych mogą korzystać wszyscy domownicy; uprawnienia określają, kto może nimi zarządzać."
     },
     "notes": {
         "title": "Notatki",
@@ -2258,6 +2272,9 @@
         "permAccessWrite": "Pełny",
         "permWidgetBlocked": "Zablokowany",
         "permWidgetAllowed": "Dostępny",
+        "permCapabilitiesHeading": "Dodatkowe uprawnienia",
+        "permCapabilityBlocked": "Niedozwolone",
+        "permCapabilityAllowed": "Dozwolone",
         "permInherit": "Dziedzicz",
         "permInheritedHint": "Odziedziczone: {{value}}",
         "permModuleLockedHint": "Moduł zablokowany",
