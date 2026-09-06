@@ -940,7 +940,21 @@
         "agendaDayEmpty": "Semmi sincs tervezve"
     },
     "noteCategories": {
-        "permissionLabel": "Háztartási jegyzetkategóriák kezelése"
+        "categories": "Kategóriák",
+        "filterLabel": "Szűrés kategóriák szerint",
+        "empty": "Még nincsenek kategóriák.",
+        "personal": "Személyes",
+        "household": "Háztartási",
+        "noResults": "Egyetlen jegyzet sem tartozik az összes kiválasztott kategóriához.",
+        "deleteDetail": "A kategória minden jegyzetről és irányítópultszűrőből lekerül. A jegyzetek nem változnak.",
+        "widgetHint": "Több kategória kijelölésekor csak azok a jegyzetek jelennek meg, amelyek mindegyikhez tartoznak. Kijelölés nélkül minden jegyzet látható.",
+        "permissionLabel": "Háztartási jegyzetkategóriák kezelése",
+        "searchPlaceholder": "Kategória keresése vagy létrehozása...",
+        "searchResultsLabel": "Kategóriajavaslatok",
+        "removeAction": "{{name}} kategória eltávolítása",
+        "createAction": "„{{name}}” létrehozása és hozzárendelése",
+        "scopeLabel": "Kategória típusa",
+        "scopeHelp": "A személyes kategóriákat csak Ön látja és kezeli. A háztartási kategóriákat minden tag használhatja; a jogosultságok szabályozzák, ki kezelheti őket."
     },
     "notes": {
         "title": "Tábla",
@@ -2246,6 +2260,9 @@
         "permAccessWrite": "Teljes",
         "permWidgetBlocked": "Letiltva",
         "permWidgetAllowed": "Elérhető",
+        "permCapabilitiesHeading": "További jogosultságok",
+        "permCapabilityBlocked": "Nem engedélyezett",
+        "permCapabilityAllowed": "Engedélyezett",
         "permInherit": "Öröklés",
         "permInheritedHint": "Örökölt: {{value}}",
         "permModuleLockedHint": "Modul zárolva",

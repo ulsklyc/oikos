@@ -967,6 +967,35 @@
   overflow: hidden;
 }
 
+.note-item__categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+
+.note-item__categories span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: var(--space-px) var(--space-1);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-text-primary) var(--tint-state), transparent);
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+}
+
+.widget-size--1x1 .note-item__categories,
+.widget-size--1x2 .note-item__categories,
+.widget-size--1x3 .note-item__categories,
+.widget-size--1x4 .note-item__categories,
+.widget-size--2x1 .note-item__categories,
+.widget-size--3x1 .note-item__categories,
+.widget-size--4x1 .note-item__categories {
+  display: none;
+}
+
 /* Die Notiz-Vorschau ist eine 2-Zeilen-Zusammenfassung: Markdown-Blöcke auf
  * kompakte Inline-Darstellung reduzieren, damit Überschriften/Listen/Zitate
  * den geklammerten Preview nicht sprengen. */

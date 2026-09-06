@@ -1947,6 +1947,9 @@ test('dashboardQuery uebersetzt Optionen in Parameter, die die Route versteht (#
     `Kategorien falsch: ${zwei}`);
   assert(widgets.dashboardQuery(mit('tasks', { categories: [] })) === '/dashboard',
     'eine leere Auswahl ist keine Einschraenkung');
+  const notes = widgets.dashboardQuery(mit('notes', { categories: [12, 34] }));
+  assert(notes === '/dashboard?notes_category=12&notes_category=34',
+    `Notiz-Kategorien falsch: ${notes}`);
   // Ein Layout, in dem es das Widget gar nicht gibt, darf nicht werfen.
   assert(widgets.dashboardQuery([]) === '/dashboard');
   assert(widgets.dashboardQuery(null) === '/dashboard');

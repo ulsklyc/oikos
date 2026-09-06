@@ -105,7 +105,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   their own private category catalog, while household categories are shared and may be managed by
   admins or members who receive the dedicated permission. Notes may remain uncategorized. The
   Notes API now exposes category management, ordering and assignment through one canonical
-  `scope` field, and the permission catalog includes the household-category capability.
+  `scope` field, and the permission catalog includes the household-category capability. The Notes
+  board now includes the category manager, a category picker in the editor and an AND filter for
+  showing only notes that belong to every selected category. The dashboard notes widget can apply
+  the same filter from its options and shows category badges where its size leaves room.
 
 - **The Health module's cycle tracker gains reminders and a more honest prediction.** `cycleStats()`
   now requires at least three logged cycle gaps (four periods) before trusting a derived average
