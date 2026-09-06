@@ -8,12 +8,13 @@ import { createLogger } from '../../logger.js';
 import * as db from '../../db.js';
 import { str, oneOf, date as validateDate, num, rrule, collectErrors, MAX_TITLE, MONTH_RE } from '../../middleware/validate.js';
 import { normalizeBudgetVisibility } from '../../services/budget-visibility.js';
+import { todayKey } from '../../utils/timezone.js';
 import { sendDocumentDeletionConflict } from '../../services/document-deletion-lock.js';
 import { assertDocumentLinkTargetsAvailable } from '../../services/document-links.js';
 import { attachmentsFor, replaceAttachments, withAttachments } from './attachments.js';
 import {
   budgetFilter, budgetCategoryExpr, maskEntries, getBudgetMode, mayEdit, bookedOnly,
-  DATE_RE, thisMonthLocalKey, todayLocalDateKey, cents,
+  DATE_RE, thisMonthLocalKey, cents,
   generateRecurringInstances, RECURRENCE_INTERVAL_KEYS, MAX_INTERVAL_COUNT,
   normalizeIntervalCount, effectiveMonthly,
   validCategoryKeys, defaultCategory, validateSubcategory, validateAccountRef,
@@ -428,9 +429,14 @@ router.put('/:id/series', (req, res) => {
     // Nebenbei bleiben damit die Belege vergangener Buchungen erhalten, die die
     // CASCADE bisher mitnahm (siehe #583 weiter unten).
     //
-    // `todayLocalDateKey()` statt `toISOString()`: letzteres kippt westlich von
-    // UTC auf den Vortag und haette den Schnitt dort um einen Tag verschoben.
-    const cutoffDate = todayLocalDateKey();
+    // `todayKey(db)` ist hier der richtige Helfer, nicht `todayLocalDateKey()`
+    // und erst recht nicht `toISOString()`: nur er folgt der HAUSHALTSZONE.
+    // Genau die benutzt `listAccounts()` fuer seinen Stichtag (#829). Laufen die
+    // beiden auseinander, loescht diese Route kurz nach Mitternacht noch einen
+    // Tag, den die Kontoansicht bereits als vergangen fuehrt - und erzeugt ihn
+    // mit dem neuen Konto neu. Dieselbe Zone auf beiden Seiten, sonst ist der
+    // Schnitt eine andere Grenze als die, an der die Zahlen abgelesen werden.
+    const cutoffDate = todayKey(db.get());
 
     db.get().transaction(() => {
       db.get().prepare(`

@@ -230,7 +230,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   series has several bookings in one month, and the ones already behind us were being deleted and
   regenerated along with the rest - which, now that the account travels with them, would have moved
   a completed debit to another account and skewed that balance. Their attachments survive the edit
-  as well.
+  as well. The cutoff reads the household timezone, the same day boundary the account balances use.
+  **A virtual (smoothed) series is the exception and keeps its instances free of an account:** those
+  are planning figures - 1200 a year stored as 100 a month - while the bank debits 1200 once, and an
+  account balance counts every booked entry assigned to it. Giving them an account would have moved
+  the reported balance every month for a payment that had not happened.
 
 - **The desktop sidebar has a scrollbar again** (#970). It was deliberately hidden at
   `min-width: 1024px`, with a soft fade at the edges standing in for it. The fade answers "is

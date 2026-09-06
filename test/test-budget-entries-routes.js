@@ -593,6 +593,52 @@ test('PUT /:id/series: eine schon gebuchte Instanz DIESES Monats bleibt stehen',
     'eine bereits erfolgte Abbuchung darf nicht auf das neue Konto umziehen');
 });
 
+test('PUT /:id/series: der Schnitt folgt der Haushaltszone, nicht der Serverzone', async () => {
+  // Der Kontosaldo liest seinen Stichtag mit todayKey(db) aus der Haushaltszone
+  // (#829). Nimmt diese Route stattdessen die Serverzone, liegt die Grenze rund
+  // um Mitternacht auf einem anderen Tag als die Zahlen, die der Haushalt sieht.
+  // Kiritimati (UTC+14) und Midway (UTC-11) trennen 25 Stunden - ihr Datum ist
+  // fast immer verschieden; genau dann traegt der Test etwas.
+  const setZone = (tz) => db.prepare(
+    `INSERT INTO sync_config (key, value) VALUES ('household_timezone', ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value`).run(tz);
+  const tagIn = (tz) => new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date());
+
+  const frueh = 'Pacific/Kiritimati', spaet = 'Pacific/Midway';
+  if (tagIn(frueh) === tagIn(spaet)) return; // seltenes Fenster, in dem der Test nichts misst
+
+  try {
+    // Der Tag, der in Kiritimati schon laeuft, in Midway aber noch Zukunft ist.
+    const grenztag = tagIn(frueh);
+    const monat = grenztag.slice(0, 7);
+    const parent = insertEntry({ title: 'tz', amount: -20, category: 'food', date: `${monat}-01`, is_recurring: 1 });
+    const anGrenze = insertEntry({ title: 'tz', amount: -20, category: 'food', date: grenztag, recurrence_parent_id: parent });
+
+    // In Midway ist dieser Tag noch nicht angebrochen: er liegt hinter dem
+    // Schnitt und muss geloescht werden.
+    setZone(spaet);
+    const r = await call('PUT', `/${parent}/series`, { body: { title: 'tz-neu' } });
+    assert.equal(r.status, 200);
+    assert.equal(db.prepare('SELECT 1 FROM budget_entries WHERE id = ?').get(anGrenze), undefined,
+      `${grenztag} ist in ${spaet} noch Zukunft und gehoert damit hinter den Schnitt`);
+
+    // In Kiritimati ist derselbe Tag bereits heute - "heute" faellt selbst noch
+    // hinter den Schnitt (>=), der Tag DAVOR aber nicht mehr.
+    const gestern = new Date(`${grenztag}T12:00:00Z`);
+    gestern.setUTCDate(gestern.getUTCDate() - 1);
+    const gesternKey = gestern.toISOString().slice(0, 10);
+    if (gesternKey.slice(0, 7) !== monat) return; // Monatswechsel: der Cutoff-Monat waere ein anderer
+    const davor = insertEntry({ title: 'tz2', amount: -20, category: 'food', date: gesternKey, recurrence_parent_id: parent });
+    setZone(frueh);
+    const r2 = await call('PUT', `/${parent}/series`, { body: { title: 'tz-neuer' } });
+    assert.equal(r2.status, 200);
+    assert.ok(db.prepare('SELECT 1 FROM budget_entries WHERE id = ?').get(davor),
+      `${gesternKey} liegt in ${frueh} vor heute und muss stehen bleiben`);
+  } finally {
+    db.prepare("DELETE FROM sync_config WHERE key = 'household_timezone'").run();
+  }
+});
+
 test('PUT /:id/series: das Konto wirkt nicht rückwirkend auf vergangene Instanzen', async () => {
   // Anders als die Sichtbarkeit: ein zu weiter Alt-Wert bei visibility ist ein
   // Leck, ein Konto ist eine Tatsache über eine bereits erfolgte Abbuchung.

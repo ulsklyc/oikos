@@ -433,10 +433,14 @@ test('Serie ohne Konto vererbt keines', () => {
     `Ohne Konto an der Serie bleibt die Instanz kontolos, war ${inst.account_id}`);
 });
 
-test('Virtuelle Serie vererbt das Konto ebenfalls', () => {
-  // Der virtuelle Zweig waehlt die Daten anders (ein geglaetteter Anteil je
-  // Monat statt der Faelligkeitstage) und laeuft durch dasselbe INSERT. Ohne
-  // diesen Fall deckt der Test nur die Haelfte der Funktion ab.
+test('Virtuelle Serie vererbt das Konto NICHT', () => {
+  // Umgekehrt zum Rest, und der Grund ist der Kontosaldo. Die Instanzen einer
+  // virtuellen Serie sind Planwerte: 12000 im Jahr stehen als 1000 je Monat,
+  // waehrend die Bank einmal 12000 abbucht. `listAccounts()` summiert jeden
+  // nicht-erwarteten Eintrag mit Konto in den Saldo, und die Instanz traegt
+  // kein eigenes `recurrence_virtual` - die Abfrage koennte einen Planwert also
+  // gar nicht aussortieren. Mit Konto wanderte der Saldo Monat fuer Monat,
+  // ohne dass etwas abgebucht wurde (gemessen: -800 nach acht Monaten).
   const db = freshDb();
   db.prepare('INSERT INTO budget_accounts (id, name) VALUES (4, ?)').run('Sparkonto');
   const pid = insertParent(db, {
@@ -445,8 +449,11 @@ test('Virtuelle Serie vererbt das Konto ebenfalls', () => {
   generateRecurringInstances(db, '2026-09');
   const inst = instanceIn(db, pid, '2026-09');
   assert(inst, 'Virtuelle Instanz vorhanden');
-  assert(inst.account_id === 4,
-    `Auch der virtuelle Zweig traegt das Konto, war ${inst.account_id}`);
+  assert(inst.account_id === null,
+    `Ein geglaetteter Planwert darf keinen Kontosaldo bewegen, war ${inst.account_id}`);
+  // Das Original behaelt seines: es ist die von Hand angelegte Buchung.
+  const orig = db.prepare('SELECT account_id FROM budget_entries WHERE id = ?').get(pid);
+  assert(orig.account_id === 4, 'die Serie selbst behaelt ihr Konto');
 });
 
 // --------------------------------------------------------
