@@ -2959,6 +2959,7 @@
         "folderDeletedWithDocumentsToast": "Cartella e documenti ({{count}}) eliminati.",
         "folderDeletedWithDocumentsToast_one": "Cartella e documento ({{count}}) eliminati.",
         "folderDeletePartialToast": "Documenti eliminati: {{deleted}}. Non eliminati: {{failed}}. La cartella è stata conservata.",
+        "folderDeleteContentsChangedBeforeCommitToast": "Il contenuto della cartella è cambiato prima dell’eliminazione. Non è stato eliminato nulla. Controlla la cartella e riprova.",
         "folderDeleteContentsChangedToast": "Il contenuto della cartella è cambiato durante l’eliminazione, quindi la cartella è stata conservata. Documenti eliminati: {{deleted}}.",
         "folderDeleteContentsChangedWithFailuresToast": "Il contenuto della cartella è cambiato e alcuni documenti non sono stati eliminati. La cartella è stata conservata.",
         "folderDeleteInProgressToast": "Questa cartella è in fase di eliminazione. Riprova al termine dell’operazione.",

@@ -3016,6 +3016,7 @@
         "folderDeletedWithDocumentsToast": "Map en documenten ({{count}}) verwijderd.",
         "folderDeletedWithDocumentsToast_one": "Map en document ({{count}}) verwijderd.",
         "folderDeletePartialToast": "Documenten verwijderd: {{deleted}}. Niet verwijderd: {{failed}}. De map is behouden.",
+        "folderDeleteContentsChangedBeforeCommitToast": "De inhoud van de map is vóór het verwijderen gewijzigd. Er is niets verwijderd. Controleer de map en probeer het opnieuw.",
         "folderDeleteContentsChangedToast": "De inhoud van de map veranderde tijdens het verwijderen, daarom is de map behouden. Verwijderde documenten: {{deleted}}.",
         "folderDeleteContentsChangedWithFailuresToast": "De inhoud van de map is veranderd en sommige documenten konden niet worden verwijderd. De map is behouden.",
         "folderDeleteInProgressToast": "Deze map wordt momenteel verwijderd. Probeer het opnieuw wanneer de bewerking klaar is.",

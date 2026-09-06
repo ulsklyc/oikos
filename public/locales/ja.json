@@ -2959,6 +2959,7 @@
         "folderDeletedWithDocumentsToast": "フォルダーとドキュメント ({{count}}) を削除しました。",
         "folderDeletedWithDocumentsToast_one": "フォルダーとドキュメント ({{count}}) を削除しました。",
         "folderDeletePartialToast": "削除済み: {{deleted}}。削除できなかった文書: {{failed}}。フォルダーは保持されました。",
+        "folderDeleteContentsChangedBeforeCommitToast": "削除前にフォルダーの内容が変更されました。何も削除されていません。フォルダーを確認して、もう一度お試しください。",
         "folderDeleteContentsChangedToast": "削除中にフォルダーの内容が変更されたため、フォルダーは保持されました。削除できたドキュメント: {{deleted}}。",
         "folderDeleteContentsChangedWithFailuresToast": "フォルダーの内容が変更され、一部のドキュメントを削除できませんでした。フォルダーは保持されました。",
         "folderDeleteInProgressToast": "このフォルダーは現在削除中です。処理が完了してからもう一度お試しください。",

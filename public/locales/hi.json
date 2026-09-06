@@ -2959,6 +2959,7 @@
         "folderDeletedWithDocumentsToast": "फ़ोल्डर और दस्तावेज़ ({{count}}) हटा दिए गए।",
         "folderDeletedWithDocumentsToast_one": "फ़ोल्डर और दस्तावेज़ ({{count}}) हटा दिया गया।",
         "folderDeletePartialToast": "हटाए गए दस्तावेज़: {{deleted}}. नहीं हट सके: {{failed}}. फ़ोल्डर रखा गया।",
+        "folderDeleteContentsChangedBeforeCommitToast": "हटाने से पहले फ़ोल्डर की सामग्री बदल गई। कुछ भी नहीं हटाया गया। फ़ोल्डर की जाँच करें और फिर प्रयास करें।",
         "folderDeleteContentsChangedToast": "हटाते समय फ़ोल्डर की सामग्री बदल गई, इसलिए फ़ोल्डर रखा गया। सफलतापूर्वक हटाए गए दस्तावेज़: {{deleted}}.",
         "folderDeleteContentsChangedWithFailuresToast": "फ़ोल्डर की सामग्री बदल गई और कुछ दस्तावेज़ हटाए नहीं जा सके। फ़ोल्डर रखा गया।",
         "folderDeleteInProgressToast": "यह फ़ोल्डर अभी हटाया जा रहा है। प्रक्रिया पूरी होने पर फिर प्रयास करें।",

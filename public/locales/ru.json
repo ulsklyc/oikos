@@ -2959,6 +2959,7 @@
         "folderDeletedWithDocumentsToast": "Папка и документы ({{count}}) удалены.",
         "folderDeletedWithDocumentsToast_one": "Папка и документ ({{count}}) удалены.",
         "folderDeletePartialToast": "Удалено документов: {{deleted}}. Не удалось: {{failed}}. Папка сохранена.",
+        "folderDeleteContentsChangedBeforeCommitToast": "Содержимое папки изменилось до удаления. Ничего не удалено. Проверьте папку и повторите попытку.",
         "folderDeleteContentsChangedToast": "Содержимое папки изменилось во время удаления, поэтому папка сохранена. Успешно удалено документов: {{deleted}}.",
         "folderDeleteContentsChangedWithFailuresToast": "Содержимое папки изменилось, а некоторые документы удалить не удалось. Папка сохранена.",
         "folderDeleteInProgressToast": "Эта папка сейчас удаляется. Повторите попытку после завершения операции.",

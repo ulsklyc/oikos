@@ -2959,6 +2959,7 @@
         "folderDeletedWithDocumentsToast": "Теку й документи ({{count}}) видалено.",
         "folderDeletedWithDocumentsToast_one": "Теку й документ ({{count}}) видалено.",
         "folderDeletePartialToast": "Видалено документів: {{deleted}}. Не вдалося: {{failed}}. Теку збережено.",
+        "folderDeleteContentsChangedBeforeCommitToast": "Вміст теки змінився до видалення. Нічого не видалено. Перевірте теку й повторіть спробу.",
         "folderDeleteContentsChangedToast": "Вміст теки змінився під час видалення, тому теку збережено. Успішно видалено документів: {{deleted}}.",
         "folderDeleteContentsChangedWithFailuresToast": "Вміст теки змінився, а деякі документи не вдалося видалити. Теку збережено.",
         "folderDeleteInProgressToast": "Цю теку зараз видаляють. Спробуйте ще раз після завершення операції.",

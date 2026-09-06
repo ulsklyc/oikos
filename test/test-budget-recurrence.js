@@ -48,8 +48,21 @@ function freshDb() {
       recurrence_full_amount REAL,
       created_by             INTEGER NOT NULL,
       created_at             TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+      updated_at             TEXT,
       owner_id               INTEGER REFERENCES users(id) ON DELETE SET NULL,
-      visibility             TEXT    NOT NULL DEFAULT 'shared' CHECK (visibility IN ('private', 'shared'))
+      account_id             INTEGER REFERENCES budget_accounts(id) ON DELETE SET NULL,
+      -- Diese Tabelle ist von Hand nachgebaut und war an drei Stellen hinter dem
+      -- echten Schema zurueck, als #973 sie brauchte: account_id und updated_at
+      -- fehlten ganz, und der visibility-CHECK kannte shared_amount (Migration 156,
+      -- #659) nicht. Eine Abschrift altert; wer hier eine Spalte ergaenzt, gleicht
+      -- besser einmal gegen PRAGMA table_info(budget_entries) der echten DB ab.
+      -- (Keine Backticks in diesem Block: er steht in einem Template-Literal.)
+      visibility             TEXT    NOT NULL DEFAULT 'shared'
+                                     CHECK (visibility IN ('private', 'shared', 'shared_amount'))
+    );
+    CREATE TABLE budget_accounts (
+      id   INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL
     );
     CREATE TABLE budget_recurrence_skipped (
       parent_id INTEGER NOT NULL REFERENCES budget_entries(id) ON DELETE CASCADE,
@@ -63,14 +76,14 @@ function freshDb() {
 }
 
 /** Legt ein Serien-Original an und gibt dessen id zurück. */
-function insertParent(db, { amount, date, interval = 'monthly', count = 1, virtual = 0, full = null, confirm = 0 }) {
+function insertParent(db, { amount, date, interval = 'monthly', count = 1, virtual = 0, full = null, confirm = 0, accountId = null }) {
   const r = db.prepare(`
     INSERT INTO budget_entries
       (title, amount, category, subcategory, date, is_recurring,
        recurrence_interval, recurrence_interval_count, recurrence_virtual,
-       recurrence_confirm, recurrence_full_amount, created_by)
-    VALUES ('Serie', ?, 'housing', 'utilities', ?, 1, ?, ?, ?, ?, ?, 1)
-  `).run(amount, date, interval, count, virtual, confirm, full);
+       recurrence_confirm, recurrence_full_amount, created_by, account_id)
+    VALUES ('Serie', ?, 'housing', 'utilities', ?, 1, ?, ?, ?, ?, ?, 1, ?)
+  `).run(amount, date, interval, count, virtual, confirm, full, accountId);
   return r.lastInsertRowid;
 }
 
@@ -382,6 +395,65 @@ test('PUT series: aktualisiert Parent und löscht Zukunfts-Kinder', () => {
 
   const pastInst = instanceIn(db, pid, '2025-02');
   assert(pastInst, 'Vergangene Instanz bleibt erhalten');
+});
+
+// --------------------------------------------------------
+// Konto der Serie (#973)
+//
+// Eine Dauerlastschrift geht jeden Monat vom selben Konto ab. Die Instanz erbt
+// dieselben Felder wie Eigentuemer und Sichtbarkeit; das Konto fehlte in dieser
+// Liste, und der Fehler war unauffaellig, weil nur die ERSTE Buchung von Hand
+// entsteht und ihr Konto also stimmt. Der Test prueft deshalb den zweiten und
+// dritten Monat, nicht den ersten.
+// --------------------------------------------------------
+
+test('Instanz erbt das Konto der Serie', () => {
+  const db = freshDb();
+  db.prepare('INSERT INTO budget_accounts (id, name) VALUES (9, ?)').run('Girokonto');
+  const pid = insertParent(db, { amount: -90000, date: '2026-08-05', accountId: 9 });
+
+  generateRecurringInstances(db, '2026-09');
+  generateRecurringInstances(db, '2026-10');
+
+  for (const month of ['2026-09', '2026-10']) {
+    const inst = instanceIn(db, pid, month);
+    assert(inst, `Instanz fuer ${month} vorhanden`);
+    assert(inst.account_id === 9,
+      `Instanz ${month} muss das Konto der Serie tragen, war ${inst.account_id}`);
+  }
+});
+
+test('Serie ohne Konto vererbt keines', () => {
+  const db = freshDb();
+  const pid = insertParent(db, { amount: -1000, date: '2026-08-05' });
+  generateRecurringInstances(db, '2026-09');
+  const inst = instanceIn(db, pid, '2026-09');
+  assert(inst, 'Instanz vorhanden');
+  assert(inst.account_id === null,
+    `Ohne Konto an der Serie bleibt die Instanz kontolos, war ${inst.account_id}`);
+});
+
+test('Virtuelle Serie vererbt das Konto NICHT', () => {
+  // Umgekehrt zum Rest, und der Grund ist der Kontosaldo. Die Instanzen einer
+  // virtuellen Serie sind Planwerte: 12000 im Jahr stehen als 1000 je Monat,
+  // waehrend die Bank einmal 12000 abbucht. `listAccounts()` summiert jeden
+  // nicht-erwarteten Eintrag mit Konto in den Saldo, und die Instanz traegt
+  // kein eigenes `recurrence_virtual` - die Abfrage koennte einen Planwert also
+  // gar nicht aussortieren. Mit Konto wanderte der Saldo Monat fuer Monat,
+  // ohne dass etwas abgebucht wurde (gemessen: -800 nach acht Monaten).
+  const db = freshDb();
+  db.prepare('INSERT INTO budget_accounts (id, name) VALUES (4, ?)').run('Sparkonto');
+  const pid = insertParent(db, {
+    amount: -1000, date: '2026-08-05', interval: 'yearly', virtual: 1, full: -12000, accountId: 4,
+  });
+  generateRecurringInstances(db, '2026-09');
+  const inst = instanceIn(db, pid, '2026-09');
+  assert(inst, 'Virtuelle Instanz vorhanden');
+  assert(inst.account_id === null,
+    `Ein geglaetteter Planwert darf keinen Kontosaldo bewegen, war ${inst.account_id}`);
+  // Das Original behaelt seines: es ist die von Hand angelegte Buchung.
+  const orig = db.prepare('SELECT account_id FROM budget_entries WHERE id = ?').get(pid);
+  assert(orig.account_id === 4, 'die Serie selbst behaelt ihr Konto');
 });
 
 // --------------------------------------------------------

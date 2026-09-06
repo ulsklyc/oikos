@@ -10,7 +10,7 @@
  * stabile Id, an die `reminders.entity_id` haengen koennte. Ein Override
  * HAT eine echte Zeilen-Id (schedule_overrides.id), ein Musters-Tag nicht -
  * zwei verschiedene IDs fuer denselben Begriff waeren zwei Wahrheiten. Die
- * Anker-Tabelle `schedule_reminder_entries` (Migration 183) loest das
+ * Anker-Tabelle `schedule_reminder_entries` (Migration 184) loest das
  * einheitlich: EIN Anker je (Nutzer, Tag), gleich ob der Tag aus einem Muster
  * oder einer Ausnahme stammt. Sie ist nicht die Wahrheit ueber den
  * Schichtplan - das bleibt resolveEntries() -, nur ein Ausleihschein dafuer,
@@ -179,7 +179,7 @@ function syncScheduleRemindersForUser(database, userId, now = new Date()) {
   // PUT /patterns/:id/days loescht und legt immer alle Tage neu an) - ein
   // Anker unter der alten Id qualifiziert deshalb beim naechsten Lauf nicht
   // mehr und wird hier abgeraeumt, dann unten unter der neuen Id neu angelegt.
-  // Absichtlich keine DB-Kaskade dafuer (siehe Migration 187's Kommentar).
+  // Absichtlich keine DB-Kaskade dafuer (siehe Migration 188's Kommentar).
   const existingAnchors = database.prepare('SELECT id, date_key, shift_type_id, pattern_day_id FROM schedule_reminder_entries WHERE user_id = ?').all(userId);
   for (const anchor of existingAnchors) {
     const entry = qualifyingBySlot.get(slotKey(anchor.date_key, anchor.pattern_day_id));

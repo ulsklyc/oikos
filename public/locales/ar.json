@@ -2959,6 +2959,7 @@
         "folderDeletedWithDocumentsToast": "تم حذف المجلد والمستندات ({{count}}).",
         "folderDeletedWithDocumentsToast_one": "تم حذف المجلد والمستند ({{count}}).",
         "folderDeletePartialToast": "المستندات المحذوفة: {{deleted}}. تعذر حذف: {{failed}}. تم الاحتفاظ بالمجلد.",
+        "folderDeleteContentsChangedBeforeCommitToast": "تغيّرت محتويات المجلد قبل الحذف. لم يُحذف أي شيء. راجع المجلد وحاول مرة أخرى.",
         "folderDeleteContentsChangedToast": "تغيّرت محتويات المجلد أثناء الحذف، لذلك تم الاحتفاظ به. المستندات المحذوفة بنجاح: {{deleted}}.",
         "folderDeleteContentsChangedWithFailuresToast": "تغيّرت محتويات المجلد وتعذر حذف بعض المستندات. تم الاحتفاظ بالمجلد.",
         "folderDeleteInProgressToast": "يتم حذف هذا المجلد حاليًا. حاول مرة أخرى بعد انتهاء العملية.",

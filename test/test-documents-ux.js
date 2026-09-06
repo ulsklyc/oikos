@@ -243,8 +243,9 @@ test('Ordnerlöschung bietet Behalten oder Mitlöschen mit exakten Server-Zahlen
   assert.match(block, /expected_folders=\$\{impact\.removed_folders\}/);
   assert.match(block, /choice === 'delete'[\s\S]*expected_snapshot=\$\{encodeURIComponent\(impact\.snapshot\)\}/);
   assert.match(block, /const expectedSnapshot = choice === 'delete'[\s\S]*: '';/);
-  assert.match(block, /FOLDER_CONTENT_CHANGED[\s\S]*await deleteFolder\(folder\)/);
-  assert.match(block, /FOLDER_DELETE_IN_PROGRESS[\s\S]*folderDeleteInProgressToast/);
+  assert.match(block, /handleError: \(err\) => handleFolderDeleteError\(err, folder, \{ delayed: true \}\)/);
+  assert.match(block, /catch \(err\) \{\s*await handleFolderDeleteError\(err, folder\);\s*\}/);
+  assert.match(block, /function handleFolderDeleteError[\s\S]{0,260}handleFolderDeleteFailure\(\{/);
   assert.match(block, /result\.contents_changed[\s\S]*folderDeleteContentsChangedToast/);
   assert.match(block, /failed_documents[\s\S]*failure_stage !== 'concurrency'/);
   assert.match(block, /result\.folder_deleted === false && result\.contents_changed && hasNonConcurrencyFailure[\s\S]*folderDeleteContentsChangedWithFailuresToast/);
@@ -371,6 +372,7 @@ test('alle unterstützten Sprachen enthalten die Optionen für die Ordnerlöschu
     'folderDeletedWithDocumentsToast',
     'folderDeletedWithDocumentsToast_one',
     'folderDeletePartialToast',
+    'folderDeleteContentsChangedBeforeCommitToast',
     'folderDeleteContentsChangedToast',
     'folderDeleteContentsChangedWithFailuresToast',
     'folderDeleteInProgressToast',

@@ -3016,6 +3016,7 @@
         "folderDeletedWithDocumentsToast": "پوشه و اسناد ({{count}}) حذف شدند.",
         "folderDeletedWithDocumentsToast_one": "پوشه و سند ({{count}}) حذف شدند.",
         "folderDeletePartialToast": "اسناد حذف‌شده: {{deleted}}. حذف‌نشده: {{failed}}. پوشه حفظ شد.",
+        "folderDeleteContentsChangedBeforeCommitToast": "محتوای پوشه پیش از حذف تغییر کرد. چیزی حذف نشد. پوشه را بررسی کنید و دوباره تلاش کنید.",
         "folderDeleteContentsChangedToast": "محتوای پوشه هنگام حذف تغییر کرد، بنابراین پوشه حفظ شد. اسناد حذف‌شده با موفقیت: {{deleted}}.",
         "folderDeleteContentsChangedWithFailuresToast": "محتوای پوشه تغییر کرد و برخی اسناد حذف نشدند. پوشه حفظ شد.",
         "folderDeleteInProgressToast": "این پوشه در حال حذف است. پس از پایان عملیات دوباره تلاش کنید.",

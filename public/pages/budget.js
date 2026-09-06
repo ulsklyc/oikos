@@ -2372,7 +2372,18 @@ function openBudgetModal({ mode, entry = null, initialType = '' }) {
             if (scope === 'series') {
               // Ohne Belege: die hängen an der einzelnen Buchung, nicht an der
               // Serie - eine Stromrechnung hat je Monat einen eigenen Beleg.
-              await api.put(`/budget/${entry.id}/series`, body);
+              const seriesBody = { ...body };
+              // Das Konto-Feld zeigt das Konto DIESER Instanz, der Dialog gilt
+              // aber der Serie. Trägt die Instanz keins - genau die Lücke, die
+              // #973 hinterlassen hat -, dann ist das leere Feld kein Wunsch,
+              // sondern der Zustand dieser einen Zeile. Als `null` an die Serie
+              // weitergereicht löschte es deren Konto: wer eine kontolose
+              // Altinstanz bearbeitete, nahm der Serie ihr Konto weg. Ein
+              // Leeren zählt nur, wenn hier vorher etwas stand.
+              if (seriesBody.account_id === null && entry.account_id == null) {
+                delete seriesBody.account_id;
+              }
+              await api.put(`/budget/${entry.id}/series`, seriesBody);
               window.yuvomi?.showToast(t('budget.recurringSeriesSaved'), 'success');
             } else {
               const res = await api.put(`/budget/${entry.id}`, await withReceipts());

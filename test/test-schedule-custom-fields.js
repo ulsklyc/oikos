@@ -4,7 +4,7 @@
  *        (jedes Mitglied), umbenennen/loeschen (nur Ersteller oder Admin, wie
  *        bei Schichttypen - ownTypeOrAdmin() liest ohnehin nur created_by).
  *        Ausserdem: das Loeschen eines Feldes kaskadiert ueber seine
- *        Schichttyp-Zuordnung UND bereits erfasste Werte (Migration 188,
+ *        Schichttyp-Zuordnung UND bereits erfasste Werte (Migration 189,
  *        ON DELETE CASCADE) - direkt per SQL nachgewiesen, nicht nur ueber den
  *        Statuscode der Loeschung selbst.
  * Ausführen: node --test test/test-schedule-custom-fields.js

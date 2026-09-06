@@ -121,7 +121,7 @@ test('extras CRUD: create, fill, update, and delete are addressed by the extra\'
   assert.match(overCap.body.error, /100 days/);
 });
 
-// Migration 188: an extra shift's field_values are validated against its
+// Migration 189: an extra shift's field_values are validated against its
 // EFFECTIVE shift type (create, or the replacement type on update, not one
 // being left behind), /extras/fill shares one set across every created row,
 // and deleting an extra cleans up its values - entry_id is polymorphic

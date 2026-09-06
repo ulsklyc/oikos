@@ -954,7 +954,7 @@ function buildOverviewLanes(days, selectedUserIds, entries) {
   // Chronologisch innerhalb der Spur - eine Fortsetzung zaehlt als 00:00 (sie
   // IST der Tagesanfang), dann untimed (frei), dann nach Beginn. Wichtig,
   // weil GET /entries keine Sortiergarantie ueber mehrere Bloecke desselben
-  // Tages gibt (Migration 187, mehrere Bloecke je Zyklustag).
+  // Tages gibt (Migration 188, mehrere Bloecke je Zyklustag).
   const startMinutes = (entry) => {
     if (entry.__continuation) return -1;
     const start = entry.shift_type?.start_time;
@@ -1792,7 +1792,7 @@ async function action(event) {
       return;
     }
     // Kaskadiert serverseitig ueber Zuordnung UND Werte (ON DELETE CASCADE,
-    // Migration 188) - anders als ein Schichttyp (409, solange er noch
+    // Migration 189) - anders als ein Schichttyp (409, solange er noch
     // referenziert ist) ist das Loeschen eines Feldes eine bewusst
     // bestaetigte Aktion, deshalb die Rueckfrage hier statt eines
     // Server-Schutzes.

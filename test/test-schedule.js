@@ -167,7 +167,7 @@ test('entries are household-readable, include type data, and never materialize c
   assert.equal(database.prepare('SELECT count(*) AS count FROM calendar_events').get().count, before);
 });
 
-// Migration 188: GET /entries embeds each resolved entry's field_values (keyed
+// Migration 189: GET /entries embeds each resolved entry's field_values (keyed
 // by the RIGHT id column for its source - pattern_day_id/override_id/extra_id
 // are three different lookups, see scheduleData()) and each shift_type's own
 // attached-field list, so the frontend never needs a second round trip to
@@ -299,7 +299,7 @@ test('a date range of overrides can be deleted in one call, self or admin-on-beh
   assert.equal(asAdmin.body.data.deleted, 3);
 });
 
-// Migration 188: an override's field_values round-trip through the single-day
+// Migration 189: an override's field_values round-trip through the single-day
 // PUT, /overrides/fill applies the same values to every day in the range
 // (matching the existing note/reminder_offset_minutes sharing semantics), and
 // deleting a value's owning row (single or range) cleans up its values too -
@@ -395,7 +395,7 @@ test('deleting a shift type that is still in use answers 409, and 404 stays 404'
   assert.equal(missing.status, 404, 'an unknown id is not "in use"');
 });
 
-// Migration 188 (custom fields): a shift type's attached-field set is replaced
+// Migration 189 (custom fields): a shift type's attached-field set is replaced
 // wholesale on every save, same shape as PUT /patterns/:id/days - no natural
 // way to tell "unchanged" from "removed" apart in the submitted list either.
 test('a shift type\'s attached custom fields can be replaced, reordered, and are ownership-guarded', async () => {
@@ -562,7 +562,7 @@ test('PUT /patterns/:id/days accepts several classes at the same position, and a
   assert.equal(shrunk.body.data[0].shift_type_id, Number(mathType));
 });
 
-// Migration 188 (custom fields): a pattern day's field_values ride inside the
+// Migration 189 (custom fields): a pattern day's field_values ride inside the
 // SAME wholesale-replace request as its position/shift_type_id, and every
 // save assigns the day rows fresh ids (see the comment above PUT
 // /patterns/:id/days) - the atomicity claim this design rests on is that the
@@ -655,7 +655,7 @@ test('overrideGroups() merges consecutive same-series days and splits on a gap o
   const typeChange = __test.overrideGroups([row(1, '2027-03-01'), row(2, '2027-03-02', { shift_type_id: otherTypeId })]);
   assert.equal(typeChange.length, 2, 'a different shift_type_id must not merge with its neighbour');
 
-  // Migration 188: field_values carry the same "must match to merge" rule as
+  // Migration 189: field_values carry the same "must match to merge" rule as
   // note already did - two consecutive days with different values are not
   // one range, even though shift type and note happen to be identical.
   const differentFieldValues = __test.overrideGroups([
@@ -682,7 +682,7 @@ test('sameFieldValues() compares by key and value, not by object identity or key
   assert.equal(__test.sameFieldValues({}, undefined), true, 'an empty object and an absent value are both "nothing set"');
 });
 
-// Migration 188: overlayMeta() feeds the Today card's meta line - note plus
+// Migration 189: overlayMeta() feeds the Today card's meta line - note plus
 // every show_in_overlay field that actually has a value, a field attached but
 // not flagged stays out even with a value, and a flagged field with no value
 // stays out too (nothing to show).

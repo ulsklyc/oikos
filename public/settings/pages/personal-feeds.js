@@ -8,7 +8,7 @@
  * Warum ein eigenes Blatt und warum unter `personal`: alle vier Tokens haengen
  * an der eigenen users-Zeile (calendar_feed_token, Migration 61;
  * inventory_deadlines_feed_token, Migration 144; cycle_feed_token,
- * Migration 180; schedule_feed_token, Migration 182), und alle vier Routen
+ * Migration 180; schedule_feed_token, Migration 183), und alle vier Routen
  * tragen serverseitig bewusst keinen
  * Admin-Check. Die ersten beiden lagen trotzdem auf `sync-calendar`, das
  * adminOnly ist - in einem Haushalt mit fuenf Mitgliedern konnte also genau

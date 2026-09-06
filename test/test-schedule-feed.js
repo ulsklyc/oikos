@@ -4,7 +4,7 @@
  *        EIGENEN aufgeloesten Eintraege des Feed-Besitzers, freie Tage
  *        uebersprungen, Ganztags- vs. Uhrzeit-Events je nach Schichttyp.
  *        (2) Token-Lebenszyklus (get/regenerate/clear) gegen die per-Nutzer-
- *        Spalte users.schedule_feed_token (Migration 182).
+ *        Spalte users.schedule_feed_token (Migration 183).
  *        (3) Der Verwaltungs-Router (/schedule/feed) end-to-end.
  * Ausführen: node --experimental-sqlite --test test/test-schedule-feed.js
  */
@@ -181,7 +181,7 @@ test('buildScheduleFeed escaped Sonderzeichen in der Notiz', () => {
   db.exec('DELETE FROM schedule_overrides');
 });
 
-// Migration 188: DESCRIPTION faltet die Notiz UND jedes ueberlagerungssichtbare
+// Migration 189: DESCRIPTION faltet die Notiz UND jedes ueberlagerungssichtbare
 // eigene Feld mit einem Wert zusammen - ein Feld ohne diesen Haken bleibt
 // draussen, auch wenn es einen Wert traegt.
 test('buildScheduleFeed nimmt ueberlagerungssichtbare Feldwerte in DESCRIPTION auf, andere nicht', () => {
@@ -212,10 +212,10 @@ test('buildScheduleFeed liefert ein valides VCALENDAR-Gerüst auch ohne Einträg
 });
 
 // --------------------------------------------------------
-// Migration 182: Token-Spalte auf users
+// Migration 183: Token-Spalte auf users
 // --------------------------------------------------------
 
-test('Migration 182 legt die Token-Spalte samt partiellem UNIQUE-Index an', () => {
+test('Migration 183 legt die Token-Spalte samt partiellem UNIQUE-Index an', () => {
   const cols = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
   assert.ok(cols.includes('schedule_feed_token'));
 

@@ -7223,6 +7223,44 @@ const MIGRATIONS = [
   },
   {
     version: 181,
+    description: 'Budget: materialisierte Serien-Instanzen erben das Konto ihrer Serie nach (#973)',
+    // Der Code-Fix in generateRecurringInstances wirkt nur auf NEUE Zeilen. Jeder
+    // Monat, der vor dem Update schon einmal geoeffnet wurde, traegt seine
+    // Instanzen bereits - mit account_id NULL, und die Materialisierung
+    // ueberspringt vorhandene Zeilen. Ohne diese Nachbesserung bliebe der
+    // gemeldete Fehler fuer genau die Daten stehen, an denen er aufgefallen ist.
+    //
+    // BEWUSST EINMALIG statt im Lesepfad: eine Regel "Instanz erbt das Konto der
+    // Serie", die bei jedem Lesen greift, koennte nie wieder unterschieden werden
+    // von "diese eine Buchung lief ausdruecklich ueber kein Konto". Einmal
+    // reparieren laesst das Modell danach in Ruhe.
+    //
+    // Drei Einschraenkungen, jede mit Grund:
+    //   - nur Instanzen (recurrence_parent_id IS NOT NULL); das Original ist eine
+    //     von Hand angelegte Buchung und hat sein Konto immer selbst getragen.
+    //   - nur wo bisher NULL steht; ein abweichend gesetztes Konto ist eine
+    //     Entscheidung und wird nicht ueberschrieben.
+    //   - NICHT bei virtuellen Serien: deren Instanzen sind geglaettete
+    //     Planwerte, und ein Konto an ihnen bewegte den Kontosaldo fuer eine
+    //     Abbuchung, die so nie stattfindet.
+    up: `
+      UPDATE budget_entries
+      SET account_id = (
+        SELECT p.account_id FROM budget_entries p
+        WHERE p.id = budget_entries.recurrence_parent_id
+      )
+      WHERE recurrence_parent_id IS NOT NULL
+        AND account_id IS NULL
+        AND EXISTS (
+          SELECT 1 FROM budget_entries p
+          WHERE p.id = budget_entries.recurrence_parent_id
+            AND p.account_id IS NOT NULL
+            AND p.recurrence_virtual = 0
+        );
+    `,
+  },
+  {
+    version: 182,
     description: 'Schedule: an optional icon alongside a shift type\'s color (#786 follow-up)',
     // Ein Lucide-Name wie ueberall sonst, wo ein Symbol erst zur Laufzeit
     // feststeht (quick-links, Kalender-Termine) - nullable, weil bestehende
@@ -7232,7 +7270,7 @@ const MIGRATIONS = [
     `,
   },
   {
-    version: 182,
+    version: 183,
     description: 'add per-user read-only schedule feed token',
     up: `
       -- Gleiches Muster wie Migration 61/144, aber hier ist der Inhalt selbst
@@ -7246,7 +7284,7 @@ const MIGRATIONS = [
     `,
   },
   {
-    version: 183,
+    version: 184,
     description: 'Schedule: shift-start reminders - widen reminders for schedule_entry, add an anchor table for pattern days',
     foreignKeysOff: true,
     // DIE SECHSTE ERWEITERUNG DERSELBEN SPALTE, gleiche Bauart wie v137/v141/v148/v162/v177.
@@ -7281,7 +7319,7 @@ const MIGRATIONS = [
       -- rollierendes Fenster anlegt und wieder abraeumt, sobald der Tag aus
       -- dem Fenster faellt oder keine Erinnerung mehr braucht.
       --
-      -- pattern_day_id steht von Anfang an hier (nicht erst ab Migration 187):
+      -- pattern_day_id steht von Anfang an hier (nicht erst ab Migration 188):
       -- ein Musterzyklus-Tag kann mehrere Klassen tragen (Stundenplan, siehe
       -- schedule_pattern_days weiter unten), jede mit ihrem eigenen Anker, und
       -- diese Tabelle hat vor dem allerersten Release noch nie eine andere
@@ -7306,7 +7344,7 @@ const MIGRATIONS = [
     `,
   },
   {
-    version: 184,
+    version: 185,
     description: 'Schedule: a personal weekly-hours target for the overtime flag',
     up: `
       -- NULL faellt auf den bisherigen festen Wert (40) zurueck - ein
@@ -7318,7 +7356,7 @@ const MIGRATIONS = [
     `,
   },
   {
-    version: 185,
+    version: 186,
     description: 'Schedule: extra shifts, additive to the primary pattern/override slot (on-call alongside a regular shift)',
     // Bewusst OHNE UNIQUE(user_id, date_key) - anders als schedule_overrides,
     // dessen genau eine Zeile je Tag der ganze Punkt ist. Ein "extra" ist
@@ -7344,11 +7382,11 @@ const MIGRATIONS = [
     `,
   },
   {
-    version: 186,
+    version: 187,
     description: 'Reminders: widen for schedule_extra_entry, extra shifts get their own independent reminders',
     foreignKeysOff: true,
-    // DIE SIEBTE ERWEITERUNG DERSELBEN SPALTE, gleiche Bauart wie v137/v141/v148/v162/v177/v183.
-    // Anders als schedule_entry (Migration 183) braucht dieser Typ KEINE
+    // DIE SIEBTE ERWEITERUNG DERSELBEN SPALTE, gleiche Bauart wie v137/v141/v148/v162/v177/v184.
+    // Anders als schedule_entry (Migration 184) braucht dieser Typ KEINE
     // Anker-Tabelle: eine schedule_extra_shifts-Zeile ist schon eine echte,
     // gespeicherte Zeile mit eigener stabiler Id, sobald sie angelegt wird -
     // reminders.entity_id zeigt direkt darauf.
@@ -7375,7 +7413,7 @@ const MIGRATIONS = [
     `,
   },
   {
-    version: 187,
+    version: 188,
     description: 'Schedule: multiple pattern days at the same cycle position (timetables, not just one shift/day)',
     foreignKeysOff: true,
     // schedule_pattern_days trug bisher UNIQUE(pattern_id, position) - genau
@@ -7387,7 +7425,7 @@ const MIGRATIONS = [
     // lockerere Form schon 1:1.
     //
     // schedule_reminder_entries traegt pattern_day_id bereits seit ihrer
-    // Entstehung (Migration 183) - kein zweiter Rebuild hier noetig, siehe
+    // Entstehung (Migration 184) - kein zweiter Rebuild hier noetig, siehe
     // deren eigener Kommentar.
     up: `
       CREATE TABLE schedule_pattern_days_new (
@@ -7404,7 +7442,7 @@ const MIGRATIONS = [
     `,
   },
   {
-    version: 188,
+    version: 189,
     description: 'Schedule: custom field registry, per-shift-type assignment, and per-occurrence values',
     up: `
       CREATE TABLE schedule_custom_fields (

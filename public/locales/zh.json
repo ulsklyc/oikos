@@ -2959,6 +2959,7 @@
         "folderDeletedWithDocumentsToast": "已删除文件夹和文档（{{count}}）。",
         "folderDeletedWithDocumentsToast_one": "已删除文件夹和文档（{{count}}）。",
         "folderDeletePartialToast": "已删除文档：{{deleted}}。删除失败：{{failed}}。文件夹已保留。",
+        "folderDeleteContentsChangedBeforeCommitToast": "文件夹内容在删除前发生了变化。未删除任何内容。请检查文件夹后重试。",
         "folderDeleteContentsChangedToast": "删除期间文件夹内容发生变化，因此已保留文件夹。成功删除的文档：{{deleted}}。",
         "folderDeleteContentsChangedWithFailuresToast": "文件夹内容发生了变化，且部分文档无法删除。文件夹已保留。",
         "folderDeleteInProgressToast": "此文件夹正在删除中。请在操作完成后重试。",

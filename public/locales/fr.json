@@ -2959,6 +2959,7 @@
         "folderDeletedWithDocumentsToast": "Dossier et documents ({{count}}) supprimés.",
         "folderDeletedWithDocumentsToast_one": "Dossier et document ({{count}}) supprimés.",
         "folderDeletePartialToast": "Documents supprimés : {{deleted}}. Échecs : {{failed}}. Le dossier a été conservé.",
+        "folderDeleteContentsChangedBeforeCommitToast": "Le contenu du dossier a changé avant la suppression. Rien n’a été supprimé. Vérifiez le dossier et réessayez.",
         "folderDeleteContentsChangedToast": "Le contenu du dossier a changé pendant la suppression ; le dossier a donc été conservé. Documents supprimés : {{deleted}}.",
         "folderDeleteContentsChangedWithFailuresToast": "Le contenu du dossier a changé et certains documents n’ont pas pu être supprimés. Le dossier a été conservé.",
         "folderDeleteInProgressToast": "Ce dossier est en cours de suppression. Réessayez une fois l’opération terminée.",

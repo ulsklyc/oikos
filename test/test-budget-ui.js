@@ -1280,3 +1280,33 @@ test('das Bearbeiten-Modal bekommt immer einen echten Eintrag, nie einen nachgeb
   assert.match(loaderBody, /loan_payment_id === paymentId/, 'die geladene Zeile wird nicht der Rate zugeordnet');
   assert.match(loaderBody, /openBudgetModal\(\{ mode: 'edit', entry \}\)/, 'das Modal wird nicht mit dem geladenen Eintrag geoeffnet');
 });
+
+/**
+ * Ein leeres Konto-Feld an einer kontolosen Instanz nimmt der Serie nicht ihr
+ * Konto (#973).
+ *
+ * Das Feld zeigt das Konto DIESER Buchung, der Serien-Dialog gilt aber der
+ * ganzen Serie. Genau die Instanzen, denen #973 das Konto vorenthalten hat,
+ * hätten es beim Bearbeiten mit `account_id: null` an die Serie weitergereicht
+ * und deren Konto gelöscht - reproduziert, bevor die Zeile entstand.
+ *
+ * EHRLICH ZUM GELTUNGSBEREICH: das hier misst die Schreibweise, nicht die
+ * Sache. `public/pages/budget.js` hat keine `__test`-Naht, der Sendepfad ist
+ * also aus einer Suite nicht aufrufbar. Der Guard hält damit den Fall fest, dass
+ * jemand die Zeile entfernt - nicht den, dass jemand sie unwirksam macht. Die
+ * Naht ist die richtige Folgearbeit; sie gehört nicht in einen Bugfix.
+ */
+test('Serien-Speichern reicht ein leeres Konto einer kontolosen Instanz nicht weiter (#973)', () => {
+  const start = budget.indexOf("if (scope === 'series')");
+  assert.ok(start >= 0, 'der Serien-Zweig muss auffindbar sein');
+  const zweig = budget.slice(start, start + 1400);
+
+  assert.match(zweig, /const seriesBody = \{ \.\.\.body \}/,
+    'der Serien-Aufruf braucht einen eigenen Body, sonst wirkt jede Korrektur auch auf den Einzel-PUT');
+  assert.match(zweig, /seriesBody\.account_id === null && entry\.account_id == null/,
+    'ein leeres Feld zählt nur als "Konto entfernen", wenn die Instanz vorher eines trug');
+  assert.match(zweig, /delete seriesBody\.account_id/,
+    'sonst muss das Feld ungesendet bleiben - weglassen heißt serverseitig "unverändert"');
+  assert.match(zweig, /api\.put\(`\/budget\/\$\{entry\.id\}\/series`, seriesBody\)/,
+    'gesendet wird der bereinigte Body, nicht der ursprüngliche');
+});

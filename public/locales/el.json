@@ -2959,6 +2959,7 @@
         "folderDeletedWithDocumentsToast": "Ο φάκελος και τα έγγραφα ({{count}}) διαγράφηκαν.",
         "folderDeletedWithDocumentsToast_one": "Ο φάκελος και το έγγραφο ({{count}}) διαγράφηκαν.",
         "folderDeletePartialToast": "Έγγραφα που διαγράφηκαν: {{deleted}}. Αποτυχίες: {{failed}}. Ο φάκελος διατηρήθηκε.",
+        "folderDeleteContentsChangedBeforeCommitToast": "Τα περιεχόμενα του φακέλου άλλαξαν πριν από τη διαγραφή. Δεν διαγράφηκε τίποτα. Ελέγξτε τον φάκελο και δοκιμάστε ξανά.",
         "folderDeleteContentsChangedToast": "Τα περιεχόμενα του φακέλου άλλαξαν κατά τη διαγραφή, οπότε ο φάκελος διατηρήθηκε. Έγγραφα που διαγράφηκαν: {{deleted}}.",
         "folderDeleteContentsChangedWithFailuresToast": "Τα περιεχόμενα του φακέλου άλλαξαν και ορισμένα έγγραφα δεν διαγράφηκαν. Ο φάκελος διατηρήθηκε.",
         "folderDeleteInProgressToast": "Αυτός ο φάκελος διαγράφεται τώρα. Δοκιμάστε ξανά όταν ολοκληρωθεί η διαδικασία.",

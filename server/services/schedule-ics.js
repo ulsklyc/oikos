@@ -39,7 +39,7 @@ function formatDateValue(dateKey) {
 }
 
 // Note plus jedes ueberlagerungssichtbare eigene Feld mit einem Wert
-// (Migration 188) - dieselbe Berechnung wie schedule.js' overlayMeta() und
+// (Migration 189) - dieselbe Berechnung wie schedule.js' overlayMeta() und
 // calendar.js' scheduleOverlayMeta(), hier eigenstaendig nachgebaut statt
 // importiert (server- vs. clientseitig, kein gemeinsames Modul).
 function overlayMeta(entry) {

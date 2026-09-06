@@ -15618,4 +15618,47 @@ test('die Scroll-Klasse der Symbolauswahl-CSS trifft einen wirklich erzeugten Wr
       `.${wrapperClass} traegt kein "${prop}" - ohne das gibt der Wrapper seine Hoehe `
       + 'nicht an .icon-picker__results weiter, das Raster scrollt dann nicht.');
   }
+
+/**
+ * Das Seitenmenue am Desktop hat einen greifbaren Scrollbalken (#970).
+ *
+ * Die Regel ist nicht "irgendwo steht scrollbar-width": sie haengt an der
+ * BREITE. Bis v2.64.1 stand `scrollbar-width: none` samt verstecktem
+ * `::-webkit-scrollbar` ausgerechnet in `@media (min-width: 1024px)` - also
+ * genau dort, wo mit der Maus gezogen wird und keine Wischgeste einspringt.
+ * Der Fade darunter beantwortet eine andere Frage ("ist da noch mehr?") und
+ * ersetzt keinen Griff.
+ *
+ * Geprueft wird deshalb der Zustand IN der Desktop-Query, nicht das Vorkommen
+ * einer Zeichenfolge in der Datei - `scrollbar-width: none` am Telefon bliebe
+ * richtig und darf diesen Guard nicht ausloesen.
+ */
+test('Seitenmenue: der Scrollbalken ist am Desktop sichtbar (#970)', () => {
+  const layout = read('../public/styles/layout.css');
+  const desktop = (rule) => rule.at.some((a) => /min-width:\s*1024px/.test(a));
+
+  let itemsRule = null;
+  const versteckt = [];
+  for (const rule of eachRule(layout)) {
+    if (!desktop(rule)) continue;
+    const sel = rule.selector.trim();
+    if (sel === '.nav-sidebar__items') itemsRule = rule;
+    if (!/\.nav-sidebar__items/.test(sel)) continue;
+    if (/scrollbar-width:\s*none/.test(rule.body)) versteckt.push(`${sel} { scrollbar-width: none }`);
+    if (/::-webkit-scrollbar\b/.test(sel) && /display:\s*none/.test(rule.body)) {
+      versteckt.push(`${sel} { display: none }`);
+    }
+  }
+
+  assert.ok(itemsRule,
+    '.nav-sidebar__items nicht in @media (min-width: 1024px) gefunden - Guard misst nichts');
+  assert.deepEqual(versteckt, [],
+    `Der Balken ist am Desktop wieder versteckt: ${versteckt.join(', ')} - `
+    + 'mit Maus ist er das Bedienelement, der Fade ist nur eine Andeutung (#970)');
+  assert.match(itemsRule.body, /scrollbar-width:\s*thin/,
+    '.nav-sidebar__items braucht am Desktop einen schmalen, sichtbaren Balken');
+  assert.match(itemsRule.body, /scrollbar-color:/,
+    'ohne scrollbar-color nimmt der Balken die Systemfarbe statt der Token-Farbe');
+  assert.doesNotMatch(itemsRule.body, /#[0-9a-fA-F]{3,8}\b|\brgba?\(/,
+    'Farbwerte kommen aus tokens.css, nicht als Literal');
 });

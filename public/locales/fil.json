@@ -3016,6 +3016,7 @@
         "folderDeletedWithDocumentsToast": "Natanggal ang folder at mga dokumento ({{count}}).",
         "folderDeletedWithDocumentsToast_one": "Natanggal ang folder at dokumento ({{count}}).",
         "folderDeletePartialToast": "Mga dokumentong natanggal: {{deleted}}. Hindi natanggal: {{failed}}. Napanatili ang folder.",
+        "folderDeleteContentsChangedBeforeCommitToast": "Nagbago ang laman ng folder bago ang pagtanggal. Walang natanggal. Suriin ang folder at subukan muli.",
         "folderDeleteContentsChangedToast": "Nagbago ang laman ng folder habang tinatanggal, kaya pinanatili ang folder. Matagumpay na natanggal na dokumento: {{deleted}}.",
         "folderDeleteContentsChangedWithFailuresToast": "Nagbago ang laman ng folder at may mga dokumentong hindi natanggal. Pinanatili ang folder.",
         "folderDeleteInProgressToast": "Kasalukuyang tinatanggal ang folder na ito. Subukan muli kapag tapos na ang proseso.",

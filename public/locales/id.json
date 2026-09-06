@@ -3016,6 +3016,7 @@
         "folderDeletedWithDocumentsToast": "Folder dan dokumen ({{count}}) dihapus.",
         "folderDeletedWithDocumentsToast_one": "Folder dan dokumen ({{count}}) dihapus.",
         "folderDeletePartialToast": "Dokumen dihapus: {{deleted}}. Gagal dihapus: {{failed}}. Folder dipertahankan.",
+        "folderDeleteContentsChangedBeforeCommitToast": "Isi folder berubah sebelum penghapusan. Tidak ada yang dihapus. Tinjau folder lalu coba lagi.",
         "folderDeleteContentsChangedToast": "Isi folder berubah selama penghapusan, sehingga folder dipertahankan. Dokumen yang berhasil dihapus: {{deleted}}.",
         "folderDeleteContentsChangedWithFailuresToast": "Isi folder berubah dan beberapa dokumen tidak dapat dihapus. Folder dipertahankan.",
         "folderDeleteInProgressToast": "Folder ini sedang dihapus. Coba lagi setelah operasi selesai.",

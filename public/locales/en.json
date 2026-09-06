@@ -3016,6 +3016,7 @@
         "folderDeletedWithDocumentsToast": "Folder and documents ({{count}}) deleted.",
         "folderDeletedWithDocumentsToast_one": "Folder and document ({{count}}) deleted.",
         "folderDeletePartialToast": "Documents deleted: {{deleted}}. Could not delete: {{failed}}. The folder was kept.",
+        "folderDeleteContentsChangedBeforeCommitToast": "The folder contents changed before deletion. Nothing was deleted. Review the folder and try again.",
         "folderDeleteContentsChangedToast": "The folder contents changed during deletion, so the folder was kept. Documents deleted successfully: {{deleted}}.",
         "folderDeleteContentsChangedWithFailuresToast": "The folder contents changed and some documents could not be deleted. The folder was kept.",
         "folderDeleteInProgressToast": "This folder is currently being deleted. Try again when the operation finishes.",

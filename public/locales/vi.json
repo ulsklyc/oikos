@@ -3016,6 +3016,7 @@
         "folderDeletedWithDocumentsToast": "Đã xóa thư mục và tài liệu ({{count}}).",
         "folderDeletedWithDocumentsToast_one": "Đã xóa thư mục và tài liệu ({{count}}).",
         "folderDeletePartialToast": "Tài liệu đã xóa: {{deleted}}. Không xóa được: {{failed}}. Thư mục được giữ lại.",
+        "folderDeleteContentsChangedBeforeCommitToast": "Nội dung thư mục đã thay đổi trước khi xóa. Không có gì bị xóa. Hãy kiểm tra thư mục và thử lại.",
         "folderDeleteContentsChangedToast": "Nội dung thư mục đã thay đổi trong khi xóa, vì vậy thư mục được giữ lại. Tài liệu đã xóa thành công: {{deleted}}.",
         "folderDeleteContentsChangedWithFailuresToast": "Nội dung thư mục đã thay đổi và không thể xóa một số tài liệu. Thư mục được giữ lại.",
         "folderDeleteInProgressToast": "Thư mục này đang được xóa. Hãy thử lại khi thao tác hoàn tất.",

@@ -184,7 +184,7 @@ router.get('/entries', (req, res) => {
   }
 });
 
-// Liefert je Schichttyp-Id die an ihm haengenden Felder (Migration 188), sortiert nach ihrer
+// Liefert je Schichttyp-Id die an ihm haengenden Felder (Migration 189), sortiert nach ihrer
 // gespeicherten Anzeige-Reihenfolge. Eine Map statt einer flachen Liste, weil der Aufrufer sie
 // je Schichttyp-Zeile braucht.
 function fieldsForShiftTypes(typeIds) {
@@ -302,7 +302,7 @@ router.delete('/shift-types/:id', (req, res) => {
 const customFieldColumns = 'id, name, created_by, created_at, updated_at';
 
 // Definiert einmal, angeheftet an beliebig viele Schichttypen (schedule_shift_type_fields,
-// siehe Migration 188) - derselbe "gehoert dem Haushalt, nicht einer Person"-Gedanke wie bei
+// siehe Migration 189) - derselbe "gehoert dem Haushalt, nicht einer Person"-Gedanke wie bei
 // Schichttypen: anlegen darf jeder, aendern/loeschen nur wer ihn angelegt hat oder ein Admin.
 router.get('/custom-fields', (_req, res) => res.json({ data: db.get().prepare(`SELECT ${customFieldColumns} FROM schedule_custom_fields ORDER BY name COLLATE NOCASE`).all() }));
 router.post('/custom-fields', (req, res) => {
@@ -467,7 +467,7 @@ router.put('/patterns/:id/days', (req, res) => {
     days.push({ position: position.value, shiftTypeId: shiftType?.value ?? null, fieldValues: fields.values });
   }
   // entry_id-Werte fuer schedule_custom_field_values haengen an KEINEM echten
-  // Fremdschluessel (polymorph, siehe Migration 188) - das Loeschen der alten
+  // Fremdschluessel (polymorph, siehe Migration 189) - das Loeschen der alten
   // Zyklustage kaskadiert also nicht automatisch zu ihren Werten. Beides in
   // derselben Transaktion, in dieser Reihenfolge: alte Werte weg (ueber die
   // NOCH bekannten alten Ids), alte Tage weg, neue Tage rein, neue Werte fuer
@@ -562,7 +562,7 @@ router.delete('/overrides', (req, res) => {
   if (span === null || span + 1 > MAX_RANGE_DAYS) {
     return fail(res, 400, `The range must not exceed ${MAX_RANGE_DAYS} days.`);
   }
-  // entry_id ist polymorph (kein echter Fremdschluessel, siehe Migration 188) -
+  // entry_id ist polymorph (kein echter Fremdschluessel, siehe Migration 189) -
   // die Werte muessen VOR den Overrides selbst weg, solange die Unterabfrage
   // sie noch findet.
   const result = db.get().transaction(() => {

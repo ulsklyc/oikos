@@ -115,8 +115,18 @@ function bindDeleteFlush() {
  *        geschlagenem Commit (mit err; dort auch Fehlermeldung zeigen).
  * @param {string} opts.message  - Toast-Text
  * @param {number} [opts.duration=5000] - Undo-Fenster in ms
+ * @param {boolean} [opts.restoreOnKeepaliveError=false]
+ *        Stellt auch nach einem fehlgeschlagenen pagehide-Commit wieder her.
+ *        Nur für Zustände verwenden, die aus der Browser-Cache zurückkehren
+ *        können und deren Restore keine abgehängte Ansicht voraussetzt.
  */
-export function scheduleUndoableDelete({ commit, restore, message, duration = 5000 }) {
+export function scheduleUndoableDelete({
+  commit,
+  restore,
+  message,
+  duration = 5000,
+  restoreOnKeepaliveError = false,
+}) {
   bindDeleteFlush();
   let settled = false;
   const entry = {};
@@ -128,8 +138,9 @@ export function scheduleUndoableDelete({ commit, restore, message, duration = 50
     try {
       await commit({ keepalive });
     } catch (err) {
-      // Beim pagehide-Flush ist die Seite weg — kein UI-Restore mehr möglich.
-      if (!keepalive) restore?.(err);
+      // Die meisten Ansichten sind bei pagehide weg. Zustände, die aus der
+      // Browser-Cache zurückkehren können, dürfen das Restore gezielt erlauben.
+      if (!keepalive || restoreOnKeepaliveError) restore?.(err);
     }
   };
   entry.flush = () => { finish({ keepalive: true }); };

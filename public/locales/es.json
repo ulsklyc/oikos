@@ -2959,6 +2959,7 @@
         "folderDeletedWithDocumentsToast": "Carpeta y documentos ({{count}}) eliminados.",
         "folderDeletedWithDocumentsToast_one": "Carpeta y documento ({{count}}) eliminados.",
         "folderDeletePartialToast": "Documentos eliminados: {{deleted}}. No se pudieron eliminar: {{failed}}. La carpeta se conservó.",
+        "folderDeleteContentsChangedBeforeCommitToast": "El contenido de la carpeta cambió antes de la eliminación. No se eliminó nada. Revisa la carpeta e inténtalo de nuevo.",
         "folderDeleteContentsChangedToast": "El contenido de la carpeta cambió durante la eliminación, por lo que se conservó. Documentos eliminados correctamente: {{deleted}}.",
         "folderDeleteContentsChangedWithFailuresToast": "El contenido de la carpeta cambió y algunos documentos no pudieron eliminarse. La carpeta se conservó.",
         "folderDeleteInProgressToast": "Esta carpeta se está eliminando. Inténtalo de nuevo cuando termine la operación.",

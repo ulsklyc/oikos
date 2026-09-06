@@ -3016,6 +3016,7 @@
         "folderDeletedWithDocumentsToast": "폴더와 문서 ({{count}}) 를 삭제했습니다.",
         "folderDeletedWithDocumentsToast_one": "폴더와 문서 ({{count}}) 를 삭제했습니다.",
         "folderDeletePartialToast": "삭제된 문서: {{deleted}}. 삭제 실패: {{failed}}. 폴더는 유지되었습니다.",
+        "folderDeleteContentsChangedBeforeCommitToast": "삭제 전에 폴더 내용이 변경되었습니다. 아무것도 삭제되지 않았습니다. 폴더를 확인한 후 다시 시도하세요.",
         "folderDeleteContentsChangedToast": "삭제 중 폴더 내용이 변경되어 폴더를 유지했습니다. 성공적으로 삭제된 문서: {{deleted}}.",
         "folderDeleteContentsChangedWithFailuresToast": "폴더 내용이 변경되었고 일부 문서를 삭제하지 못했습니다. 폴더를 유지했습니다.",
         "folderDeleteInProgressToast": "이 폴더는 현재 삭제 중입니다. 작업이 끝난 후 다시 시도하세요.",

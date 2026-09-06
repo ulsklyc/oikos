@@ -14,12 +14,20 @@
  *          - DELETE /:id (404, Loan-Payment-Cascade + refreshLoanStatus,
  *            Skip-Markierung bei Instanz-Löschung)
  *          - PUT /:id/series (404, not-recurring-400, Parent-Update, Sichtbarkeits-
- *            Propagation auf ALLE Instanzen, Löschung künftiger Instanzen, 403)
+ *            Propagation auf ALLE Instanzen, Konto der Serie inkl. Haushaltszone
+ *            und Nicht-Rückwirkung, Neuaufbau NUR bei geändertem Rhythmus, 403)
  *          - DELETE /:id/series (404, not-recurring-400, Parent + Instanzen weg, 403)
  *
- *        Systemuhr: PUT /:id/series löscht Instanzen ab dem AKTUELLEN Monat
- *        (new Date()). Statt die Uhr zu fixieren werden Extremdaten genutzt:
- *        2000-01 (immer < heute → bleibt) und 2099-12 (immer >= heute → weg).
+ *        Systemuhr: PUT /:id/series schneidet bei HEUTE in der Haushaltszone
+ *        (todayKey(db), #829 - nicht der Serverzone, #973). Statt die Uhr zu
+ *        fixieren werden Extremdaten genutzt: 2000-01 (immer < heute) und
+ *        2099-12 (immer >= heute). Was hinter dem Schnitt liegt, wird seit
+ *        v2.64.2 AKTUALISIERT statt gelöscht - gelöscht wird nur noch, wenn
+ *        sich der Rhythmus ändert und die Termine deshalb anderswo liegen.
+ *        Die zwei Tests, die die Zone selbst messen, rechnen mit der echten
+ *        Uhr, weil nur die Lage "heute, aber je nach Zone anderer Tag" den
+ *        Fehler trägt; sie überspringen sich im seltenen Fenster, in dem beide
+ *        Zonen denselben Tag zeigen, statt ohne Messung grün zu sein.
  *        Die sicherheitskritische Sichtbarkeits-Propagation ist datumsunabhängig
  *        und wird separat geprüft.
  * Ausführen: node --experimental-sqlite --test test/test-budget-entries-routes.js
@@ -523,9 +531,155 @@ test('PUT /:id/series: aktualisiert das Original und propagiert Sichtbarkeit auf
   assert.equal(r.body.data.title, 'neu', 'Original-Titel aktualisiert');
   // Sichtbarkeit trifft ALLE Instanzen (privat→geteilt-Leak-Schutz), unabhängig vom Datum.
   assert.equal(db.prepare('SELECT visibility FROM budget_entries WHERE id = ?').get(past).visibility, 'private', 'Vergangenheits-Instanz geerbt');
-  // Künftige Instanz (>= aktueller Monat) wird gelöscht; die Vergangenheits-Instanz bleibt.
-  assert.equal(db.prepare('SELECT 1 FROM budget_entries WHERE id = ?').get(future), undefined, '2099er-Instanz gelöscht (>= heute)');
-  assert.ok(db.prepare('SELECT 1 FROM budget_entries WHERE id = ?').get(past), '2000er-Instanz bleibt (< heute)');
+  // Bis v2.64.1 wurde die künftige Instanz hier gelöscht und beim nächsten Lesen
+  // neu gebaut. Seit der Rhythmus unverändert bleibt, wird sie AKTUALISIERT: sie
+  // behält ihre Identität und ihre Belege und trägt trotzdem den neuen Wert.
+  // Der Test misst deshalb den Wert, nicht mehr das Verschwinden.
+  const nachher = db.prepare('SELECT title FROM budget_entries WHERE id = ?').get(future);
+  assert.ok(nachher, '2099er-Instanz bleibt bestehen, statt gelöscht zu werden');
+  assert.equal(nachher.title, 'neu', '2099er-Instanz übernimmt den neuen Titel (>= heute)');
+  const vergangen = db.prepare('SELECT title FROM budget_entries WHERE id = ?').get(past);
+  assert.ok(vergangen, '2000er-Instanz bleibt (< heute)');
+  assert.equal(vergangen.title, 'orig', 'eine gebuchte Vergangenheit wird nicht umgeschrieben');
+});
+
+test('PUT /:id/series: ein geänderter Rhythmus baut die künftigen Instanzen neu', async () => {
+  // Die Gegenrichtung zum Test darüber, und der Grund, warum das Löschen nicht
+  // ganz verschwindet: verschiebt sich der Takt, liegen die Termine anderswo -
+  // eine bestehende Zeile am alten Datum wäre dann falsch, nicht veraltet.
+  const parent = insertEntry({ title: 'takt', amount: -20, category: 'food', date: '2035-02-02', is_recurring: 1, recurrence_interval: 'monthly' });
+  const future = insertEntry({ title: 'takt', amount: -20, category: 'food', date: '2099-11-15', recurrence_parent_id: parent });
+  const r = await call('PUT', `/${parent}/series`, { body: { recurrence_interval: 'weekly' } });
+  assert.equal(r.status, 200);
+  assert.equal(db.prepare('SELECT 1 FROM budget_entries WHERE id = ?').get(future), undefined,
+    'bei geändertem Takt wird die künftige Instanz verworfen und neu berechnet');
+});
+
+// Konto an der Serie (#973). Das Feld fehlte in dieser Route ganz, während der
+// Einzel-PUT es konnte - und das war genau die eine Reparatur, die dem Melder
+// offenstand: Konto an einer Folgebuchung nachtragen, "alle künftigen ändern"
+// wählen. Die Route ignorierte das Feld und löschte die Instanz gleich darauf mit.
+test('PUT /:id/series: setzt das Konto der Serie und entfernt es wieder', async () => {
+  const acc = db.prepare("INSERT INTO budget_accounts (name, created_by) VALUES ('Serien-Giro', ?)").run(A).lastInsertRowid;
+  const parent = insertEntry({ title: 's-acc', amount: -20, category: 'food', date: '2035-04-01', is_recurring: 1 });
+
+  const set = await call('PUT', `/${parent}/series`, { body: { account_id: acc } });
+  assert.equal(set.status, 200);
+  assert.equal(set.body.data.account_id, acc, 'Konto landet am Serien-Original');
+  assert.equal(db.prepare('SELECT account_id FROM budget_entries WHERE id = ?').get(parent).account_id, acc);
+
+  const clear = await call('PUT', `/${parent}/series`, { body: { account_id: null } });
+  assert.equal(clear.status, 200);
+  assert.equal(clear.body.data.account_id, null, 'null entfernt die Zuordnung');
+});
+
+test('PUT /:id/series: ohne account_id im Body bleibt das Konto stehen', async () => {
+  // Die Route schreibt jedes andere Feld bedingungslos. Ohne die CASE-WHEN-Form
+  // würde ein Titel-Update das Konto auf NULL setzen - der Bug, den der Fix
+  // hätte einführen können.
+  const acc = db.prepare("INSERT INTO budget_accounts (name, created_by) VALUES ('Bleibt', ?)").run(A).lastInsertRowid;
+  const parent = insertEntry({ title: 's-keep', amount: -20, category: 'food', date: '2035-04-05', is_recurring: 1, account_id: acc });
+  const r = await call('PUT', `/${parent}/series`, { body: { title: 'nur der Titel' } });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.data.title, 'nur der Titel');
+  assert.equal(r.body.data.account_id, acc, 'ein Titel-Update darf das Konto nicht abräumen');
+});
+
+test('PUT /:id/series: unbekanntes Konto → 400', async () => {
+  const parent = insertEntry({ title: 's-badacc', amount: -20, category: 'food', date: '2035-04-10', is_recurring: 1 });
+  const r = await call('PUT', `/${parent}/series`, { body: { account_id: 999999 } });
+  assert.equal(r.status, 400);
+  assert.match(r.body.error, /Konto/);
+  assert.equal(db.prepare('SELECT title FROM budget_entries WHERE id = ?').get(parent).title, 's-badacc',
+    'die abgelehnte Anfrage darf nichts anderes geschrieben haben');
+});
+
+test('PUT /:id/series: eine schon gebuchte Instanz DIESES Monats bleibt stehen', async () => {
+  // Der Schnitt lag am Monatsersten. Bei einer Wochenserie liegen mehrere
+  // Instanzen im selben Monat, und die vom Monatsanfang war dann bereits
+  // gebucht, wurde aber mitgelöscht und aus dem Original neu erzeugt - mitsamt
+  // dem gerade gewählten Konto. Eine erfolgte Abbuchung zog so auf ein anderes
+  // Konto um. Der Test rechnet mit der echten Uhr statt mit Extremdaten, weil
+  // genau die Lage "im laufenden Monat, aber vor heute" den Fehler trug.
+  const heute = new Date();
+  if (heute.getDate() < 3) return; // am 1./2. gibt es diese Lage nicht
+  const monat = `${heute.getFullYear()}-${String(heute.getMonth() + 1).padStart(2, '0')}`;
+  const gestern = new Date(heute); gestern.setDate(heute.getDate() - 1);
+  const gesternKey = `${monat}-${String(gestern.getDate()).padStart(2, '0')}`;
+
+  const alt = db.prepare("INSERT INTO budget_accounts (name, created_by) VALUES ('Alt', ?)").run(A).lastInsertRowid;
+  const neu = db.prepare("INSERT INTO budget_accounts (name, created_by) VALUES ('Neu', ?)").run(A).lastInsertRowid;
+  const parent = insertEntry({ title: 'woche', amount: -20, category: 'food', date: `${monat}-01`, is_recurring: 1, account_id: alt });
+  const gebucht = insertEntry({ title: 'woche', amount: -20, category: 'food', date: gesternKey, recurrence_parent_id: parent, account_id: alt });
+
+  const r = await call('PUT', `/${parent}/series`, { body: { account_id: neu } });
+  assert.equal(r.status, 200);
+  const zeile = db.prepare('SELECT account_id FROM budget_entries WHERE id = ?').get(gebucht);
+  assert.ok(zeile, 'die gestrige Buchung darf nicht gelöscht werden');
+  assert.equal(zeile.account_id, alt,
+    'eine bereits erfolgte Abbuchung darf nicht auf das neue Konto umziehen');
+});
+
+test('PUT /:id/series: der Schnitt folgt der Haushaltszone, nicht der Serverzone', async () => {
+  // Der Kontosaldo liest seinen Stichtag mit todayKey(db) aus der Haushaltszone
+  // (#829). Nimmt diese Route stattdessen die Serverzone, liegt die Grenze rund
+  // um Mitternacht auf einem anderen Tag als die Zahlen, die der Haushalt sieht.
+  // Kiritimati (UTC+14) und Midway (UTC-11) trennen 25 Stunden - ihr Datum ist
+  // fast immer verschieden; genau dann traegt der Test etwas.
+  const setZone = (tz) => db.prepare(
+    `INSERT INTO sync_config (key, value) VALUES ('household_timezone', ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value`).run(tz);
+  const tagIn = (tz) => new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date());
+
+  const frueh = 'Pacific/Kiritimati', spaet = 'Pacific/Midway';
+  if (tagIn(frueh) === tagIn(spaet)) return; // seltenes Fenster, in dem der Test nichts misst
+
+  try {
+    // Der Tag, der in Kiritimati schon laeuft, in Midway aber noch Zukunft ist.
+    const grenztag = tagIn(frueh);
+    const monat = grenztag.slice(0, 7);
+    const parent = insertEntry({ title: 'tz', amount: -20, category: 'food', date: `${monat}-01`, is_recurring: 1 });
+    const anGrenze = insertEntry({ title: 'tz', amount: -20, category: 'food', date: grenztag, recurrence_parent_id: parent });
+
+    // In Midway ist dieser Tag noch nicht angebrochen: er liegt hinter dem
+    // Schnitt und muss geloescht werden.
+    setZone(spaet);
+    const r = await call('PUT', `/${parent}/series`, { body: { title: 'tz-neu' } });
+    assert.equal(r.status, 200);
+    assert.equal(db.prepare('SELECT title FROM budget_entries WHERE id = ?').get(anGrenze).title, 'tz-neu',
+      `${grenztag} ist in ${spaet} noch Zukunft und muss den neuen Wert uebernehmen`);
+
+    // In Kiritimati ist derselbe Tag bereits heute - "heute" faellt selbst noch
+    // hinter den Schnitt (>=), der Tag DAVOR aber nicht mehr.
+    const gestern = new Date(`${grenztag}T12:00:00Z`);
+    gestern.setUTCDate(gestern.getUTCDate() - 1);
+    const gesternKey = gestern.toISOString().slice(0, 10);
+    if (gesternKey.slice(0, 7) !== monat) return; // Monatswechsel: der Cutoff-Monat waere ein anderer
+    const davor = insertEntry({ title: 'tz2', amount: -20, category: 'food', date: gesternKey, recurrence_parent_id: parent });
+    setZone(frueh);
+    const r2 = await call('PUT', `/${parent}/series`, { body: { title: 'tz-neuer' } });
+    assert.equal(r2.status, 200);
+    const alt = db.prepare('SELECT title FROM budget_entries WHERE id = ?').get(davor);
+    assert.ok(alt, `${gesternKey} muss stehen bleiben`);
+    assert.equal(alt.title, 'tz2',
+      `${gesternKey} liegt in ${frueh} vor heute und darf nicht umgeschrieben werden`);
+  } finally {
+    db.prepare("DELETE FROM sync_config WHERE key = 'household_timezone'").run();
+  }
+});
+
+test('PUT /:id/series: das Konto wirkt nicht rückwirkend auf vergangene Instanzen', async () => {
+  // Anders als die Sichtbarkeit: ein zu weiter Alt-Wert bei visibility ist ein
+  // Leck, ein Konto ist eine Tatsache über eine bereits erfolgte Abbuchung.
+  // Künftige Instanzen erben es ohnehin über die Neu-Generierung.
+  const acc = db.prepare("INSERT INTO budget_accounts (name, created_by) VALUES ('Neu-Giro', ?)").run(A).lastInsertRowid;
+  const parent = insertEntry({ title: 's-past', amount: -20, category: 'food', date: '2035-04-20', is_recurring: 1 });
+  const past = insertEntry({ title: 's-past', amount: -20, category: 'food', date: '2000-01-15', recurrence_parent_id: parent });
+
+  const r = await call('PUT', `/${parent}/series`, { body: { account_id: acc } });
+  assert.equal(r.status, 200);
+  assert.equal(db.prepare('SELECT account_id FROM budget_entries WHERE id = ?').get(past).account_id, null,
+    'die Buchung von 2000 lief nicht über das heute gewählte Konto');
 });
 
 test('PUT /:id/series: fremder Nutzer im personal-Modus → 403 (kein Bypass)', async () => {

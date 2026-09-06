@@ -3148,6 +3148,7 @@
         "folderDeletedWithDocumentsToast": "Složka a dokumenty ({{count}}) byly odstraněny.",
         "folderDeletedWithDocumentsToast_one": "Složka a dokument ({{count}}) byly odstraněny.",
         "folderDeletePartialToast": "Odstraněno dokumentů: {{deleted}}. Nešlo odstranit: {{failed}}. Složka zůstala zachována.",
+        "folderDeleteContentsChangedBeforeCommitToast": "Obsah složky se před odstraněním změnil. Nic nebylo odstraněno. Zkontrolujte složku a zkuste to znovu.",
         "folderDeleteContentsChangedToast": "Obsah složky se během odstraňování změnil, proto složka zůstala zachována. Úspěšně odstraněné dokumenty: {{deleted}}.",
         "folderDeleteContentsChangedWithFailuresToast": "Obsah složky se změnil a některé dokumenty se nepodařilo odstranit. Složka zůstala zachována.",
         "folderDeleteInProgressToast": "Tato složka se právě odstraňuje. Zkuste to znovu po dokončení.",

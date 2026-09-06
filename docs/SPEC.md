@@ -2776,7 +2776,7 @@ formally closed.
 | shift_type_id | INTEGER | FK → Schedule Shift Types (RESTRICT) — NULL is a free day within the cycle |
 
 Shortening a pattern is refused while days sit beyond the new length, rather than silently dropping
-them. As of migration 182, a position is **not** unique — a cycle day may carry several rows (a
+them. As of migration 183, a position is **not** unique — a cycle day may carry several rows (a
 timetable's multiple classes at different times on the same weekday), each its own `shift_type_id`.
 `PUT /patterns/:id/days` always replaces every row of a pattern in one transaction (delete-all,
 re-insert-all), so every save assigns fresh ids to every row, even unchanged ones.
@@ -2855,7 +2855,7 @@ three lists (patterns, overrides, extras), and one create modal reaches all thre
 toggles: **Recurring** (a pattern vs. a one-time entry) and, if one-time, **Replace** (an override,
 which may carry a free/no-shift value) vs. **Add** (an extra, which must always name a real shift).
 
-#### Schedule Custom Fields (migration 183)
+#### Schedule Custom Fields (migration 184)
 
 A household-wide registry of extra fields (e.g. "Room", "Instructor") a shift type can carry beyond
 its own name — deliberately **not** fixed columns like Timetables' `subject`/`room`/`instructor`,
@@ -2874,7 +2874,7 @@ reused verbatim from Shift Types — it only reads `created_by`). Deleting a fie
 shift type's `isStillReferenced` 409 guard): it's a deliberate, frontend-confirmed action, not an
 accidental loss of schedule meaning.
 
-Migration 188 also creates its two dependent tables up front — `schedule_shift_type_fields`
+Migration 189 also creates its two dependent tables up front — `schedule_shift_type_fields`
 (which shift types a field is attached to, in what order, and whether its value shows in the
 calendar-overlay entry) and `schedule_custom_field_values` (the per-occurrence value, polymorphic
 across `schedule_pattern_days`/`schedule_overrides`/`schedule_extra_shifts` via an `entry_type`/

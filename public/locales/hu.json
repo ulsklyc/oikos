@@ -3016,6 +3016,7 @@
         "folderDeletedWithDocumentsToast": "A mappa és a dokumentumok ({{count}}) törölve.",
         "folderDeletedWithDocumentsToast_one": "A mappa és a dokumentum ({{count}}) törölve.",
         "folderDeletePartialToast": "Törölt dokumentumok: {{deleted}}. Sikertelen: {{failed}}. A mappa megmaradt.",
+        "folderDeleteContentsChangedBeforeCommitToast": "A mappa tartalma a törlés előtt megváltozott. Semmi sem lett törölve. Ellenőrizze a mappát, majd próbálja újra.",
         "folderDeleteContentsChangedToast": "A mappa tartalma törlés közben megváltozott, ezért a mappa megmaradt. Sikeresen törölt dokumentumok: {{deleted}}.",
         "folderDeleteContentsChangedWithFailuresToast": "A mappa tartalma megváltozott, és néhány dokumentumot nem sikerült törölni. A mappa megmaradt.",
         "folderDeleteInProgressToast": "A mappa törlése folyamatban van. Próbálja újra a művelet befejezése után.",

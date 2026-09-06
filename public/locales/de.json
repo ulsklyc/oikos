@@ -3016,6 +3016,7 @@
         "folderDeletedWithDocumentsToast": "Ordner und Dokumente ({{count}}) gelöscht.",
         "folderDeletedWithDocumentsToast_one": "Ordner und Dokument ({{count}}) gelöscht.",
         "folderDeletePartialToast": "Dokumente gelöscht: {{deleted}}. Nicht gelöscht: {{failed}}. Der Ordner blieb erhalten.",
+        "folderDeleteContentsChangedBeforeCommitToast": "Der Ordnerinhalt hat sich vor der Löschung geändert. Es wurde nichts gelöscht. Prüfe den Ordner und versuche es erneut.",
         "folderDeleteContentsChangedToast": "Der Ordnerinhalt hat sich während der Löschung geändert, deshalb blieb der Ordner erhalten. Erfolgreich gelöschte Dokumente: {{deleted}}.",
         "folderDeleteContentsChangedWithFailuresToast": "Der Ordnerinhalt hat sich geändert und einige Dokumente konnten nicht gelöscht werden. Der Ordner blieb erhalten.",
         "folderDeleteInProgressToast": "Dieser Ordner wird gerade gelöscht. Versuche es nach Abschluss erneut.",

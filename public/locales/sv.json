@@ -2959,6 +2959,7 @@
         "folderDeletedWithDocumentsToast": "Mappen och dokumenten ({{count}}) har tagits bort.",
         "folderDeletedWithDocumentsToast_one": "Mappen och dokumentet ({{count}}) har tagits bort.",
         "folderDeletePartialToast": "Borttagna dokument: {{deleted}}. Kunde inte tas bort: {{failed}}. Mappen behölls.",
+        "folderDeleteContentsChangedBeforeCommitToast": "Mappens innehåll ändrades före borttagningen. Ingenting togs bort. Kontrollera mappen och försök igen.",
         "folderDeleteContentsChangedToast": "Mappens innehåll ändrades under borttagningen, så mappen behölls. Borttagna dokument: {{deleted}}.",
         "folderDeleteContentsChangedWithFailuresToast": "Mappens innehåll ändrades och vissa dokument kunde inte tas bort. Mappen behölls.",
         "folderDeleteInProgressToast": "Mappen tas bort just nu. Försök igen när åtgärden är klar.",

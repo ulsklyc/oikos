@@ -2959,6 +2959,7 @@
         "folderDeletedWithDocumentsToast": "Pasta e documentos ({{count}}) excluídos.",
         "folderDeletedWithDocumentsToast_one": "Pasta e documento ({{count}}) excluídos.",
         "folderDeletePartialToast": "Documentos excluídos: {{deleted}}. Não foi possível excluir: {{failed}}. A pasta foi mantida.",
+        "folderDeleteContentsChangedBeforeCommitToast": "O conteúdo da pasta mudou antes da exclusão. Nada foi excluído. Revise a pasta e tente novamente.",
         "folderDeleteContentsChangedToast": "O conteúdo da pasta mudou durante a exclusão, por isso a pasta foi mantida. Documentos excluídos: {{deleted}}.",
         "folderDeleteContentsChangedWithFailuresToast": "O conteúdo da pasta mudou e alguns documentos não puderam ser excluídos. A pasta foi mantida.",
         "folderDeleteInProgressToast": "Esta pasta está sendo excluída. Tente novamente quando a operação terminar.",

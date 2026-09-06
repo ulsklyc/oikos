@@ -2959,6 +2959,7 @@
         "folderDeletedWithDocumentsToast": "Klasör ve belgeler ({{count}}) silindi.",
         "folderDeletedWithDocumentsToast_one": "Klasör ve belge ({{count}}) silindi.",
         "folderDeletePartialToast": "Silinen belgeler: {{deleted}}. Silinemeyen: {{failed}}. Klasör korundu.",
+        "folderDeleteContentsChangedBeforeCommitToast": "Klasör içeriği silme işleminden önce değişti. Hiçbir şey silinmedi. Klasörü kontrol edip tekrar deneyin.",
         "folderDeleteContentsChangedToast": "Silme sırasında klasör içeriği değiştiği için klasör korundu. Başarıyla silinen belgeler: {{deleted}}.",
         "folderDeleteContentsChangedWithFailuresToast": "Klasör içeriği değişti ve bazı belgeler silinemedi. Klasör korundu.",
         "folderDeleteInProgressToast": "Bu klasör şu anda siliniyor. İşlem tamamlandığında tekrar deneyin.",
