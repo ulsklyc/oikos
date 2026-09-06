@@ -423,7 +423,7 @@ export function recurrenceRow(rule, opts = {}) {
  * Bindet Events an die RRULE-Felder (Freq-Change, Day-Toggle, etc.)
  * @param {HTMLElement} root - Container-Element
  * @param {string} prefix - ID-Prefix
- * @param {{ expandsFromStart?: boolean, getStartDate?: () => string, rule?: string|null }} [opts]
+ * @param {{ expandsFromStart?: boolean, getStartDate?: () => string }} [opts]
  *        Das aufrufende Modul liefert bei Bedarf sein aktuelles Startdatum;
  *        der RRULE-Baustein kennt keine fremden Feldselektoren.
  * @returns {{ refreshMonthdayHint: () => void }}
@@ -438,15 +438,22 @@ export function bindRRuleEvents(root, prefix, opts = {}) {
   const endSelect   = root.querySelector(`#${prefix}-rrule-end`);
   const untilWrap   = root.querySelector(`#${prefix}-rrule-until-wrap`);
   const countWrap   = root.querySelector(`#${prefix}-rrule-count-wrap`);
+  const untilInput  = root.querySelector(`#${prefix}-rrule-until`);
+  const countInput  = root.querySelector(`#${prefix}-rrule-count`);
   const hint        = root.querySelector(`#${prefix}-rrule-hint`);
   const monthdayHint = root.querySelector(`#${prefix}-rrule-monthday-hint`);
   const lastDayInput = root.querySelector(`#${prefix}-rrule-last-day`);
 
   const refreshMonthdayHint = () => {
     if (!monthdayHint || typeof opts.getStartDate !== 'function') return;
+    const current = getRRuleValues(root, prefix);
     monthdayHint.textContent = monthEndHintText(opts.getStartDate(), {
       expandsFromStart: !!opts.expandsFromStart,
-      rule: opts.rule ?? null,
+      // Die eigenen Felder sind die Wahrheit fuer die Live-Vorschau. Bei einer
+      // ungueltigen UNTIL-Eingabe ist kein konkreter Termin belegbar; der
+      // Platzhalter erzwingt deshalb denselben sicheren generischen Rueckfall
+      // wie ein nicht unterstuetztes importiertes Regelteil.
+      rule: current.valid_until ? current.recurrence_rule : 'INVALID',
     });
   };
 
@@ -487,9 +494,12 @@ export function bindRRuleEvents(root, prefix, opts = {}) {
     const mode = endSelect.value;
     if (untilWrap) untilWrap.hidden = mode !== 'until';
     if (countWrap) countWrap.hidden = mode !== 'count';
+    refreshMonthdayHint();
   });
 
   intervalEl?.addEventListener('input', updateUnit);
+  untilInput?.addEventListener('change', refreshMonthdayHint);
+  countInput?.addEventListener('input', refreshMonthdayHint);
   lastDayInput?.addEventListener('change', () => {
     refreshMonthdayHint();
     syncMonthdayHintVisibility();

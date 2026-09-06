@@ -121,13 +121,17 @@ test('das Formular zeigt eine eingelesene Serie als Wiederholung an', () => {
 /** Mini-DOM fuer bindRRuleEvents: nur hidden, value und addEventListener. */
 function eventRoot(html) {
   const nodes = new Map();
+  const decode = (s) => String(s)
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&');
   for (const [, tag, id] of html.matchAll(/<(\w[\w-]*)[^>]*\bid="([^"]+)"/g)) {
     const chunk = new RegExp(`<${tag}[^>]*id="${id}"[^>]*>`).exec(html)?.[0] ?? '';
     const attrs = new Map();
     for (const [, name, val] of chunk.matchAll(/([a-z-]+)="([^"]*)"/g)) attrs.set(name, val);
     nodes.set(`#${id}`, {
       tagName: tag, id, hidden: /\shidden(?=[\s>])/.test(chunk),
-      checked: /\schecked(?=[\s>])/.test(chunk), value: '',
+      checked: /\schecked(?=[\s>])/.test(chunk), value: decode(attrs.get('value') ?? ''),
       listeners: {},
       addEventListener(type, fn) { (this.listeners[type] ??= []).push(fn); },
       fire(type) { for (const fn of this.listeners[type] ?? []) fn(); },
@@ -135,6 +139,12 @@ function eventRoot(html) {
       setAttribute(name, val) { attrs.set(name, String(val)); },
       removeAttribute(name) { attrs.delete(name); },
     });
+  }
+  for (const [, id, body] of html.matchAll(/<select[^>]*id="([^"]+)"[^>]*>([\s\S]*?)<\/select>/g)) {
+    const selected = /<option value="([^"]*)"[^>]*\bselected\b/.exec(body);
+    const fallback = /<option value="([^"]*)"/.exec(body);
+    const node = nodes.get(`#${id}`);
+    if (node) node.value = decode(selected?.[1] ?? fallback?.[1] ?? '');
   }
   return {
     querySelector: (sel) => nodes.get(sel) ?? null,
@@ -548,12 +558,34 @@ test('die Live-Vorschau erfindet auch nach Datumsänderung keinen Termin für ei
   const binding = bindRRuleEvents(root, 'event', {
     expandsFromStart: true,
     getStartDate: () => startDate,
-    rule,
   });
 
   startDate = '2026-10-20';
   binding.refreshMonthdayHint();
   assert.equal(root.get('#event-rrule-monthday-hint').textContent, 'rrule.lastDayOfMonthHint');
+});
+
+test('ein live gesetztes Serienende vor dem ersten Monatsletzten nimmt das Versprechen zurück (#975)', () => {
+  const root = eventRoot(renderRRuleFields('event', null, {
+    allowCount: true,
+    expandsFromStart: true,
+    startDate: '2026-09-15',
+  }));
+  root.get('#event-rrule-freq').value = 'MONTHLY';
+  root.get('#event-rrule-last-day').checked = true;
+
+  bindRRuleEvents(root, 'event', {
+    expandsFromStart: true,
+    getStartDate: () => '2026-09-15',
+  });
+  assert.match(root.get('#event-rrule-monthday-hint').textContent, /2026-09-30/,
+    'ohne Ende ist der konkrete erste Termin belegbar');
+
+  root.get('#event-rrule-end').value = 'until';
+  root.get('#event-rrule-until').value = '2026-09-20';
+  root.get('#event-rrule-end').fire('change');
+  assert.equal(root.get('#event-rrule-monthday-hint').textContent, 'rrule.lastDayOfMonthHint',
+    'die Änderung des Endes muss den nun unmöglichen Termin sofort zurücknehmen');
 });
 
 test('die konkrete Vorschau wird erst mit der Monatsletzten-Wahl sichtbar und vorgelesen (#975)', () => {
@@ -633,8 +665,6 @@ test('jeder Aufrufer des Wiederholungsformulars beantwortet die Expansionsfrage 
   const bindCall = kalenderQuelle.slice(bindStart, bindEnd + 3);
   assert.match(bindCall, /getStartDate\s*:/,
     'der Kalender muss auch spätere Datumsänderungen ausdrücklich an das Widget liefern');
-  assert.match(bindCall, /\brule\s*:/,
-    'der Kalender muss die eingelesene Regel auch für ehrliche Live-Vorschauen weiterreichen');
   assert.match(bindCall, /#modal-allday[^]*#modal-allday-start[^]*#modal-start-date/,
     'das vom Kalender gelieferte Datum muss seinem aktiven Ganztags- oder Zeitfeld folgen');
   assert.doesNotMatch(

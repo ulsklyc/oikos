@@ -3779,7 +3779,6 @@ function wireEventForm(panel, { mode, event = null, reminder = null }) {
   // Baustein in fremdem DOM nach einem geratenen Selektor sucht (#975).
   const recurrenceBinding = bindRRuleEvents(panel, 'event', {
     expandsFromStart: true,
-    rule: event?.recurrence_rule ?? null,
     getStartDate: () => readDateInput(
       panel,
       panel.querySelector('#modal-allday')?.checked ? '#modal-allday-start' : '#modal-start-date',

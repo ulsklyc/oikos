@@ -197,9 +197,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   on the last day of the month, the form now names both the entered start date and the first actual
   occurrence; if the start is already a month end, it confirms that date instead. The date is
   supplied explicitly by the calendar form and follows its active timed or all-day field. Imported
-  rules with additional filters keep the generic explanation instead of promising a date that may
-  not be an occurrence. Tasks keep their separate due-date explanation, and recurrence storage and
-  sync behaviour are unchanged.
+  rules with additional filters, and rules ending before that first occurrence, keep the generic
+  explanation instead of promising a date that may not exist. Tasks keep their separate due-date
+  explanation, and recurrence storage and sync behaviour are unchanged.
 
 - **Security reports now come with response times, and a security fix ships as a patch release cut from the last tag.** SECURITY.md commits to an acknowledgment within 7 days, a classification within 14 and, for a confirmed high-severity finding, a fix within 30 days; every published advisory gets a CVE and names the reporter and the fixed version. The fix travels on its own branch off the last tag, so an installation updating for it gets nothing else - the interface work waiting on `main` for its Tuesday stays there. The procedure, including the ordinary release, is now public in `docs/RELEASING.md`, so that the "if the maintainer stops" clause in CONTRIBUTING comes with the instructions a fork would need.
 

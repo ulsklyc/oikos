@@ -281,6 +281,91 @@ after(async () => {
   await harness?.close();
 });
 
+test('PR2 #975 - das zusammengesetzte Kalenderformular und seine Seriennamen bleiben wahr', async () => {
+  const page = await openPage(harness, { device: 'desktop', locale: 'de' });
+  const title = 'PR2 Serienprobe 975';
+  try {
+    await gotoRoute(page, '/calendar');
+    await page.click('#cal-add');
+    await page.waitForSelector('#modal-title');
+
+    const hints = await page.evaluate((eventTitle) => {
+      const change = (el) => el.dispatchEvent(new Event('change', { bubbles: true }));
+      const setDate = (selector, value) => {
+        const el = document.querySelector(selector);
+        el.value = value;
+        change(el);
+      };
+      const text = () => document.querySelector('#event-rrule-monthday-hint')?.textContent || '';
+
+      document.querySelector('#modal-title').value = eventTitle;
+      setDate('#modal-start-date', '2026-09-15');
+      const freq = document.querySelector('#event-rrule-freq');
+      freq.value = 'MONTHLY';
+      change(freq);
+      const lastDay = document.querySelector('#event-rrule-last-day');
+      lastDay.checked = true;
+      change(lastDay);
+      const timed = text();
+
+      const end = document.querySelector('#event-rrule-end');
+      end.value = 'until';
+      change(end);
+      setDate('#event-rrule-until', '2026-09-20');
+      const ended = text();
+
+      end.value = 'never';
+      change(end);
+      const allDay = document.querySelector('#modal-allday');
+      allDay.checked = true;
+      change(allDay);
+      setDate('#modal-allday-start', '2026-10-20');
+      const allDayOctober = text();
+
+      allDay.checked = false;
+      change(allDay);
+      setDate('#modal-start-date', '2026-09-15');
+      return { timed, ended, allDayOctober };
+    }, title);
+
+    assert.match(hints.timed, /30\.09\.2026/,
+      'das echte Zeitfeld bestimmt den ersten Monatsletzten');
+    assert.doesNotMatch(hints.ended, /30\.09\.2026/,
+      'ein live gesetztes fruehes UNTIL darf keinen unmoeglichen Termin versprechen');
+    assert.match(hints.allDayOctober, /31\.10\.2026/,
+      'nach dem Umschalten bestimmt das echte Ganztagsfeld die Vorschau');
+
+    await page.click('#modal-save');
+    await page.waitForFunction((eventTitle) => [...document.querySelectorAll('.month-day__event span')]
+      .some((el) => el.textContent === eventTitle), {}, title);
+    const monthA11y = await page.evaluate((eventTitle) => {
+      const chip = [...document.querySelectorAll('.month-day__event')]
+        .find((el) => el.querySelector('span:last-child')?.textContent === eventTitle);
+      const repeat = chip?.querySelector('.calendar-repeat-icon');
+      return {
+        repeatLabel: repeat?.getAttribute('aria-label') || '',
+        repeatIsSvg: Boolean(repeat?.querySelector('svg')),
+        dayLabel: chip?.closest('.month-day')?.getAttribute('aria-label') || '',
+      };
+    }, title);
+    assert.ok(monthA11y.repeatLabel, 'die Serienmarke hat nach der Lucide-Ersetzung einen Namen');
+    assert.equal(monthA11y.repeatIsSvg, true, 'die echte Lucide-Ersetzung ist Teil der Komposition');
+    assert.match(monthA11y.dayLabel, new RegExp(title),
+      'das Tages-aria-label verschluckt den zugänglichen Serientitel nicht');
+
+    await page.click('#cal-view-tab-agenda');
+    await page.waitForFunction((eventTitle) => [...document.querySelectorAll('.agenda-event')]
+      .some((el) => el.textContent.includes(eventTitle)), {}, title);
+    const agendaLabel = await page.evaluate((eventTitle) => [...document.querySelectorAll('.agenda-event')]
+      .find((el) => el.textContent.includes(eventTitle))?.getAttribute('aria-label') || '', title);
+    assert.match(agendaLabel, new RegExp(title));
+    assert.match(agendaLabel, new RegExp(monthA11y.repeatLabel),
+      'das eigene Agenda-aria-label muss dieselbe Serienbedeutung tragen');
+  } finally {
+    await page.close();
+  }
+});
+
 /* ────────────────────────────────────────────────────────────────────────────
  * Sonde 1: Kopf-Ueberlauf
  *

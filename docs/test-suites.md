@@ -305,6 +305,8 @@ npm run test:installer-a11y  # Zielgrößen, Kontrast und Fokus des Web-Installe
 # zugängliche Serieninformation nicht verschluckt. test:rrule-ui vergleicht komplexe
 # BYDAY-Regeln und ein frühes UNTIL mit der Server-Engine und verlangt den ehrlichen
 # generischen Hinweis, wenn eine konkrete Monatsletzten-Vorschau nicht belegbar ist.
+# test:document-guards bedient zusätzlich das echte Kalender-Modal: Zeit- und
+# Ganztagsdatum, live UNTIL sowie die zugänglichen Monats-/Agenda-Namen nach Lucide.
 ```
 
 ## Dokument-Guards (eigene Kette, von Hand vor dem Release)

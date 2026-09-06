@@ -627,7 +627,9 @@ them with 400 (see the Reminders section), because the run would recreate them w
 The concrete last-day preview is deliberately limited to the recurrence subset the form itself can
 write. Imported rules carrying extra filters (for example `BYDAY`) retain their generic explanation:
 duplicating the server recurrence engine in the browser would make a plausible but potentially false
-date more likely. Likewise, imported `RECURRENCE-ID` overrides currently normalize to detached rows
+date more likely. The preview reads the current form rule on every relevant change, including its
+end condition, so an `UNTIL` before that first month end immediately restores the generic wording.
+Likewise, imported `RECURRENCE-ID` overrides currently normalize to detached rows
 without `recurrence_rule` or another presentation flag, so they remain unmarked. Inferring membership
 from a shared UID would be ambiguous; the planned unified override model must provide that metadata.
 
