@@ -218,6 +218,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Calendar loads now share one ordering guard, including quick out-and-back navigation, and
   concurrent deletes of one series reach the server in user-action order. This covers one event,
   one recurring occurrence, this-and-following, and whole-series deletion.
+- **Authorized caregivers can now correct a cared-for person's medication log entries** (#999).
+  The log row now follows the same explicit care grant as recording, taking and skipping a dose;
+  other family members still see it read-only, and scheduled entries keep their existing
+  pending-instead-of-delete rule.
 
 - **A same-version deployment now invalidates the installed PWA shell.** The served service worker
   receives a build-specific revision, so acceptance builds and rebuilt images no longer reuse an
