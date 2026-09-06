@@ -1302,6 +1302,68 @@ test('matchesRRuleByday filtert nicht, wo UTC- und Ortsdatum auseinanderfallen',
     'mit Zonenhinweis nicht - lieber ein Vorkommen zu viel als eines lautlos verloren');
 });
 
+test('getWeekRange: Desktop bleibt beim reinen 7-Tage-Raster (#1006)', () => {
+  const { from, to } = calendarHelpers.getWeekRange('2026-03-11', { weekStart: 1, mobile: false });
+  assert(from === '2026-03-09' && to === '2026-03-15',
+    `Desktop-Woche darf sich nicht erweitern: ${from}..${to}`);
+});
+
+test('getWeekRange: Mobile mitten in der Woche erweitert das Ladefenster nicht unnötig (#1006)', () => {
+  // Mittwoch: das 3-Tage-Fenster (Di-Do) liegt vollständig innerhalb der
+  // Montag-Woche - die Vereinigung darf hier gleich dem Desktop-Raster bleiben.
+  const { from, to } = calendarHelpers.getWeekRange('2026-03-11', { weekStart: 1, mobile: true });
+  assert(from === '2026-03-09' && to === '2026-03-15',
+    `Ein Mittwochs-Cursor braucht keine Erweiterung: ${from}..${to}`);
+});
+
+test('getWeekRange: Montag-Woche + Sonntags-Cursor schliesst den folgenden Montag ein (#1006)', () => {
+  // Sonntag ist der letzte Tag der Montag-Woche; das Mobile-Fenster (Sa-Mo)
+  // ragt einen Tag darüber hinaus - genau der Tag, den buildDayIndex() vorher
+  // stillschweigend wegklammerte.
+  const { from, to } = calendarHelpers.getWeekRange('2026-03-15', { weekStart: 1, mobile: true });
+  assert(from === '2026-03-09' && to === '2026-03-16',
+    `Der folgende Montag muss mitgeladen werden: ${from}..${to}`);
+});
+
+test('getWeekRange: Sonntag-Woche + Samstags-Cursor schliesst den folgenden Sonntag ein (#1006)', () => {
+  // Dieselbe Randsituation am anderen Wochenstart: Samstag ist hier der
+  // letzte Tag, das Mobile-Fenster ragt in den folgenden Sonntag hinein.
+  const { from, to } = calendarHelpers.getWeekRange('2026-03-14', { weekStart: 0, mobile: true });
+  assert(from === '2026-03-08' && to === '2026-03-15',
+    `Der folgende Sonntag muss mitgeladen werden: ${from}..${to}`);
+});
+
+test('getWeekRange: Montag-Woche + Montags-Cursor schliesst den vorherigen Sonntag ein (#1006)', () => {
+  // Symmetrischer Fall am linken Rand: Montag ist der erste Tag der Woche,
+  // das Mobile-Fenster ragt einen Tag in die vorherige Woche hinein.
+  const { from, to } = calendarHelpers.getWeekRange('2026-03-09', { weekStart: 1, mobile: true });
+  assert(from === '2026-03-08' && to === '2026-03-15',
+    `Der vorherige Sonntag muss mitgeladen werden: ${from}..${to}`);
+});
+
+test('getRangeForView: Der echte Week-Aufrufer liest matchMedia und reicht mobile weiter (#1030)', () => {
+  // Die fünf getWeekRange()-Tests oben beweisen nur die Arithmetik, nachdem
+  // `mobile` schon feststeht. Wenn der echte Aufrufer aufhört, das Flag zu
+  // liefern (z.B. `return getWeekRange(cursor)` ohne Optionen), blieben sie
+  // trotzdem grün - dieser Test prüft die fehlende Verbindung.
+  const hadWindow = Object.prototype.hasOwnProperty.call(globalThis, 'window');
+  const previousWindow = globalThis.window;
+  try {
+    globalThis.window = { matchMedia: () => ({ matches: true }) };
+    const mobile = calendarHelpers.getRangeForView('week', '2026-03-15');
+    assert(mobile.from === '2026-03-09' && mobile.to === '2026-03-16',
+      `Mobile-Aufrufer muss das erweiterte Fenster laden: ${mobile.from}..${mobile.to}`);
+
+    globalThis.window = { matchMedia: () => ({ matches: false }) };
+    const desktop = calendarHelpers.getRangeForView('week', '2026-03-15');
+    assert(desktop.from === '2026-03-09' && desktop.to === '2026-03-15',
+      `Desktop-Aufrufer darf sich nicht erweitern: ${desktop.from}..${desktop.to}`);
+  } finally {
+    if (hadWindow) globalThis.window = previousWindow;
+    else delete globalThis.window;
+  }
+});
+
 // --------------------------------------------------------
 // Ergebnis
 // --------------------------------------------------------
