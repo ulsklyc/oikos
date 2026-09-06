@@ -211,9 +211,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **A same-version deployment now invalidates the installed PWA shell.** The served service worker
-  receives a build-specific revision, so acceptance builds and rebuilt images no longer reuse an
-  older cache merely because the application version has not changed.
+- **A recurring budget entry keeps its account past the first month** (#973). Only the first
+  booking of a series is entered by hand; every later month is materialised from the original,
+  and that copy inherited the title, amount, category, owner and visibility but not the account.
+  From the second month on the entry therefore had none, and anyone filtering the transaction
+  list by account stopped seeing the series there. The single repair available to the reporter
+  did not work either: setting the account on a later occurrence and choosing *change all future
+  occurrences* went to a route that ignored the field and then deleted that occurrence as part of
+  its normal work, so the entry appeared to vanish. Both halves are fixed, and the series route
+  now follows the same convention as the single entry - omitted leaves the account alone, `null`
+  clears it. It does not reach back into past occurrences: unlike visibility, where a stale wider
+  value is a leak, an account is a fact about a booking that already happened.
+
+- **The desktop sidebar has a scrollbar again** (#970). It was deliberately hidden at
+  `min-width: 1024px`, with a soft fade at the edges standing in for it. The fade answers "is
+  there more below?", which was the problem it was added for - it does not answer "what do I
+  drag?". On a phone the gesture scrolls and nothing is missing; with a mouse the bar *is* the
+  control, and it had been removed exactly where it is needed. The fade stays; the bar is back,
+  thin and in the same token colour the module lists already use.
 
 - **Inventory and Schedule speak all 24 languages, and a guard now notices when a module does
   not.** Inventory shipped on 15 August and Schedule on 27 August with their texts copied from
