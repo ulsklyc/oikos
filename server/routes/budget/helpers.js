@@ -333,8 +333,8 @@ export function generateRecurringInstances(database, month) {
   const insertStmt = database.prepare(`
     INSERT INTO budget_entries
       (title, amount, category, subcategory, date, is_recurring, recurrence_parent_id,
-       created_by, owner_id, visibility, is_pending)
-    VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)
+       created_by, owner_id, visibility, is_pending, account_id)
+    VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)
   `);
 
   for (const orig of originals) {
@@ -365,10 +365,15 @@ export function generateRecurringInstances(database, month) {
       // Verlangt die Serie eine Bestätigung (#637), entsteht die Buchung als
       // erwartet: sichtbar und planbar, aber in keiner Summe. Der Ursprung
       // selbst bleibt eine echte Buchung - er wurde von Hand eingetragen.
+      // Das KONTO gehört in dieselbe Liste (#973): eine Dauerlastschrift geht
+      // jeden Monat vom selben Konto ab. Es fehlte hier, seit es die Spalte
+      // gibt, und die Wirkung war unauffällig, weil nur die erste Buchung von
+      // Hand entsteht - ab dem zweiten Monat trug die Instanz kein Konto, und
+      // wer nach Konto filtert, sah die Serie ab dort nicht mehr.
       insertStmt.run(
         orig.title, orig.amount, orig.category, orig.subcategory || '', date,
         orig.id, orig.created_by, orig.owner_id, orig.visibility || 'shared',
-        orig.recurrence_confirm ? 1 : 0,
+        orig.recurrence_confirm ? 1 : 0, orig.account_id ?? null,
       );
     }
   }

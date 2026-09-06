@@ -528,6 +528,59 @@ test('PUT /:id/series: aktualisiert das Original und propagiert Sichtbarkeit auf
   assert.ok(db.prepare('SELECT 1 FROM budget_entries WHERE id = ?').get(past), '2000er-Instanz bleibt (< heute)');
 });
 
+// Konto an der Serie (#973). Das Feld fehlte in dieser Route ganz, während der
+// Einzel-PUT es konnte - und das war genau die eine Reparatur, die dem Melder
+// offenstand: Konto an einer Folgebuchung nachtragen, "alle künftigen ändern"
+// wählen. Die Route ignorierte das Feld und löschte die Instanz gleich darauf mit.
+test('PUT /:id/series: setzt das Konto der Serie und entfernt es wieder', async () => {
+  const acc = db.prepare("INSERT INTO budget_accounts (name, created_by) VALUES ('Serien-Giro', ?)").run(A).lastInsertRowid;
+  const parent = insertEntry({ title: 's-acc', amount: -20, category: 'food', date: '2035-04-01', is_recurring: 1 });
+
+  const set = await call('PUT', `/${parent}/series`, { body: { account_id: acc } });
+  assert.equal(set.status, 200);
+  assert.equal(set.body.data.account_id, acc, 'Konto landet am Serien-Original');
+  assert.equal(db.prepare('SELECT account_id FROM budget_entries WHERE id = ?').get(parent).account_id, acc);
+
+  const clear = await call('PUT', `/${parent}/series`, { body: { account_id: null } });
+  assert.equal(clear.status, 200);
+  assert.equal(clear.body.data.account_id, null, 'null entfernt die Zuordnung');
+});
+
+test('PUT /:id/series: ohne account_id im Body bleibt das Konto stehen', async () => {
+  // Die Route schreibt jedes andere Feld bedingungslos. Ohne die CASE-WHEN-Form
+  // würde ein Titel-Update das Konto auf NULL setzen - der Bug, den der Fix
+  // hätte einführen können.
+  const acc = db.prepare("INSERT INTO budget_accounts (name, created_by) VALUES ('Bleibt', ?)").run(A).lastInsertRowid;
+  const parent = insertEntry({ title: 's-keep', amount: -20, category: 'food', date: '2035-04-05', is_recurring: 1, account_id: acc });
+  const r = await call('PUT', `/${parent}/series`, { body: { title: 'nur der Titel' } });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.data.title, 'nur der Titel');
+  assert.equal(r.body.data.account_id, acc, 'ein Titel-Update darf das Konto nicht abräumen');
+});
+
+test('PUT /:id/series: unbekanntes Konto → 400', async () => {
+  const parent = insertEntry({ title: 's-badacc', amount: -20, category: 'food', date: '2035-04-10', is_recurring: 1 });
+  const r = await call('PUT', `/${parent}/series`, { body: { account_id: 999999 } });
+  assert.equal(r.status, 400);
+  assert.match(r.body.error, /Konto/);
+  assert.equal(db.prepare('SELECT title FROM budget_entries WHERE id = ?').get(parent).title, 's-badacc',
+    'die abgelehnte Anfrage darf nichts anderes geschrieben haben');
+});
+
+test('PUT /:id/series: das Konto wirkt nicht rückwirkend auf vergangene Instanzen', async () => {
+  // Anders als die Sichtbarkeit: ein zu weiter Alt-Wert bei visibility ist ein
+  // Leck, ein Konto ist eine Tatsache über eine bereits erfolgte Abbuchung.
+  // Künftige Instanzen erben es ohnehin über die Neu-Generierung.
+  const acc = db.prepare("INSERT INTO budget_accounts (name, created_by) VALUES ('Neu-Giro', ?)").run(A).lastInsertRowid;
+  const parent = insertEntry({ title: 's-past', amount: -20, category: 'food', date: '2035-04-20', is_recurring: 1 });
+  const past = insertEntry({ title: 's-past', amount: -20, category: 'food', date: '2000-01-15', recurrence_parent_id: parent });
+
+  const r = await call('PUT', `/${parent}/series`, { body: { account_id: acc } });
+  assert.equal(r.status, 200);
+  assert.equal(db.prepare('SELECT account_id FROM budget_entries WHERE id = ?').get(past).account_id, null,
+    'die Buchung von 2000 lief nicht über das heute gewählte Konto');
+});
+
 test('PUT /:id/series: fremder Nutzer im personal-Modus → 403 (kein Bypass)', async () => {
   const parent = insertEntry({ title: 'a-series', amount: -20, category: 'food', date: '2035-03-01', is_recurring: 1, owner_id: A, visibility: 'shared' });
   setMode('personal');

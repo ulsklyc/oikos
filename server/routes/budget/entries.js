@@ -397,6 +397,25 @@ router.put('/:id/series', (req, res) => {
       ? normalizeBudgetVisibility(req.body.visibility)
       : null;
 
+    // Konto-Zuordnung wie im Einzel-PUT: undefined ⇒ unverändert; null/'' ⇒ Zuordnung
+    // entfernen; id ⇒ setzen. Sie fehlte hier ganz (#973), und damit lief die einzige
+    // Reparatur ins Leere, die dem Melder offenstand: das Konto an einer Folgebuchung
+    // nachtragen und "alle künftigen ändern" wählen: die Route ignorierte das Feld und
+    // löschte die Instanz gleich darauf mit weg.
+    //
+    // Anders als die Sichtbarkeit wirkt sie NICHT auf bereits vergangene Instanzen.
+    // Sichtbarkeit muss rückwirkend gelten, weil ein zu weiter Alt-Wert ein Leck ist;
+    // ein Konto ist eine Tatsache über eine bereits erfolgte Abbuchung. Die künftigen
+    // erben den neuen Wert ohnehin, weil sie unten gelöscht und von
+    // generateRecurringInstances neu erzeugt werden.
+    const accountProvided = req.body.account_id !== undefined;
+    let accountValue = null;
+    if (accountProvided) {
+      const accountRef = validateAccountRef(req.body.account_id);
+      if (accountRef.error) return res.status(400).json({ error: accountRef.error, code: 400 });
+      accountValue = accountRef.value;
+    }
+
     const currentMonthStart = new Date().toISOString().slice(0, 7) + '-01';
 
     db.get().transaction(() => {
@@ -413,11 +432,13 @@ router.put('/:id/series', (req, res) => {
           recurrence_virtual     = ?,
           recurrence_confirm     = ?,
           recurrence_full_amount = ?,
-          visibility             = COALESCE(?, visibility)
+          visibility             = COALESCE(?, visibility),
+          account_id             = CASE WHEN ? = 1 THEN ? ELSE account_id END
         WHERE id = ?
       `).run(finalTitle, storeAmount, finalCategory, finalSubcat,
              finalRecurring, finalRrule, finalInterval, finalCount, finalVirtual,
-             finalConfirm, finalFull, nextVisibility, parentId);
+             finalConfirm, finalFull, nextVisibility,
+             accountProvided ? 1 : 0, accountValue, parentId);
 
       db.get().prepare(`
         DELETE FROM budget_entries WHERE recurrence_parent_id = ? AND date >= ?
