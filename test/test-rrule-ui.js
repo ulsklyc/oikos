@@ -496,6 +496,28 @@ test('ohne gültiges Kalenderdatum bleibt der ehrliche generische Hinweis stehen
   );
 });
 
+test('eine komplexere importierte Monatsregel bekommt keine erfundene konkrete Vorschau (#975)', async () => {
+  const { seriesStartFor, hasAnyOccurrence } = await import('../server/services/recurrence.js');
+  const filteredRule = 'FREQ=MONTHLY;BYDAY=MO;BYMONTHDAY=-1';
+
+  assert.equal(seriesStartFor('2026-09-15', filteredRule), '2026-11-30',
+    'die Referenzrechnung muss belegen, dass der 30. September kein Vorkommen ist');
+  assert.equal(
+    monthEndHintText('2026-09-15', { expandsFromStart: true, rule: filteredRule }),
+    'rrule.lastDayOfMonthHint',
+    'bei zusätzlichen Filtern ist der generische Hinweis ehrlicher als ein falsches Datum'
+  );
+
+  const endedRule = 'FREQ=MONTHLY;BYMONTHDAY=-1;UNTIL=20260920T235959Z';
+  assert.equal(hasAnyOccurrence('2026-09-15', endedRule), false,
+    'die Referenzrechnung muss die vor dem ersten Monatsletzten beendete Serie als leer erkennen');
+  assert.equal(
+    monthEndHintText('2026-09-15', { expandsFromStart: true, rule: endedRule }),
+    'rrule.lastDayOfMonthHint',
+    'eine beendete Regel darf keinen nicht existierenden ersten Termin versprechen'
+  );
+});
+
 test('der Kalender kann die Monatsletzten-Vorschau nach einer Datumsänderung aktualisieren (#975)', () => {
   const root = eventRoot(renderRRuleFields('event', 'FREQ=MONTHLY;BYMONTHDAY=-1', {
     expandsFromStart: true,
@@ -514,6 +536,24 @@ test('der Kalender kann die Monatsletzten-Vorschau nach einer Datumsänderung ak
   startDate = '2026-10-31';
   binding.refreshMonthdayHint();
   assert.equal(hint.textContent, 'rrule.lastDayOfMonthHintSame{"date":"2026-10-31"}');
+});
+
+test('die Live-Vorschau erfindet auch nach Datumsänderung keinen Termin für eine komplexe Regel (#975)', () => {
+  const rule = 'FREQ=MONTHLY;BYDAY=MO;BYMONTHDAY=-1';
+  const root = eventRoot(renderRRuleFields('event', rule, {
+    expandsFromStart: true,
+    startDate: '2026-09-15',
+  }));
+  let startDate = '2026-09-15';
+  const binding = bindRRuleEvents(root, 'event', {
+    expandsFromStart: true,
+    getStartDate: () => startDate,
+    rule,
+  });
+
+  startDate = '2026-10-20';
+  binding.refreshMonthdayHint();
+  assert.equal(root.get('#event-rrule-monthday-hint').textContent, 'rrule.lastDayOfMonthHint');
 });
 
 test('die konkrete Vorschau wird erst mit der Monatsletzten-Wahl sichtbar und vorgelesen (#975)', () => {
@@ -593,6 +633,8 @@ test('jeder Aufrufer des Wiederholungsformulars beantwortet die Expansionsfrage 
   const bindCall = kalenderQuelle.slice(bindStart, bindEnd + 3);
   assert.match(bindCall, /getStartDate\s*:/,
     'der Kalender muss auch spätere Datumsänderungen ausdrücklich an das Widget liefern');
+  assert.match(bindCall, /\brule\s*:/,
+    'der Kalender muss die eingelesene Regel auch für ehrliche Live-Vorschauen weiterreichen');
   assert.match(bindCall, /#modal-allday[^]*#modal-allday-start[^]*#modal-start-date/,
     'das vom Kalender gelieferte Datum muss seinem aktiven Ganztags- oder Zeitfeld folgen');
   assert.doesNotMatch(

@@ -335,6 +335,13 @@ test('Wiederholungsmarke ist nur bei Serien sichtbar und für Screenreader benan
     calendarHelpers.agendaEventAriaLabel({ title: 'Training' }, '09:00').startsWith('Training, 09:00'),
     'ein Einzeltermin darf im zugänglichen Namen nicht als Serie erscheinen'
   );
+  assert(
+    calendarHelpers.monthDayAriaLabel('2026-09-30', 2, [
+      { title: 'Training', recurrence_rule: 'FREQ=MONTHLY' },
+      { title: 'Arzt' },
+    ]).includes('calendar.recurringEvent: Training'),
+    'die Monatszelle überschreibt ihre Kinder mit aria-label und muss dort den Serientitel nennen'
+  );
 });
 
 test('Wiederholungsmarke steht vor dem Titel in allen Kalenderansichten mit ausgeschriebenem Titel', () => {

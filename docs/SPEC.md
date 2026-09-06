@@ -624,6 +624,13 @@ them with 400 (see the Reminders section), because the run would recreate them w
 | visibility | TEXT | NOT NULL DEFAULT `all` — `all` \| `assignees` \| `private`; who may see the event (migration v78, same rule as Tasks) |
 | countdown | INTEGER | NOT NULL DEFAULT 0 (migration v150, #647) — 1 puts the event on the Countdown widget. A Yuvomi-only display setting in the same group as `icon` and `visibility`: it is not in `MIRRORED_FIELDS`, so setting it pushes nothing to Google or CalDAV, and the inbound path writes a fixed column list, so it survives every sync run. For a recurring series the widget counts to the **next** occurrence, skipping any date excluded via [Calendar Event Exceptions](#calendar-event-exceptions) |
 
+The concrete last-day preview is deliberately limited to the recurrence subset the form itself can
+write. Imported rules carrying extra filters (for example `BYDAY`) retain their generic explanation:
+duplicating the server recurrence engine in the browser would make a plausible but potentially false
+date more likely. Likewise, imported `RECURRENCE-ID` overrides currently normalize to detached rows
+without `recurrence_rule` or another presentation flag, so they remain unmarked. Inferring membership
+from a shared UID would be ambiguous; the planned unified override model must provide that metadata.
+
 **Countdown (migration v150, #647):** a countdown is a flag on something that already exists, not an object of its own. The **Key dates** widget on the overview (`dashboard.countdownTitle`) merges the flagged calendar events and the flagged tasks into one list sorted by how near they are, and each row leads back to its own object — a task row opens the task quick-action, an event row deep-links to `/calendar?open=<id>&date=<next occurrence>`.
 
 The wording is coarse while the date is far off and exact once it is near (`public/utils/countdown.js`): exact days up to 30, then about-weeks, about-months, about-years. The switch is built in rather than offered as a setting — "10 days until the licence expires" has to stay 10 days, and a threshold for a display detail is a question nobody wants to be asked.
