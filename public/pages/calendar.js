@@ -37,6 +37,11 @@ import { findPageFab } from '/utils/fab.js';
 import { nowFields, todayKey, zonedDateKey, zonedTimeKey } from '/utils/timezone.js';
 import { maxUploadBytes, maxUploadMb } from '/utils/upload-limit.js';
 import { emptyStateHTML, emptyHintHTML, mountLoadError } from '/utils/empty-state.js';
+import {
+  applyPendingCalendarDeleteOverlay,
+  createCalendarLoadCoordinator,
+  scheduleCalendarDeleteWithUndo,
+} from '/utils/calendar-delete.js';
 
 // --------------------------------------------------------
 // Konstanten
@@ -606,6 +611,7 @@ let state = {
   people:        new Set(),
 };
 let _container = null;
+const calendarLoads = createCalendarLoadCoordinator();
 
 // Termin-Suche (#471): datumsunabhängiges Finden über den FTS-Index. Der
 // Suchmodus blendet eine Leiste unter der Toolbar ein und ersetzt den Ansichts-
@@ -1179,38 +1185,59 @@ function fetchWindow(from, to) {
 async function loadRange(from, to) {
   const win     = fetchWindow(from, to);
   const calPath = `/calendar?from=${win.from}&to=${win.to}`;
-  try {
-    const [evRes, taskRes, holRes, scheduleRes] = await Promise.all([
-      api.get(calPath),
-      api.get("/tasks?include_future=1").catch((err) => { console.warn("[Calendar] Tasks fetch failed:", err); return { data: [] }; }),
-      api.get(`/calendar/holidays?from=${from}&to=${to}`).catch(() => ({ data: [] })),
-      scheduleEnabled()
-        ? api.get(`/schedule/entries?from=${from}&to=${to}`).catch(() => ({ data: { entries: [] } }))
-        : Promise.resolve({ data: { entries: [] } }),
-    ]);
-    state.loadError = null;
-    state.events = (evRes.data ?? []).map(localizeBirthdayEvent);
-    state.tasks = filterTasksForCalendar(taskRes.data ?? []);
-    state.holidays = holRes.data ?? [];
-    state.scheduleEntries = scheduleRes.data?.entries ?? [];
-    state.scheduleWarnings = scheduleRes.data?.warnings ?? [];
-    state.offlineSince = navigator.onLine ? null : await getCachedAt(calPath);
-  } catch (err) {
-    console.error('[Calendar] loadRange Fehler:', err);
-    // Der Toast allein liess ein leeres Monatsgitter stehen - nicht zu
-    // unterscheiden von einem Monat ohne Termine - und in der Agenda den
-    // Leerzustand „Keine Termine" samt „Neuer Termin". Dieselbe Verwechslung,
-    // die Einkauf und Essensplan 2026-07-30 hatten (Critique P0). `renderView`
-    // prueft das Feld jetzt vor allen vier Ansichten.
-    state.loadError = err;
-    state.events   = [];
-    state.tasks    = [];
-    state.holidays = [];
-    state.scheduleEntries = [];
-    state.offlineSince = null;
-  }
-  state.rangeFrom = from;
-  state.rangeTo   = to;
+  const selection = { view: state.view, cursor: state.cursor, from, to };
+  await calendarLoads.run(
+    async () => {
+      const [evRes, taskRes, holRes, scheduleRes] = await Promise.all([
+        api.get(calPath),
+        api.get("/tasks?include_future=1").catch((err) => { console.warn("[Calendar] Tasks fetch failed:", err); return { data: [] }; }),
+        api.get(`/calendar/holidays?from=${from}&to=${to}`).catch(() => ({ data: [] })),
+        scheduleEnabled()
+          ? api.get(`/schedule/entries?from=${from}&to=${to}`).catch(() => ({ data: { entries: [] } }))
+          : Promise.resolve({ data: { entries: [] } }),
+      ]);
+      const offlineSince = navigator.onLine ? null : await getCachedAt(calPath);
+      return { evRes, taskRes, holRes, scheduleRes, offlineSince };
+    },
+    {
+      isCurrent: () => {
+        const selected = getRangeForView(state.view, state.cursor);
+        return state.view === selection.view
+          && state.cursor === selection.cursor
+          && selected.from === selection.from
+          && selected.to === selection.to;
+      },
+      apply: ({ evRes, taskRes, holRes, scheduleRes, offlineSince }) => {
+        state.loadError = null;
+        state.events = (evRes.data ?? []).map(localizeBirthdayEvent);
+        applyPendingCalendarDeleteOverlay(state, { freshEvents: true });
+        state.tasks = filterTasksForCalendar(taskRes.data ?? []);
+        state.holidays = holRes.data ?? [];
+        state.scheduleEntries = scheduleRes.data?.entries ?? [];
+        state.scheduleWarnings = scheduleRes.data?.warnings ?? [];
+        state.offlineSince = offlineSince;
+        state.rangeFrom = from;
+        state.rangeTo   = to;
+      },
+      applyError: (err) => {
+        console.error('[Calendar] loadRange Fehler:', err);
+        // Der Toast allein liess ein leeres Monatsgitter stehen - nicht zu
+        // unterscheiden von einem Monat ohne Termine - und in der Agenda den
+        // Leerzustand „Keine Termine" samt „Neuer Termin". Dieselbe Verwechslung,
+        // die Einkauf und Essensplan 2026-07-30 hatten (Critique P0). `renderView`
+        // prueft das Feld jetzt vor allen vier Ansichten.
+        state.loadError = err;
+        state.events   = [];
+        state.tasks    = [];
+        state.holidays = [];
+        state.scheduleEntries = [];
+        state.scheduleWarnings = [];
+        state.offlineSince = null;
+        state.rangeFrom = from;
+        state.rangeTo   = to;
+      },
+    },
+  );
 }
 
 /**
@@ -1249,19 +1276,43 @@ async function openTaskFromCalendar(taskId) {
 }
 
 /**
- * Nur die Kalender-Events des aktuellen Bereichs neu laden (ohne Tasks/Feiertage).
+ * Nur die Kalender-Events der aktuell gewählten Ansicht neu laden (ohne Tasks/Feiertage).
  * Für serienweite Bearbeitungen (#532), bei denen sich lediglich die Expansion
  * ändert - vermeidet das Überholen unveränderter Tasks/Feiertage aus loadRange.
+ * Die Ansicht wird aus Cursor + View neu berechnet statt aus rangeFrom/rangeTo
+ * gelesen: ein Delete-Commit kann genau während eines Navigations-Loads fällig
+ * werden, und dann gehört die autoritative Antwort bereits zum neuen Cursor.
  */
 async function reloadCalendarEventsOnly() {
-  if (!state.rangeFrom || !state.rangeTo) return;
   try {
-    const win = fetchWindow(state.rangeFrom, state.rangeTo);
-    const res = await api.get(`/calendar?from=${win.from}&to=${win.to}`);
-    state.events = (res.data ?? []).map(localizeBirthdayEvent);
+    const { from, to } = getRangeForView(state.view, state.cursor);
+    const selection = { view: state.view, cursor: state.cursor, from, to };
+    const win = fetchWindow(from, to);
+    await calendarLoads.run(
+      () => api.get(`/calendar?from=${win.from}&to=${win.to}`),
+      {
+        isCurrent: () => {
+          const selected = getRangeForView(state.view, state.cursor);
+          return state.view === selection.view
+            && state.cursor === selection.cursor
+            && selected.from === selection.from
+            && selected.to === selection.to;
+        },
+        apply: (res) => {
+          state.events = (res.data ?? []).map(localizeBirthdayEvent);
+          applyPendingCalendarDeleteOverlay(state, { freshEvents: true });
+        },
+      },
+    );
   } catch (err) {
     console.error('[Calendar] reloadCalendarEventsOnly Fehler:', err);
   }
+}
+
+/** Reconcile every calendar layer after a delayed destructive commit. */
+async function reloadCalendarRangeAfterDelete() {
+  const { from, to } = getRangeForView(state.view, state.cursor);
+  await loadRange(from, to);
 }
 
 /**
@@ -1663,6 +1714,9 @@ async function switchToDayView(date) {
 
 async function reloadForView() {
   const { from, to } = getRangeForView(state.view, state.cursor);
+  // A navigation is a newer selection even when its range is already cached.
+  // This invalidates an in-flight response for the range just left.
+  calendarLoads.invalidate();
 
   if (from !== state.rangeFrom || to !== state.rangeTo) {
     await loadRange(from, to);
@@ -4438,25 +4492,23 @@ async function saveEvent(overlay, mode, event, existingReminder = null, attachme
 }
 
 async function deleteEvent(id) {
-  const event = state.events.find((e) => e.id === id);
-  state.events = state.events.filter((e) => e.id !== id);
-  renderView();
-
-  scheduleUndoableDelete({
+  scheduleCalendarDeleteWithUndo({
+    state,
+    deleteScope: { eventId: id, scope: 'all' },
     message: t('calendar.deletedToast'),
-    commit: async ({ keepalive }) => {
+    schedule: scheduleUndoableDelete,
+    requestDelete: async ({ keepalive }) => {
       await api.delete(`/calendar/${id}`, { keepalive });
       api.delete(`/reminders?entity_type=event&entity_id=${id}`, { keepalive }).catch(() => {});
-      if (keepalive) return; // Seite verschwindet — kein UI-Refresh mehr
-      refreshReminders();
+      if (!keepalive) refreshReminders();
     },
-    restore: (err) => {
-      if (event) {
-        state.events = [...state.events, event];
-        renderView();
-      }
-      if (err) window.yuvomi?.showToast(err.data?.error ?? t('calendar.deleteError'), 'danger');
-    },
+    isViewActive: () => Boolean(_container?.isConnected),
+    reloadEvents: reloadCalendarRangeAfterDelete,
+    handleError: (err) => window.yuvomi?.showToast(
+      err.data?.error ?? t('calendar.deleteError'),
+      'danger',
+    ),
+    render: renderView,
   });
 }
 
@@ -4644,24 +4696,21 @@ async function deleteThisAndFollowing(event) {
   const newRule = truncateRuleBefore(event.recurrence_rule, fromKey);
   if (!newRule) { await deleteEvent(event.id); return; }
 
-  const affects = (e) => e.id === event.id && e.start_datetime.slice(0, 10) >= fromKey;
-  const removed = state.events.filter(affects);
-  state.events  = state.events.filter((e) => !affects(e));
-  renderView();
-
-  scheduleUndoableDelete({
+  scheduleCalendarDeleteWithUndo({
+    state,
+    deleteScope: { eventId: event.id, scope: 'following', occurrenceDate: fromKey },
     message: t('calendar.deletedToast'),
-    commit: async ({ keepalive }) => {
+    schedule: scheduleUndoableDelete,
+    requestDelete: async ({ keepalive }) => {
       await api.put(`/calendar/${event.id}`, { recurrence_rule: newRule }, { keepalive });
-      if (keepalive) return; // Seite verschwindet — kein UI-Refresh mehr
-      // Verbleibende Instanzen tragen künftig die gekürzte Regel.
-      for (const e of state.events) if (e.id === event.id) e.recurrence_rule = newRule;
     },
-    restore: (err) => {
-      state.events = [...state.events, ...removed];
-      renderView();
-      if (err) window.yuvomi?.showToast(err.data?.error ?? t('calendar.deleteError'), 'danger');
-    },
+    isViewActive: () => Boolean(_container?.isConnected),
+    reloadEvents: reloadCalendarRangeAfterDelete,
+    handleError: (err) => window.yuvomi?.showToast(
+      err.data?.error ?? t('calendar.deleteError'),
+      'danger',
+    ),
+    render: renderView,
   });
 }
 
@@ -4670,19 +4719,21 @@ async function deleteThisAndFollowing(event) {
  * Entfernung und Undo-Toast wie beim regulären Löschen.
  */
 async function deleteSingleOccurrence(event) {
-  const date       = event.start_datetime.slice(0, 10);
-  const matches    = (e) => e.id === event.id && e.start_datetime.slice(0, 10) === date;
-  const removed    = state.events.filter(matches);
-  state.events     = state.events.filter((e) => !matches(e));
-  renderView();
-
-  scheduleUndoableDelete({
+  const date = event.start_datetime.slice(0, 10);
+  scheduleCalendarDeleteWithUndo({
+    state,
+    deleteScope: { eventId: event.id, scope: 'this', occurrenceDate: date },
     message: t('calendar.deletedToast'),
-    commit: ({ keepalive }) => api.post(`/calendar/${event.id}/exceptions`, { date }, { keepalive }),
-    restore: (err) => {
-      state.events = [...state.events, ...removed];
-      renderView();
-      if (err) window.yuvomi?.showToast(err.data?.error ?? t('calendar.deleteError'), 'danger');
-    },
+    schedule: scheduleUndoableDelete,
+    requestDelete: ({ keepalive }) => (
+      api.post(`/calendar/${event.id}/exceptions`, { date }, { keepalive })
+    ),
+    isViewActive: () => Boolean(_container?.isConnected),
+    reloadEvents: reloadCalendarRangeAfterDelete,
+    handleError: (err) => window.yuvomi?.showToast(
+      err.data?.error ?? t('calendar.deleteError'),
+      'danger',
+    ),
+    render: renderView,
   });
 }
