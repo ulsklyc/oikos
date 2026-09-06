@@ -211,6 +211,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Calendar deletions no longer reappear while their five-second Undo action is pending.**
+  Moving between months, weeks or days now reapplies pending removals over each freshly loaded
+  range. Undo restores the latest server row exactly once instead of duplicating it, and a completed
+  delete reloads the visible range so an older in-flight response cannot bring the event back.
+  Calendar loads now share one ordering guard, including quick out-and-back navigation, and
+  concurrent deletes of one series reach the server in user-action order. This covers one event,
+  one recurring occurrence, this-and-following, and whole-series deletion.
+
 - **A same-version deployment now invalidates the installed PWA shell.** The served service worker
   receives a build-specific revision, so acceptance builds and rebuilt images no longer reuse an
   older cache merely because the application version has not changed.
