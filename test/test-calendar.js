@@ -1365,6 +1365,129 @@ test('getRangeForView: Der echte Week-Aufrufer liest matchMedia und reicht mobil
 });
 
 // --------------------------------------------------------
+// Schichtplan-Bloecke im Zeitraster: Ueberlappungs-Layout (#1043)
+//
+// Vorher bekam JEDER Schichtplan-Block dieselben festen Aussenraender
+// (renderScheduleTimeBlock() kannte gar kein Layout) - zwei Schichten mit
+// gleichem oder ueberlappendem Zeitfenster lagen deckungsgleich uebereinander,
+// und nur die spaeter gerenderte war ueberhaupt zu sehen/anzuklicken. Diese
+// Tests pruefen dieselbe Ueberlappungs-Arithmetik, die gewoehnliche Termine
+// laengst ueber layoutOverlaps() bekommen, jetzt auch fuer Schichtplan-Bloecke
+// (layoutScheduleBlocks()) - inklusive des Falls, dass zwei Eintraege
+// inhaltlich identisch sind (derselbe Schichttyp, dieselbe Zeit), aber zwei
+// verschiedene sichtbare Instanzen bleiben (Muster + Extra-Schicht, #1043).
+// --------------------------------------------------------
+
+function scheduleEntry({ start, end, name = 'Schicht', color = '#3B82F6' } = {}) {
+  return {
+    user_id: null,
+    date_key: '2026-09-06',
+    source: 'pattern',
+    shift_type_id: 1,
+    shift_type: { id: 1, name, short_code: null, start_time: start, end_time: end, color },
+  };
+}
+
+test('scheduleBlockTimeRange: eine Nachtschicht laeuft bis Tagesende', () => {
+  const overnight = scheduleEntry({ start: '22:00', end: '06:00' });
+  const range = calendarHelpers.scheduleBlockTimeRange(overnight);
+  assert(range.start === 22 * 60 && range.end === 24 * 60,
+    `Nachtschicht muss am Tagesende enden, nicht rueckwaerts laufen: ${JSON.stringify(range)}`);
+});
+
+test('layoutScheduleBlocks: gleicher Start, unterschiedliches Ende bekommt zwei Spalten (#1043)', () => {
+  const basti = scheduleEntry({ start: '08:00', end: '12:00', name: 'Schultag Basti' });
+  const emma = scheduleEntry({ start: '08:00', end: '12:45', name: 'Schultag Emma' });
+  const layout = calendarHelpers.layoutScheduleBlocks([basti, emma]);
+  const a = layout.get(basti);
+  const b = layout.get(emma);
+  assert(a && b, 'beide Eintraege muessen ein Layout bekommen');
+  assert(a.totalCols === 2 && b.totalCols === 2,
+    `der gemeldete Fall (08:00-12:00 / 08:00-12:45) muss zwei Spalten teilen: ${a.totalCols}/${b.totalCols}`);
+  assert(a.colIndex !== b.colIndex, 'gleich startende, ueberlappende Bloecke duerfen keine gemeinsame Spalte bekommen');
+});
+
+test('layoutScheduleBlocks: ein Block, der endet, wo der naechste beginnt, teilt sich eine Spalte (halboffenes Intervall)', () => {
+  const first = scheduleEntry({ start: '08:00', end: '10:00' });
+  const second = scheduleEntry({ start: '10:00', end: '12:00' });
+  const layout = calendarHelpers.layoutScheduleBlocks([first, second]);
+  assert(layout.get(first).totalCols === 1 && layout.get(second).totalCols === 1,
+    'sich beruehrende, aber nicht ueberlappende Bloecke muessen die volle Breite behalten koennen');
+});
+
+test('layoutScheduleBlocks: teilweise ueberlappende Bloecke teilen sich eine Gruppe', () => {
+  const first = scheduleEntry({ start: '08:00', end: '10:00' });
+  const second = scheduleEntry({ start: '09:00', end: '11:00' });
+  const layout = calendarHelpers.layoutScheduleBlocks([first, second]);
+  assert(layout.get(first).totalCols === 2 && layout.get(second).totalCols === 2,
+    'schon eine Stunde Ueberschneidung reicht fuer eine gemeinsame Gruppe');
+  assert(layout.get(first).colIndex !== layout.get(second).colIndex);
+});
+
+test('layoutScheduleBlocks: drei gleichzeitige Schichten bekommen stabile, kollisionsfreie Plaetze', () => {
+  const a = scheduleEntry({ start: '08:00', end: '12:00' });
+  const b = scheduleEntry({ start: '08:00', end: '11:00' });
+  const c = scheduleEntry({ start: '09:00', end: '13:00' });
+  const layout = calendarHelpers.layoutScheduleBlocks([a, b, c]);
+  const cols = [layout.get(a).colIndex, layout.get(b).colIndex, layout.get(c).colIndex];
+  assert(layout.get(a).totalCols === 3 && layout.get(b).totalCols === 3 && layout.get(c).totalCols === 3,
+    `drei sich ueberlappende Eintraege muessen sich drei Spalten teilen: ${layout.get(a).totalCols}`);
+  assert(new Set(cols).size === 3, `alle drei Spaltenindizes muessen verschieden sein: ${cols}`);
+});
+
+test('layoutScheduleBlocks: gleicher Schichttyp und gleiche Zeit bleiben zwei eigene Instanzen (Muster + Extra-Schicht, #1043)', () => {
+  const pattern = scheduleEntry({ start: '08:00', end: '12:00' });
+  const extra = scheduleEntry({ start: '08:00', end: '12:00' });
+  extra.source = 'extra';
+  const layout = calendarHelpers.layoutScheduleBlocks([pattern, extra]);
+  assert(layout.get(pattern) && layout.get(extra), 'beide Objekte muessen unabhaengig voneinander auffindbar sein');
+  assert(layout.get(pattern).colIndex !== layout.get(extra).colIndex,
+    'inhaltsgleiche Eintraege (gleicher Typ, gleiche Zeit, verschiedene Quelle) duerfen sich trotzdem nicht ueberdecken');
+});
+
+test('renderScheduleTimeBlock: ohne Layout bleibt der bisherige volle Balken erhalten (Wochenansicht)', () => {
+  const html = calendarHelpers.renderScheduleTimeBlock(scheduleEntry({ start: '08:00', end: '12:00' }), 'week-event');
+  assert(html.includes('left:calc(0% + 2px)') && html.includes('width:calc(100% - 4px)'),
+    `ein einzelner Block muss die alten Aussenraender behalten: ${html}`);
+});
+
+test('renderScheduleTimeBlock: ohne Layout bleibt der bisherige volle Balken erhalten (Tagesansicht)', () => {
+  const html = calendarHelpers.renderScheduleTimeBlock(scheduleEntry({ start: '08:00', end: '12:00' }), 'day-event');
+  assert(html.includes('left:calc(0% + 4px)') && html.includes('width:calc(100% - 14px)'),
+    `ein einzelner Block muss die alten Aussenraender behalten: ${html}`);
+});
+
+test('renderScheduleTimeBlock: mit berechnetem Layout bekommt jeder Block seine eigene Spalte (Wochenansicht, #1043)', () => {
+  const basti = scheduleEntry({ start: '08:00', end: '12:00' });
+  const emma = scheduleEntry({ start: '08:00', end: '12:45' });
+  const layout = calendarHelpers.layoutScheduleBlocks([basti, emma]);
+  const htmlA = calendarHelpers.renderScheduleTimeBlock(basti, 'week-event', layout.get(basti));
+  const htmlB = calendarHelpers.renderScheduleTimeBlock(emma, 'week-event', layout.get(emma));
+  assert(!htmlA.includes('width:calc(100% - 4px)') && !htmlB.includes('width:calc(100% - 4px)'),
+    'ueberlappende Bloecke duerfen nicht mehr die volle Spaltenbreite bekommen (das war der Bug)');
+  assert(htmlA.includes('width:calc(50% - 4px)') && htmlB.includes('width:calc(50% - 4px)'),
+    `zwei ueberlappende Bloecke teilen sich je die Haelfte: ${htmlA} / ${htmlB}`);
+  const leftA = htmlA.match(/left:calc\(([\d.]+)% \+ 2px\)/)?.[1];
+  const leftB = htmlB.match(/left:calc\(([\d.]+)% \+ 2px\)/)?.[1];
+  assert(leftA !== undefined && leftB !== undefined && leftA !== leftB,
+    `beide Bloecke muessen an unterschiedlicher Stelle beginnen, damit keiner den anderen verdeckt: ${leftA} vs ${leftB}`);
+});
+
+test('renderScheduleTimeBlock: mit berechnetem Layout bekommt jeder Block seine eigene Spalte (Tagesansicht, #1043)', () => {
+  const basti = scheduleEntry({ start: '08:00', end: '12:00' });
+  const emma = scheduleEntry({ start: '08:00', end: '12:45' });
+  const layout = calendarHelpers.layoutScheduleBlocks([basti, emma]);
+  const htmlA = calendarHelpers.renderScheduleTimeBlock(basti, 'day-event', layout.get(basti));
+  const htmlB = calendarHelpers.renderScheduleTimeBlock(emma, 'day-event', layout.get(emma));
+  assert(!htmlA.includes('width:calc(100% - 14px)') && !htmlB.includes('width:calc(100% - 14px)'),
+    'ueberlappende Bloecke duerfen nicht mehr die volle Spaltenbreite bekommen (das war der Bug)');
+  const leftA = htmlA.match(/left:calc\(([\d.]+)% \+ 4px\)/)?.[1];
+  const leftB = htmlB.match(/left:calc\(([\d.]+)% \+ 4px\)/)?.[1];
+  assert(leftA !== undefined && leftB !== undefined && leftA !== leftB,
+    `beide Bloecke muessen an unterschiedlicher Stelle beginnen, damit keiner den anderen verdeckt: ${leftA} vs ${leftB}`);
+});
+
+// --------------------------------------------------------
 // Ergebnis
 // --------------------------------------------------------
 console.log(`\n[Calendar-Test] Ergebnis: ${passed} bestanden, ${failed} fehlgeschlagen\n`);
