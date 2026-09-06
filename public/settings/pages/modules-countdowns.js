@@ -5,6 +5,21 @@ import { getPreferences, savePreferences } from '/settings/preferences-cache.js'
 const MAX_COUNTDOWN_GRACE_DAYS = 90;
 const DEFAULT_GRACE_DAYS = 7;
 
+/**
+ * Feldwert als Nachfrist-Tage lesen, oder `null` bei ungültiger Eingabe.
+ * Ein leeres/nur-Leerzeichen-Feld ist ausdrücklich ungültig statt `0` - anders
+ * als bei rewards-default-points ist `0` hier nicht folgenlos, sondern lässt
+ * jeden überfälligen Countdown sofort verschwinden (Review-Fund 2026-09-06,
+ * #1027). `Number('')` wäre sonst `0` und ein versehentlich geleertes Feld
+ * würde diesen Wert unbemerkt speichern.
+ */
+export function parseGraceDaysInput(raw) {
+  if (String(raw).trim() === '') return null;
+  const n = Math.trunc(Number(raw));
+  if (!Number.isFinite(n) || n < 0 || n > MAX_COUNTDOWN_GRACE_DAYS) return null;
+  return n;
+}
+
 function renderPage(container, preferences) {
   container.replaceChildren();
   container.insertAdjacentHTML('beforeend', `
@@ -47,8 +62,8 @@ function bindEvents(container, preferences) {
     event.preventDefault();
     errorEl.hidden = true;
 
-    const next = Math.trunc(Number(input.value));
-    if (!Number.isFinite(next) || next < 0 || next > MAX_COUNTDOWN_GRACE_DAYS) {
+    const next = parseGraceDaysInput(input.value);
+    if (next === null) {
       errorEl.textContent = t('settings.countdownGraceDaysInvalid', { max: MAX_COUNTDOWN_GRACE_DAYS });
       errorEl.hidden = false;
       return;

@@ -56,6 +56,9 @@ import {
   buildActiveModulesPayload,
   persistHouseholdToggle,
 } from '../public/settings/pages/modules-active.js';
+import {
+  parseGraceDaysInput,
+} from '../public/settings/pages/modules-countdowns.js';
 
 const member = { role: 'member' };
 const admin = { role: 'admin' };
@@ -1065,6 +1068,22 @@ test('hasValidWeatherCoords rejects empty, non-numeric and out-of-range input', 
   assert.equal(hasValidWeatherCoords('abc', '13.405'), false);
   assert.equal(hasValidWeatherCoords('90.1', '13.405'), false);
   assert.equal(hasValidWeatherCoords('52.52', '180.1'), false);
+});
+
+// Review-Fund 2026-09-06 (#1027): `Number('')` ist `0`, also speicherte ein
+// versehentlich geleertes Feld bislang eine Nachfrist von null Tagen - jeder
+// überfällige Countdown wäre sofort verschwunden. Ein leeres/nur-Leerzeichen-
+// Feld ist jetzt ausdrücklich ungültig; ein bewusst getipptes `0` bleibt
+// gültig, denn "keine Nachfrist" muss weiterhin erreichbar sein.
+test('parseGraceDaysInput rejects a blank field but still accepts a deliberate 0, and enforces the existing range', () => {
+  assert.equal(parseGraceDaysInput(''), null, 'an empty field must not silently become 0');
+  assert.equal(parseGraceDaysInput('   '), null, 'whitespace-only is the same as empty');
+  assert.equal(parseGraceDaysInput('0'), 0, 'an explicit 0 stays the deliberate "no grace period" value');
+  assert.equal(parseGraceDaysInput('3'), 3);
+  assert.equal(parseGraceDaysInput('90'), 90, 'the upper bound is still accepted');
+  assert.equal(parseGraceDaysInput('91'), null, 'one above the upper bound is still rejected');
+  assert.equal(parseGraceDaysInput('-1'), null, 'still rejected below zero');
+  assert.equal(parseGraceDaysInput('abc'), null, 'still rejected for non-numeric input');
 });
 
 test('die Reihenfolge expandiert die Kuechen-Sammelzeile auf ihre vier Kinder', () => {

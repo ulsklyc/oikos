@@ -12,6 +12,7 @@ import { str, MAX_SHORT } from '../middleware/validate.js';
 import { getSupportedLocales, isSupportedLocale, resolveHouseholdLocale } from '../utils/i18n.js';
 import { householdTimeZone, isValidTimeZone } from '../utils/timezone.js';
 import { retitleBirthdayEvents } from '../services/birthdays.js';
+import { DEFAULT_OVERDUE_GRACE_DAYS } from '../services/countdowns.js';
 import { isWidgetId } from '../services/module-capabilities.js';
 // Geteilte isomorphe Util (#620, Allowlist in test/test-layer-boundary.js):
 // dasselbe Kennungsformat, das Event-Modal und Einstellungen verwenden.
@@ -120,10 +121,9 @@ const MAX_CALENDAR_TARGET_LENGTH = 500;
 const DEFAULT_TASK_POINTS = 0;
 const MAX_TASK_POINTS = 10000;
 
-// Nachfrist für abgelaufene Countdowns in Tagen (#969, haushaltweit). Standard
-// deckt sich mit DEFAULT_OVERDUE_GRACE_DAYS in services/countdowns.js - dort
-// gilt derselbe Wert, wenn hier nichts gesetzt ist.
-const DEFAULT_COUNTDOWN_GRACE_DAYS = 7;
+// Obergrenze für die Countdown-Nachfrist in Tagen (#969, haushaltweit). Der
+// Standard selbst kommt aus services/countdowns.js - eine Kopie hier wäre eine
+// zweite Antwort, die von der ersten abweichen könnte (docs/DECISIONS.md #2).
 const MAX_COUNTDOWN_GRACE_DAYS = 90;
 
 // Persistierte Default-Reminder als sortiertes Zahlen-Array lesen (leer = keine).
@@ -152,9 +152,9 @@ function parseTaskDefaultPoints(raw) {
  * fällt nicht auf den Standard zurück.
  */
 function parseCountdownGraceDays(raw) {
-  if (raw === null || raw === undefined) return DEFAULT_COUNTDOWN_GRACE_DAYS;
+  if (raw === null || raw === undefined) return DEFAULT_OVERDUE_GRACE_DAYS;
   const n = Math.trunc(Number(raw));
-  if (!Number.isInteger(n) || n < 0) return DEFAULT_COUNTDOWN_GRACE_DAYS;
+  if (!Number.isInteger(n) || n < 0) return DEFAULT_OVERDUE_GRACE_DAYS;
   return Math.min(n, MAX_COUNTDOWN_GRACE_DAYS);
 }
 

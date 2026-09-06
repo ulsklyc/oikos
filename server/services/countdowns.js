@@ -59,7 +59,7 @@ const DEFAULT_LIMIT = 5;
  * Nachfrist mehr, sondern eine zweite Aufgabenliste - und diese Kachel ist
  * ausdrücklich keine.
  */
-const DEFAULT_OVERDUE_GRACE_DAYS = 7;
+export const DEFAULT_OVERDUE_GRACE_DAYS = 7;
 
 // Sicherheitsgrenze beim Aufholen einer Serie über ausgenommene Vorkommen
 // (EXDATE, #489). Eine Serie, die mehr als das an aufeinanderfolgenden
