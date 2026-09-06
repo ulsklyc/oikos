@@ -522,6 +522,47 @@ test('shopping-Route bietet einen Datumsbereich-Import aus dem Essensplan an', (
 });
 
 // --------------------------------------------------------
+// Kompakte Kategorien mit Auf-/Zuklappen (#1039)
+//
+// Verhaltensgetrieben (echte Speicher-/Umschaltfunktionen ueber `__test`)
+// steht in test-shopping-ux.js; hier bleiben nur die echten Markup-/CSS-
+// Vertraege, die keine Laufzeit brauchen.
+// --------------------------------------------------------
+test('Gruppenkopf ist eine echte Disclosure (h2 > button[aria-expanded])', () => {
+  const source = readFileSync(new URL('../public/pages/shopping.js', import.meta.url), 'utf8');
+  assert(/<h2 class="list-group__title">[\s\S]{0,80}<button type="button" class="list-group__toggle" data-category-toggle=/.test(source),
+    'die Kategorie-Ueberschrift muss ein h2 mit echtem Umschalt-Knopf sein (Tasks-Muster, #812)');
+  assert(/aria-expanded="\$\{collapsed \? 'false' : 'true'\}" aria-controls=/.test(source),
+    'der Knopf muss aria-expanded/aria-controls tragen');
+  assert(/class="list-rows" id="\$\{rowsId\}" \$\{collapsed \? 'hidden' : ''\}/.test(source),
+    'die Zeilen bleiben im DOM und werden nur per [hidden] gefaltet - kein Rerender, keine verlorenen Sortable-Instanzen');
+});
+
+test('Kompakte Zeile und engerer Gruppen-Rhythmus sind Shopping-only, nicht die geteilte Grammatik', () => {
+  const css = readFileSync(new URL('../public/styles/shopping.css', import.meta.url), 'utf8');
+  assert(/\.shopping-item\s*\{[^}]*padding-block:\s*0;/s.test(css),
+    'die redundante Blockpolsterung (das Bedienelement traegt schon --target-lg) muss NUR im Einkauf entfallen');
+  assert(/\.shopping-page \.list-scroller\s*\{\s*gap:\s*var\(--space-3\);\s*\}/.test(css),
+    'der Gruppenabstand darf nur innerhalb von .shopping-page verengt werden, nicht app-weit');
+  assert(/\.shopping-page \.list-group\s*\{\s*gap:\s*var\(--space-1\);\s*\}/.test(css),
+    'der Kopf-zu-Fläche-Abstand darf nur innerhalb von .shopping-page verengt werden');
+
+  const listRowCss = readFileSync(new URL('../public/styles/list-row.css', import.meta.url), 'utf8');
+  assert(!/\.list-group\s*\{[^}]*gap:\s*var\(--space-1\)/s.test(listRowCss),
+    'die geteilte .list-group-Regel muss ihren app-weiten Abstand behalten - die Abweichung gehoert nach shopping.css');
+});
+
+test('Der Listen-Scroller traegt einen duennen, getoenten Scrollbalken (#1039)', () => {
+  const css = readFileSync(new URL('../public/styles/list-row.css', import.meta.url), 'utf8');
+  assert(/\.list-scroller\s*\{\s*scrollbar-width:\s*thin;\s*scrollbar-color:\s*var\(--module-accent\)\s*transparent;\s*\}/.test(css),
+    'Firefox braucht scrollbar-width/scrollbar-color direkt an .list-scroller');
+  assert(/\.list-scroller::-webkit-scrollbar\s*\{\s*width:\s*10px;\s*\}/.test(css),
+    'WebKit/Chromium brauchen die eigene Pseudo-Element-Fassung');
+  assert(/\.list-scroller::-webkit-scrollbar-thumb:hover/.test(css),
+    'eine reine --tint-hint-Kante braucht laut tokens.css einen Hover-Bezug, sonst traegt sie nicht allein');
+});
+
+// --------------------------------------------------------
 // Ergebnis
 // --------------------------------------------------------
 console.log(`\n[Shopping-Test] Ergebnis: ${passed} bestanden, ${failed} fehlgeschlagen\n`);

@@ -599,6 +599,21 @@
  * .list-rows. Das eigene .item-category__icon entfällt: der Kopf nutzt jetzt
  * die geteilte .icon-sm-Größe wie die Geschwistertabs. */
 
+/* Engerer Gruppen-Rhythmus, NUR im Einkauf (#1039). Die geteilten Werte
+ * (--space-5 zwischen Gruppen, --space-2 zwischen Kopf und Fläche, beide in
+ * list-row.css/.list-scroller bzw. .list-group) bleiben die App-weite Regel -
+ * Vorrat und Rezepte teilen dieselbe Grammatik und sollen sich nicht mitändern.
+ * Der Einkauf hat mit dem neuen Auf-/Zuklappen (unten) und den kompakten Zeilen
+ * jetzt so viele Gruppen sichtbar, dass der grosszuegige Standardabstand
+ * unverhaeltnismaessig viel Flaeche zwischen kurzen Kategorien verschenkt. */
+.shopping-page .list-scroller {
+  gap: var(--space-3);
+}
+
+.shopping-page .list-group {
+  gap: var(--space-1);
+}
+
 /* --------------------------------------------------------
  * Einkaufsartikel
  * -------------------------------------------------------- */
@@ -607,6 +622,22 @@
 .shopping-item {
   cursor: pointer;
   transition: opacity var(--transition-fast);
+  /* KOMPAKTE ZEILE, NUR HIER (#1039). .list-row traegt 8px Block-Polster
+   * (--space-2) UND min-height: --target-lg (48px) - beides zusammen ergab
+   * gemessen 64px Zeilenhoehe, weil .item-check selbst schon 48px hoch ist
+   * (--target-base auf Touch): 48px Bedienelement plus 8px Polster oben und
+   * unten. Das Polster ist damit redundant zur Zielgroesse, die das
+   * Bedienelement schon traegt - NUR im Einkauf, wo die Zeile ein eigenes
+   * 48px-Element enthaelt. Die uebrigen sechs .list-row-Nutzer (Vorrat,
+   * Rezepte, Aufgaben, Kontakte, Geburtstage, Budget) tragen kein derart
+   * hohes Bedienelement in der Zeile und wuerden das Polster ersatzlos
+   * verlieren - deshalb bleibt list-row.css unveraendert und die Abweichung
+   * steht hier, wo sie hingehoert.
+   *
+   * Mehrzeilige Namen/Metazeilen wachsen unveraendert: ohne feste Hoehe
+   * bestimmt weiterhin der Inhalt, nur das UNTERE/OBERE Polster einer
+   * einzeiligen Zeile faellt weg. */
+  padding-block: 0;
 }
 
 /* Platz für den Swipe-Hinweis-Pfeil (.swipe-row::after in layout.css: 12px

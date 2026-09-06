@@ -17,7 +17,7 @@ import { mountEmptyState, mountLoadError } from '/utils/empty-state.js';
 import { popoverMenuHtml, installPopoverMenus } from '/utils/popover-menu.js';
 import '/components/category-manager.js';
 import { findPageFab } from '/utils/fab.js';
-import { setBulkPill, clearBulkPill } from '/utils/bulk-pill.js';
+import { setBulkPill, clearBulkPill, bulkPillLayer } from '/utils/bulk-pill.js';
 import { makeSortable } from '/utils/sortable.js';
 
 // --------------------------------------------------------
@@ -50,6 +50,16 @@ const state = {
    *  Wiederholung des anderen bedient. */
   listsError:    null,
   itemsError:    null,
+  /** Wer gerade angemeldet ist - der Einklapp-Zustand der Kategorien ist pro
+   *  Haushaltsmitglied gespeichert (#1039), nicht geteilt wie sonst nichts in
+   *  diesem Modul: zwei Personen am selben Geraet sollen sich nicht gegenseitig
+   *  die Gruppen zu- oder aufklappen. */
+  currentUserId: null,
+  /** Eingeklappte Kategorien der AKTIVEN Liste, als Menge stabiler Schluessel
+   *  (siehe categoryStorageKey). Nur das Eingeklappte wird gespeichert - eine
+   *  neu angelegte Kategorie ist damit ohne Zutun aufgeklappt (dieselbe Regel
+   *  wie bei den Aufgaben-Gruppen, #812). */
+  collapsedCategories: new Set(),
 };
 
 // --------------------------------------------------------
@@ -69,8 +79,192 @@ function groupItemsByCategory(items) {
   return [...known, ...unknown];
 }
 
+// --------------------------------------------------------
+// Kategorie-Einklappen (#1039)
+//
+// GESPEICHERT WIRD PRO HAUSHALTSMITGLIED UND PRO LISTE, NICHT GETEILT: anders
+// als die Aufgaben-Gruppen (eine einzige, ungescopte localStorage-Zeile, #812)
+// hat der Einkauf mehrere Listen UND mehrere Nutzer desselben Geraets - eine
+// geteilte Zeile haette „Moabit" und „Neukoelln" dieselbe Klapp-Ansicht
+// aufgezwungen und einem zweiten Haushaltsmitglied die Gruppen des ersten
+// zugeklappt vorgesetzt.
+//
+// GESPEICHERT WIRD NUR DIE STABILE ID, NICHT DER NAME: eine Kategorie-
+// Umbenennung darf den Klapp-Zustand nicht verlieren. Nur Kategorien ohne ID
+// (geloescht, oder Altbestand vor der Kategorie-Verwaltung) fallen auf den
+// normalisierten Namen zurueck - das einzige, was sie stabil identifiziert.
+// --------------------------------------------------------
+
+const COLLAPSED_CATEGORIES_VERSION = 1;
+
+function collapsedCategoriesStorageKey(userId, listId) {
+  return `yuvomi:shopping:collapsedCategories:v${COLLAPSED_CATEGORIES_VERSION}:${userId ?? 'anon'}:${listId}`;
+}
+
+/** Stabiler Speicherschluessel einer Kategorie: ID wenn bekannt, sonst normalisierter Name. */
+function categoryStorageKey(name) {
+  const known = state.categories.find((c) => c.name === name);
+  return known ? `id:${known.id}` : `name:${String(name ?? '').trim().toLowerCase()}`;
+}
+
+function loadCollapsedCategories(userId, listId) {
+  try {
+    const raw = JSON.parse(localStorage.getItem(collapsedCategoriesStorageKey(userId, listId)) ?? 'null');
+    if (!raw || raw.version !== COLLAPSED_CATEGORIES_VERSION || !Array.isArray(raw.collapsed)) {
+      return new Set();
+    }
+    return new Set(raw.collapsed.filter((key) => typeof key === 'string'));
+  } catch {
+    // Privatmodus/kaputtes JSON/Quota: die Gruppen starten dann offen, statt
+    // die Seite an einem defekten Speicherwert scheitern zu lassen.
+    return new Set();
+  }
+}
+
+function saveCollapsedCategories(userId, listId, collapsedSet) {
+  try {
+    localStorage.setItem(
+      collapsedCategoriesStorageKey(userId, listId),
+      JSON.stringify({ version: COLLAPSED_CATEGORIES_VERSION, collapsed: [...collapsedSet] }),
+    );
+  } catch { /* Privatmodus/Quota: der Zustand gilt dann nur fuer diese Sitzung */ }
+}
+
+/**
+ * Entfernt Schluessel, die zu keiner der GERADE gerenderten Gruppen mehr
+ * gehoeren (geloeschte Kategorie, oder die letzte Zeile einer unbekannten
+ * Kategorie ist weg). Laeuft erst, NACHDEM Listen- und Kategorie-Metadaten
+ * vollstaendig geladen sind - vorher liesse sich „gehoert nicht mehr dazu"
+ * nicht von „ist nur noch nicht geladen" unterscheiden.
+ */
+function pruneCollapsedCategories(groups) {
+  const validKeys = new Set(groups.map(([cat]) => categoryStorageKey(cat)));
+  let changed = false;
+  for (const key of [...state.collapsedCategories]) {
+    if (!validKeys.has(key)) {
+      state.collapsedCategories.delete(key);
+      changed = true;
+    }
+  }
+  if (changed) saveCollapsedCategories(state.currentUserId, state.activeListId, state.collapsedCategories);
+}
+
+/** Klappt eine Kategorie in-place um (kein Listen-Rerender, siehe renderItems). */
+function toggleCategoryCollapse(button) {
+  const key = button.dataset.categoryToggle;
+  const rowsEl = button.closest('.list-group')?.querySelector('.list-rows');
+  const chevron = button.querySelector('.list-group__chevron');
+  const nowCollapsed = !state.collapsedCategories.has(key);
+
+  if (nowCollapsed) state.collapsedCategories.add(key);
+  else state.collapsedCategories.delete(key);
+
+  button.setAttribute('aria-expanded', String(!nowCollapsed));
+  chevron?.classList.toggle('list-group__chevron--collapsed', nowCollapsed);
+  if (rowsEl) rowsEl.hidden = nowCollapsed;
+
+  saveCollapsedCategories(state.currentUserId, state.activeListId, state.collapsedCategories);
+}
+
 function shouldIgnoreShoppingRowToggle(target) {
   return Boolean(target?.closest?.('button, a, input, select, textarea, [data-no-row-toggle]'));
+}
+
+// --------------------------------------------------------
+// Sammelaktions-Pille: Zustandsautomat (#1039)
+//
+// VORHER rief updateCheckedActions() bei JEDEM Aufruf setBulkPill() auf,
+// solange irgendein Artikel abgehakt war - die Pille blieb dadurch dauerhaft
+// stehen, sobald beim Laden schon etwas abgehakt war, und nahm der Liste einen
+// Streifen Flaeche fuer eine Rueckmeldung, die zur einzelnen Abhak-Handlung
+// gehoert, nicht zum Ladezustand.
+//
+// JETZT vier Zustaende:
+//   idle       - nichts abgehakt (der naechste Treffer eroeffnet einen Batch)
+//   visible    - Pille steht, Fuenf-Sekunden-Frist laeuft
+//   deferred   - Frist abgelaufen, aber Zeiger/Tastatur stehen noch auf der
+//                Pille; sie verschwindet erst, wenn die Interaktion endet
+//   suppressed - Frist (oder deferred-Interaktion) ist zu Ende, der Batch
+//                bleibt aber > 0: dieselbe Teilmenge zeigt die Pille nicht
+//                erneut, bis sie auf 0 faellt
+//
+// GENERATION UND `container.isConnected` STATT EINES ROUTER-HOOKS: die Seite
+// hat keinen Teardown-Callback - switchList()/render() ersetzen den Inhalt
+// einfach. Ein gestellter Timer wuerde ohne Gegenmassnahme nach einem
+// Listenwechsel oder einer Navigation noch feuern und setBulkPill()/
+// clearBulkPill() auf der SHELL-Schicht ausloesen, die ueber die Seite hinaus
+// lebt - sichtbar als eine fremde Pille (Pantry/Kontakte teilen dieselbe
+// Schicht), die ploetzlich verschwindet. Jeder Timer traegt die Generation,
+// unter der er entstand, und prueft sie plus die Verbindung seiner Wurzel zum
+// Dokument, bevor er etwas anfasst.
+// --------------------------------------------------------
+
+let BULK_PILL_HOLD_MS_OVERRIDE = null; // nur fuer Tests, siehe __test unten
+const BULK_PILL_HOLD_MS = 5000;
+
+let pillTimer = null;
+let pillPhase = 'idle'; // 'idle' | 'visible' | 'deferred' | 'suppressed'
+let pillInteracting = false;
+/** Die Seiten-Wurzel, der der aktuell sichtbare Batch gehoert - siehe unten. */
+let pillOwnerContainer = null;
+
+function clearPillTimer() {
+  if (pillTimer) { clearTimeout(pillTimer); pillTimer = null; }
+}
+
+function schedulePillHide(container) {
+  clearPillTimer();
+  pillTimer = setTimeout(() => {
+    pillTimer = null;
+    // Verlassene Seite: die Wurzel haengt nicht mehr im Dokument (der Router
+    // hat sie beim Navigieren ersetzt). `resetPillMachine()` raeumt jeden
+    // Listenwechsel/Seitenaufbau selbst per `clearPillTimer()` auf, deshalb
+    // genuegt hier die Verbindung zum Dokument als einzige Pruefung.
+    if (!container.isConnected) return;
+    if (pillInteracting) { pillPhase = 'deferred'; return; }
+    pillPhase = 'suppressed';
+    clearBulkPill();
+  }, BULK_PILL_HOLD_MS_OVERRIDE ?? BULK_PILL_HOLD_MS);
+}
+
+/**
+ * Haengt Hover/Fokus-Beobachtung einmalig an die geteilte Pillen-Schicht - sie
+ * lebt app-weit, der Aufruf ist deshalb idempotent (dataset-Flag) statt an
+ * einen bestimmten Seitenbesuch gebunden.
+ */
+function wirePillInteractionGuards() {
+  const layer = bulkPillLayer();
+  if (!layer || layer.dataset.shoppingPillWired) return;
+  layer.dataset.shoppingPillWired = '1';
+
+  layer.addEventListener('mouseenter', () => { pillInteracting = true; });
+  layer.addEventListener('focusin', () => { pillInteracting = true; });
+
+  const endInteraction = () => {
+    pillInteracting = false;
+    if (pillPhase !== 'deferred') return;
+    pillPhase = 'suppressed';
+    // Diese Schicht ist GETEILT (Pantry/Kontakte zeigen hier ihre eigene
+    // Pille) und der Listener bleibt app-weit bestehen, auch nachdem der
+    // Einkauf laengst verlassen wurde - ohne die Eigentuems-Pruefung wuerde
+    // ein Maus-Verlassen auf einer FREMDEN, gerade sichtbaren Pille sie
+    // versehentlich loeschen, nur weil `pillPhase` hier zufaellig noch
+    // 'deferred' vom letzten Einkaufsbesuch war.
+    if (pillOwnerContainer?.isConnected) clearBulkPill();
+  };
+  layer.addEventListener('mouseleave', endInteraction);
+  layer.addEventListener('focusout', (e) => {
+    if (layer.contains(e.relatedTarget)) return; // Fokus bleibt innerhalb der Pille
+    endInteraction();
+  });
+}
+
+/** Setzt den Automaten zurueck - bei Listenwechsel und bei jedem Rendern der Seite. */
+function resetPillMachine() {
+  clearPillTimer();
+  pillPhase = 'idle';
+  pillInteracting = false;
+  pillOwnerContainer = null;
 }
 
 async function toggleShoppingItem(id, checked, container) {
@@ -82,7 +276,9 @@ async function toggleShoppingItem(id, checked, container) {
     // Nur die betroffene Zeile aktualisieren — kein Komplett-Re-Render,
     // damit die Scroll-Position der Liste erhalten bleibt (Issue #276).
     updateItemRow(container, item);
-    updateCheckedActions(container);
+    // userChecked NUR beim Abhaken selbst (#1039): das Zurueckholen eines
+    // Artikels eroeffnet keinen neuen Feedback-Batch.
+    updateCheckedActions(container, { userChecked: newVal === 1 });
     updateListCounter(state.activeListId, 0, newVal ? 1 : -1);
     renderTabs(container);
   }
@@ -474,21 +670,38 @@ function mountItems(listEl, container) {
 
 function renderItems() {
   const groups = groupItemsByCategory(state.items);
+  pruneCollapsedCategories(groups);
   // Geteilte Gruppen-Grammatik (styles/list-row.css): .list-group ordnet,
   // .list-rows trägt die weiße Fläche und die Trennlinien. Die Zeilen selbst
   // sind flächenlos - vorher war Einkaufen eine Trennlinien-Liste und der Vorrat
   // eine Kartenliste, dieselbe Sache in zwei Paradigmen (Critique 2026-07-30).
-  return groups.map(([cat, items]) => `
+  //
+  // Gruppenkopf als echter Knopf im h2 (#1039, Muster aus tasks.js/#812): nur
+  // ein <button> kennt die Tastatur und traegt aria-expanded ueberhaupt. Die
+  // Zeilen (.list-rows) bleiben bei [hidden] im DOM - ein Rerender wuerde
+  // Sortable-Instanzen und Swipe-Closures verwerfen, nur um eine Gruppe
+  // zuzuklappen.
+  return groups.map(([cat, items], idx) => {
+    const key = categoryStorageKey(cat);
+    const collapsed = state.collapsedCategories.has(key);
+    const rowsId = `shopping-category-rows-${idx}`;
+    return `
     <div class="list-group item-category" data-category="${esc(cat)}">
-      <div class="list-group__title">
-        <i data-lucide="${catIcon(cat)}" class="icon-sm" aria-hidden="true"></i>
-        ${esc(categoryLabel(cat))}
+      <h2 class="list-group__title">
+        <button type="button" class="list-group__toggle" data-category-toggle="${esc(key)}"
+                aria-expanded="${collapsed ? 'false' : 'true'}" aria-controls="${rowsId}">
+          <i data-lucide="chevron-down" aria-hidden="true"
+             class="list-group__chevron${collapsed ? ' list-group__chevron--collapsed' : ''}"></i>
+          <i data-lucide="${catIcon(cat)}" class="icon-sm" aria-hidden="true"></i>
+          <span>${esc(categoryLabel(cat))}</span>
+        </button>
         <span class="list-group__count">${items.length}</span>
-      </div>
-      <div class="list-rows">
+      </h2>
+      <div class="list-rows" id="${rowsId}" ${collapsed ? 'hidden' : ''}>
         ${items.map(renderItem).join('')}
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 /**
@@ -1462,11 +1675,29 @@ async function openPantryTransfer(container) {
  * und Polsterung - leer wäre sie ein sichtbarer 42px-Streifen über der Liste. Die
  * [hidden]-Durchsetzung für `.list-bulkbar` steht in layout.css, weil
  * `display: flex` das UA-`[hidden]` sonst schlägt.
+ *
+ * ZEIGT SICH NUR NOCH ALS FUENF-SEKUNDEN-FENSTER EINES NEUEN BATCHES (#1039),
+ * ueber `pillPhase` gesteuert: `userChecked` markiert den EINEN Aufruf, der
+ * einen frischen Batch eroeffnen darf (den echten Nutzer-Abhak-Klick aus
+ * `toggleShoppingItem`); jeder andere Aufruf (Laden, Listenwechsel,
+ * Rueckgaengig) aktualisiert eine bereits sichtbare Pille hoechstens, zeigt
+ * aber nie von sich aus eine neue.
  */
-function updateCheckedActions(container) {
+function updateCheckedActions(container, { userChecked = false } = {}) {
   const checkedCount = state.items.filter((i) => i.is_checked).length;
   if (!checkedCount) {
+    clearPillTimer();
+    pillPhase = 'idle';
+    pillInteracting = false;
+    pillOwnerContainer = null;
     clearBulkPill();
+    return;
+  }
+
+  // Weder ein frischer Nutzer-Treffer aus dem Ruhezustand noch eine schon
+  // sichtbare Pille: verborgen bleiben (Ladezustand, Listenwechsel, oder ein
+  // Batch, der schon einmal ausgeblendet wurde und noch nicht auf 0 fiel).
+  if (!((userChecked && pillPhase === 'idle') || pillPhase === 'visible' || pillPhase === 'deferred')) {
     return;
   }
 
@@ -1507,6 +1738,18 @@ function updateCheckedActions(container) {
     label: t('shopping.checkedHint', { count: checkedCount }),
     actions,
   });
+
+  if (pillPhase === 'idle') {
+    // Nur hier moeglich, wenn userChecked die Bedingung oben erfuellt hat: ein
+    // frischer Batch beginnt jetzt, mit genau EINER Fuenf-Sekunden-Frist.
+    pillPhase = 'visible';
+    pillOwnerContainer = container;
+    wirePillInteractionGuards();
+    schedulePillHide(container);
+  }
+  // 'visible'/'deferred': Zahl und Aktionen sind frisch, die laufende Frist
+  // bzw. die Interaktions-Verlaengerung bleibt unangetastet (Anforderung: kein
+  // Aufschub durch weitere Treffer).
 }
 
 /**
@@ -1689,7 +1932,13 @@ async function loadItems(listId) {
 }
 
 async function switchList(listId, container) {
+  // Die Pille gehoert zur Teilmenge EINER Liste (dieselbe Regel wie beim
+  // Seitenwechsel in router.js) - eine laufende Frist der alten Liste darf die
+  // neue nicht treffen (#1039).
+  resetPillMachine();
+  clearBulkPill();
   state.activeListId = listId;
+  state.collapsedCategories = loadCollapsedCategories(state.currentUserId, listId);
   renderTabs(container);
   // Lade-Feedback beim Listenwechsel: dimmt den alten Inhalt (CSS), meldet
   // Screenreadern „busy" — bis renderListContent den neuen Inhalt setzt.
@@ -1756,6 +2005,16 @@ function wireListContentEvents(container) {
   root.dataset.eventsWired = 'true';
 
   root.addEventListener('click', async (e) => {
+    // ---- Kategorie auf-/zuklappen (#1039) ----
+    // Eigener, frueher Zweig statt eines weiteren [data-action]-Falls: die
+    // uebrigen Aktionen loesen serverseitige Aenderungen aus, dieser hier
+    // toggelt nur lokal sichtbares DOM - kein `await`, kein try/catch noetig.
+    const catToggle = e.target.closest('[data-category-toggle]');
+    if (catToggle) {
+      toggleCategoryCollapse(catToggle);
+      return;
+    }
+
     const target = e.target.closest('[data-action]');
     if (!target) {
       if (shouldIgnoreShoppingRowToggle(e.target)) return;
@@ -1861,7 +2120,14 @@ function wireListContentEvents(container) {
 
       scheduleUndoableDelete({
         message: t('shopping.deletedListToast'),
-        commit: ({ keepalive }) => api.delete(`/shopping/${deletedListId}`, { keepalive }),
+        commit: async ({ keepalive }) => {
+          await api.delete(`/shopping/${deletedListId}`, { keepalive });
+          // Erst wenn das Loeschen wirklich feststeht (Undo-Fenster verstrichen):
+          // ein rueckgaengig gemachtes Loeschen soll den Klapp-Zustand behalten.
+          try {
+            localStorage.removeItem(collapsedCategoriesStorageKey(state.currentUserId, deletedListId));
+          } catch { /* Privatmodus/Quota - unschaedlich, die Zeile war ohnehin verwaist */ }
+        },
         restore: async (err) => {
           // Der Server hat nichts gelöscht (der Commit war aufgeschoben) - die Liste
           // muss also nur zurück in den State und an ihren alten Platz in der Leiste.
@@ -1950,6 +2216,10 @@ async function openCategoryManager(container, { fromDeepLink = false } = {}) {
 // --------------------------------------------------------
 
 export async function render(container, { user }) {
+  state.currentUserId = user?.id ?? null;
+  // Ein Seitenaufbau ist immer ein neuer Batch fuer die Sammelaktions-Pille -
+  // eine Frist der vorherigen Seite darf diese hier nicht treffen (#1039).
+  resetPillMachine();
   container.replaceChildren();
   container.insertAdjacentHTML('beforeend', `
     <div class="shopping-page page-measure--narrow">
@@ -1976,6 +2246,7 @@ export async function render(container, { user }) {
       const listParam = parseInt(new URLSearchParams(window.location.search).get('list'), 10) || null;
       const target = listParam && state.lists.find((l) => l.id === listParam);
       state.activeListId = target ? target.id : state.lists[0].id;
+      state.collapsedCategories = loadCollapsedCategories(state.currentUserId, state.activeListId);
       try {
         await loadItems(state.activeListId);
       } catch (err) {
@@ -2046,7 +2317,17 @@ export async function render(container, { user }) {
   const highlightId = parseInt(new URLSearchParams(window.location.search).get('highlight'), 10) || null;
   if (highlightId) {
     const el = container.querySelector(`[data-action="toggle-item"][data-id="${highlightId}"]`);
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (el) {
+      // Steht der Treffer in einer eingeklappten Kategorie, bleibt er bei
+      // [hidden] unsichtbar, obwohl der Selektor ihn findet - ein globaler
+      // Suchtreffer darf nie hinter persistiertem Zustand verschwinden.
+      const rowsEl = el.closest('.list-rows');
+      if (rowsEl?.hidden) {
+        const toggleBtn = rowsEl.closest('.list-group')?.querySelector('[data-category-toggle]');
+        if (toggleBtn) toggleCategoryCollapse(toggleBtn);
+      }
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
   }
 
   // Deep-Link: ?manage=categories öffnet den Kategorie-Manager sofort.
@@ -2055,4 +2336,25 @@ export async function render(container, { user }) {
   }
 }
 
-export const __test = { shouldIgnoreShoppingRowToggle };
+export const __test = {
+  shouldIgnoreShoppingRowToggle,
+  // Kategorie-Einklappen (#1039): reine Schluessel-/Speicherfunktionen, ohne
+  // DOM. `state` bleibt bewusst ERREICHBAR, nicht ERSETZBAR - Tests lesen und
+  // schreiben ihre Felder direkt, wie beim Muster in test-health-meds.js.
+  state,
+  categoryStorageKey,
+  collapsedCategoriesStorageKey,
+  loadCollapsedCategories,
+  saveCollapsedCategories,
+  pruneCollapsedCategories,
+  toggleCategoryCollapse,
+  // Sammelaktions-Automat (#1039): eine echte, aber knapp bemessene Frist statt
+  // eines Uhr-Objekts - dasselbe Muster wie beim Undo-Fenster in
+  // test-ux-utils.js (dort ein `duration`-Parameter), hier als Setter, weil
+  // die Frist an keiner Aufrufstelle durchgereicht wird.
+  updateCheckedActions,
+  resetPillMachine,
+  getPillPhaseForTest: () => pillPhase,
+  setPillInteractingForTest: (value) => { pillInteracting = value; },
+  setBulkPillHoldMsForTest: (ms) => { BULK_PILL_HOLD_MS_OVERRIDE = ms; },
+};
