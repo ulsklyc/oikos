@@ -24,6 +24,8 @@ const {
   scheduledLogs,
 } = await import('../public/utils/health-meds.js');
 
+const { __test: healthHelpers } = await import('../public/pages/health.js');
+
 // --------------------------------------------------------
 // Wochentags-Masken
 // --------------------------------------------------------
@@ -343,4 +345,24 @@ test('Einnahmeprotokoll: Korrektur folgt dem gemeinsamen Betreuungsrecht', () =>
     'auch eine ausdruecklich betreute Person braucht den Korrekturknopf');
   assert.doesNotMatch(historyMarkup, /meds\.personId === meds\.meId/,
     'eine reine Eigentuemerpruefung schneidet Betreuende vom erlaubten API-Weg ab');
+});
+
+test('canEditFor: eigene Daten, betreute Person und unbeteiligtes Mitglied (#1031, Option 2)', () => {
+  // Der Test oben beweist nur, dass die Aufrufstelle canEditFor() benutzt statt
+  // einer reinen Eigentuemerpruefung - er beweist nicht, dass canEditFor() selbst
+  // die drei Berechtigungsfaelle richtig unterscheidet. Das prueft dieser Test.
+  const selfId = 1;
+  const caredForId = 2;
+  const unrelatedId = 3;
+  try {
+    healthHelpers.setCareForForTest([caredForId]);
+    assert.equal(healthHelpers.canEditFor(selfId, selfId), true,
+      'eigene Daten muessen bearbeitbar bleiben');
+    assert.equal(healthHelpers.canEditFor(caredForId, selfId), true,
+      'eine betreute Person muss bearbeitbar sein');
+    assert.equal(healthHelpers.canEditFor(unrelatedId, selfId), false,
+      'ein unbeteiligtes Mitglied darf nicht bearbeitbar sein');
+  } finally {
+    healthHelpers.setCareForForTest([]);
+  }
 });

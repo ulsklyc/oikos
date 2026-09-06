@@ -5539,3 +5539,14 @@ function openCycleSettingsModal() {
     },
   });
 }
+
+export const __test = {
+  canEditFor,
+  // Testseam fuer #1031: setzt `careFor` fuer die drei Berechtigungsfaelle
+  // (eigene Daten, betreute Person, unbeteiligtes Mitglied), ohne das Array
+  // selbst nach aussen zu geben - Tests koennen die Betreuungsliste nur ganz
+  // ersetzen, nicht das Modul-interne Array direkt mutieren.
+  setCareForForTest(list) {
+    careFor = Array.isArray(list) ? [...list] : [];
+  },
+};
