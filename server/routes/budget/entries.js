@@ -8,6 +8,7 @@ import { createLogger } from '../../logger.js';
 import * as db from '../../db.js';
 import { str, oneOf, date as validateDate, num, rrule, collectErrors, MAX_TITLE, MONTH_RE } from '../../middleware/validate.js';
 import { normalizeBudgetVisibility } from '../../services/budget-visibility.js';
+import { todayKey } from '../../utils/timezone.js';
 import { sendDocumentDeletionConflict } from '../../services/document-deletion-lock.js';
 import { assertDocumentLinkTargetsAvailable } from '../../services/document-links.js';
 import { attachmentsFor, replaceAttachments, withAttachments } from './attachments.js';
@@ -397,7 +398,45 @@ router.put('/:id/series', (req, res) => {
       ? normalizeBudgetVisibility(req.body.visibility)
       : null;
 
-    const currentMonthStart = new Date().toISOString().slice(0, 7) + '-01';
+    // Konto-Zuordnung wie im Einzel-PUT: undefined ⇒ unverändert; null/'' ⇒ Zuordnung
+    // entfernen; id ⇒ setzen. Sie fehlte hier ganz (#973), und damit lief die einzige
+    // Reparatur ins Leere, die dem Melder offenstand: das Konto an einer Folgebuchung
+    // nachtragen und "alle künftigen ändern" wählen: die Route ignorierte das Feld und
+    // löschte die Instanz gleich darauf mit weg.
+    //
+    // Anders als die Sichtbarkeit wirkt sie NICHT auf bereits vergangene Instanzen.
+    // Sichtbarkeit muss rückwirkend gelten, weil ein zu weiter Alt-Wert ein Leck ist;
+    // ein Konto ist eine Tatsache über eine bereits erfolgte Abbuchung. Die künftigen
+    // erben den neuen Wert ohnehin, weil sie unten gelöscht und von
+    // generateRecurringInstances neu erzeugt werden.
+    const accountProvided = req.body.account_id !== undefined;
+    let accountValue = null;
+    if (accountProvided) {
+      const accountRef = validateAccountRef(req.body.account_id);
+      if (accountRef.error) return res.status(400).json({ error: accountRef.error, code: 400 });
+      accountValue = accountRef.value;
+    }
+
+    // Schnitt bei HEUTE, nicht am Monatsersten (#973, zweite Runde).
+    //
+    // Der Monatserste war fuer Monatsserien gedacht, wo er dasselbe bedeutet.
+    // Eine WOCHENserie hat mehrere Instanzen im Monat: steht heute der 6., dann
+    // liegt die Buchung vom 1. bereits hinter uns, wurde aber mitgeloescht und
+    // aus dem Original neu erzeugt. Solange nur Titel und Betrag wanderten, fiel
+    // das kaum auf; seit das Konto mitkommt, zieht eine bereits erfolgte
+    // Abbuchung auf ein anderes Konto um und verfaelscht dessen Saldo. Der Fehler
+    // war schon da, dieser PR macht ihn wirksam - also faellt er hier mit.
+    // Nebenbei bleiben damit die Belege vergangener Buchungen erhalten, die die
+    // CASCADE bisher mitnahm (siehe #583 weiter unten).
+    //
+    // `todayKey(db)` ist hier der richtige Helfer, nicht `todayLocalDateKey()`
+    // und erst recht nicht `toISOString()`: nur er folgt der HAUSHALTSZONE.
+    // Genau die benutzt `listAccounts()` fuer seinen Stichtag (#829). Laufen die
+    // beiden auseinander, loescht diese Route kurz nach Mitternacht noch einen
+    // Tag, den die Kontoansicht bereits als vergangen fuehrt - und erzeugt ihn
+    // mit dem neuen Konto neu. Dieselbe Zone auf beiden Seiten, sonst ist der
+    // Schnitt eine andere Grenze als die, an der die Zahlen abgelesen werden.
+    const cutoffDate = todayKey(db.get());
 
     db.get().transaction(() => {
       db.get().prepare(`
@@ -413,15 +452,56 @@ router.put('/:id/series', (req, res) => {
           recurrence_virtual     = ?,
           recurrence_confirm     = ?,
           recurrence_full_amount = ?,
-          visibility             = COALESCE(?, visibility)
+          visibility             = COALESCE(?, visibility),
+          account_id             = CASE WHEN ? = 1 THEN ? ELSE account_id END
         WHERE id = ?
       `).run(finalTitle, storeAmount, finalCategory, finalSubcat,
              finalRecurring, finalRrule, finalInterval, finalCount, finalVirtual,
-             finalConfirm, finalFull, nextVisibility, parentId);
+             finalConfirm, finalFull, nextVisibility,
+             accountProvided ? 1 : 0, accountValue, parentId);
 
-      db.get().prepare(`
-        DELETE FROM budget_entries WHERE recurrence_parent_id = ? AND date >= ?
-      `).run(parentId, currentMonthStart);
+      // LÖSCHEN NUR, WENN SICH DIE TERMINE VERSCHIEBEN.
+      //
+      // Bis hierher war der einzige Weg, künftige Instanzen an eine geänderte
+      // Serie anzugleichen: alle wegwerfen und beim nächsten Lesen neu bauen.
+      // Das ist richtig, wenn sich der Rhythmus ändert - dann liegen die
+      // Termine anderswo. Für eine reine Wertänderung ist es zu grob: die
+      // Zeilen verlieren ihre Identität, ihre Belege gehen über die CASCADE
+      // mit (#583), und sie kommen mit allem zurück, was am Original steht -
+      // auch mit einem Konto, das sie vorher bewusst nicht hatten.
+      //
+      // Ändert sich nur ein Wert, werden die vorhandenen Zeilen deshalb
+      // aktualisiert statt ersetzt. Der Schnitt bleibt derselbe: was vor
+      // heute liegt, ist gebucht und wird nicht mehr angefasst.
+      const rhythmChanged = finalInterval !== parent.recurrence_interval
+        || finalCount !== parent.recurrence_interval_count
+        || finalVirtual !== parent.recurrence_virtual
+        || finalRrule !== parent.recurrence_rule
+        || finalRecurring !== parent.is_recurring;
+
+      if (rhythmChanged) {
+        db.get().prepare(`
+          DELETE FROM budget_entries WHERE recurrence_parent_id = ? AND date >= ?
+        `).run(parentId, cutoffDate);
+      } else {
+        // `account_id` folgt derselben CASE-Form wie am Original: ein nicht
+        // mitgesendetes Feld lässt die Zuordnung in Ruhe. Eine virtuelle Serie
+        // gibt ihr Konto nicht weiter - ihre Instanzen sind Planwerte, und
+        // `generateRecurringInstances` hält es genauso.
+        db.get().prepare(`
+          UPDATE budget_entries SET
+            title       = ?,
+            amount      = ?,
+            category    = ?,
+            subcategory = ?,
+            is_pending  = ?,
+            account_id  = CASE WHEN ? = 1 THEN ? ELSE account_id END
+          WHERE recurrence_parent_id = ? AND date >= ?
+        `).run(finalTitle, storeAmount, finalCategory, finalSubcat,
+               finalConfirm ? 1 : 0,
+               accountProvided ? 1 : 0, finalVirtual ? null : accountValue,
+               parentId, cutoffDate);
+      }
 
       if (nextVisibility) {
         db.get().prepare(`

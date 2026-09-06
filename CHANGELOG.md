@@ -215,6 +215,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   receives a build-specific revision, so acceptance builds and rebuilt images no longer reuse an
   older cache merely because the application version has not changed.
 
+- **A recurring budget entry keeps its account past the first month** (#973). Only the first
+  booking of a series is entered by hand; every later month is materialised from the original,
+  and that copy inherited the title, amount, category, owner and visibility but not the account.
+  From the second month on the entry therefore had none, and anyone filtering the transaction
+  list by account stopped seeing the series there. The single repair available to the reporter
+  did not work either: setting the account on a later occurrence and choosing *change all future
+  occurrences* went to a route that ignored the field and then deleted that occurrence as part of
+  its normal work, so the entry appeared to vanish. Both halves are fixed, and the series route
+  now follows the same convention as the single entry - omitted leaves the account alone, `null`
+  clears it. It does not reach back into past occurrences: unlike visibility, where a stale wider
+  value is a leak, an account is a fact about a booking that already happened. Making that promise
+  hold moved the cutoff for *future* occurrences from the first of the month to today. A weekly
+  series has several bookings in one month, and the ones already behind us were being deleted and
+  regenerated along with the rest - which, now that the account travels with them, would have moved
+  a completed debit to another account and skewed that balance. Their attachments survive the edit
+  as well. The cutoff reads the household timezone, the same day boundary the account balances use.
+  **A virtual (smoothed) series is the exception and keeps its instances free of an account:** those
+  are planning figures - 1200 a year stored as 100 a month - while the bank debits 1200 once, and an
+  account balance counts every booked entry assigned to it. Giving them an account would have moved
+  the reported balance every month for a payment that had not happened. **Months you had already
+  opened are repaired once** (migration v181): their instances existed with no account, and
+  materialisation skips rows that are already there, so without it the reported bug would have
+  survived in exactly the data where it was noticed. The repair leaves alone what is a decision
+  rather than a gap - originals, instances carrying a different account, and virtual series.
+
+- **Editing a recurring entry for all future occurrences no longer rebuilds them** (#973). Until
+  now the only way to bring future instances in line with a changed series was to delete them and
+  let the next read recreate them. That is right when the rhythm changes, because the dates move.
+  For a plain value change it was too blunt: the rows lost their identity, their receipts went with
+  the cascade, and they came back carrying everything from the original. Future instances are now
+  updated in place, and deletion is reserved for a changed interval, count, rule or smoothing.
+
+- **The desktop sidebar has a scrollbar again** (#970). It was deliberately hidden at
+  `min-width: 1024px`, with a soft fade at the edges standing in for it. The fade answers "is
+  there more below?", which was the problem it was added for - it does not answer "what do I
+  drag?". On a phone the gesture scrolls and nothing is missing; with a mouse the bar *is* the
+  control, and it had been removed exactly where it is needed. The fade stays; the bar is back,
+  thin and in the same token colour the module lists already use.
+
 - **Inventory and Schedule speak all 24 languages, and a guard now notices when a module does
   not.** Inventory shipped on 15 August and Schedule on 27 August with their texts copied from
   English into the other 22 locales - navigation labels, forms, presets, the deadline feed settings,

@@ -3550,9 +3550,48 @@ p.field-hint--warn[hidden] {
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior-y: contain;
-    scrollbar-width: none;
+    /* SICHTBARER BALKEN AB HIER, und das ist eine Rücknahme (#970).
+     *
+     * Bis v2.64.1 stand hier `scrollbar-width: none` samt verstecktem
+     * `::-webkit-scrollbar`, und der Fade darunter war der Ersatz. Der Anlass
+     * dafür war ein anderer als der, den das Verstecken verursacht hat: der
+     * Fade beantwortet „ist da noch mehr?" (Audit F-01, sonst waren Budget/
+     * Gesundheit/Einstellungen auf 800er-Laptops unauffindbar) - er beantwortet
+     * nicht „womit ziehe ich?". Ein Anriss ist eine Andeutung, kein Griff.
+     * Am Telefon ist das gleichgültig, weil dort die Geste zieht; am Desktop
+     * mit Maus ist der Balken das Bedienelement, und diese Regel steht in
+     * `@media (min-width: 1024px)` - sie hat ihn genau dort weggenommen, wo er
+     * gebraucht wird. Beides zusammen ist kein Widerspruch: der Fade sagt, DASS
+     * mehr da ist, der Balken sagt, WO man ist und lässt einen hin.
+     *
+     * `--tint-hint` ist laut tokens.css die Stufe für „Kante, Linie,
+     * Scrollbar-Daumen"; die Schreibweise folgt den Modul-Scrollbars in
+     * budget.css, nur ohne `--module-accent` - die Seitenleiste gehört keinem
+     * Modul und darf nicht die Farbe des gerade offenen annehmen.
+     *
+     * OFFEN, und bewusst nicht behauptet: die `mask-image`-Fades weiter unten
+     * liegen auf DIESEM Element, und eine Maske erfasst die Elementbox samt
+     * Scrollbalken. Auf Plattformen mit klassischem, Platz nehmendem Balken
+     * (Windows - dort kam die Meldung her) verblasst sein unterstes Stück
+     * deshalb im Fade-Bereich. Die Bedienung bleibt: eine Maske ändert die
+     * Deckkraft, nicht das Hit-Testing. Nachgemessen werden konnte es hier
+     * nicht - macOS zeichnet Overlay-Balken, die dabei gar nicht erscheinen.
+     * Wenn es stört, ist der Weg nicht `scrollbar-width: none` zurück, sondern
+     * den Fade von der Maske auf ein überlagertes Gradient-Pseudoelement
+     * umzustellen; dann liegt er über dem Inhalt statt über der Box. */
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--color-border) var(--tint-hint), transparent) transparent;
   }
-  .nav-sidebar__items::-webkit-scrollbar { display: none; }
+  .nav-sidebar__items::-webkit-scrollbar { width: 10px; }
+  .nav-sidebar__items::-webkit-scrollbar-track { background: transparent; }
+  .nav-sidebar__items::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--color-border) var(--tint-hint), transparent);
+    /* Transparente Border + padding-box: der Daumen wirkt schmaler als die
+     * 10px-Spur, ohne dass die Trefffläche schrumpft. */
+    border: 3px solid transparent;
+    border-radius: var(--radius-full);
+    background-clip: padding-box;
+  }
 
   /* Scroll-Affordanz (Audit F-01): wireScrollFade (utils/ux.js) setzt
    * has-fade-start/-end, sobald oberhalb/unterhalb Einträge verborgen sind.
