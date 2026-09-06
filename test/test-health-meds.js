@@ -5,6 +5,7 @@
  * Ausführen: node --loader ./test/test-browser-loader.mjs --test test/test-health-meds.js
  */
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const {
@@ -325,4 +326,21 @@ test('scheduledLogs: eine Bedarfsdosis zaehlt nicht als eingehaltener Plan', () 
   assert.equal(computeAdherence(scheduledLogs(viele), 7).rate, 3 / 7);
 
   assert.deepEqual(scheduledLogs(null), []);
+});
+
+// --------------------------------------------------------
+// Betreuungsrechte im Einnahmeprotokoll (#999)
+// --------------------------------------------------------
+
+test('Einnahmeprotokoll: Korrektur folgt dem gemeinsamen Betreuungsrecht', () => {
+  const source = readFileSync(new URL('../public/pages/health.js', import.meta.url), 'utf8');
+  const start = source.indexOf('function medLogHistoryMarkup()');
+  const end = source.indexOf('/** Ein Log-Eintrag', start);
+  assert.ok(start >= 0 && end > start, 'medLogHistoryMarkup muss auffindbar sein');
+
+  const historyMarkup = source.slice(start, end);
+  assert.match(historyMarkup, /const own = canEditFor\(meds\.personId, meds\.meId\)/,
+    'auch eine ausdruecklich betreute Person braucht den Korrekturknopf');
+  assert.doesNotMatch(historyMarkup, /meds\.personId === meds\.meId/,
+    'eine reine Eigentuemerpruefung schneidet Betreuende vom erlaubten API-Weg ab');
 });

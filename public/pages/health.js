@@ -1872,16 +1872,11 @@ function medLogHistoryMarkup() {
   if (!entries.length) return '';
   entries.sort((a, b) => String(b.at).localeCompare(String(a.at)));
 
-  // Korrigieren darf nur, wer IN SEINEM EIGENEN Protokoll ist (#701).
-  //
-  // Nicht `canEditFor`: der Server laesst eine Korrektur ausdruecklich nur den
-  // Eigentuemer machen (`ownLogRow` in server/routes/health/medications.js -
-  // ein Dosis-Eintrag ist eine Aufzeichnung ueber den eigenen Koerper, mitlesen
-  // und nachtraeglich aendern sind zwei verschiedene Rechte). Wer fuer eine
-  // betreute Person eintraegt, darf also buchen, aber nicht nachbessern - und
-  // bekam die Stifte trotzdem angeboten, mit einem 404 dahinter. Ein Knopf, der
-  // nichts tut, ist genau der Fehler, wegen dem #700 ueberhaupt aufkam.
-  const own = meds.personId === meds.meId;
+  // Dasselbe ausdrueckliche Betreuungsrecht wie beim Buchen und Abhaken gilt
+  // auch fuer die Korrektur (#999). Der Server zieht diese Grenze zentral ueber
+  // `ownLogRow` -> `writableChild`; die Oberflaeche muss deshalb denselben
+  // bereits geladenen Grant verwenden statt einer engeren Eigentuemerpruefung.
+  const own = canEditFor(meds.personId, meds.meId);
 
   const rows = entries.slice(0, 10).map((e) => {
     // Uebersprungen und ausstehend sind beide "nicht genommen" und treten
