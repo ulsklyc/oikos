@@ -199,8 +199,12 @@ test('jede Pluralvariante hat einen zählenden Basisschlüssel in allen Locales'
  *
  * NO_NOUN        Auf die Zahl folgt kein Substantiv („3 ausgewaehlt", „3 aktiv").
  *                Im Deutschen numerusneutral, braucht keine Variante.
- * PARENTHETICAL  Die Zahl steht in Klammern oder hinter einem Doppelpunkt
- *                („Dateikonflikte (3)"). Ebenfalls neutral.
+ * PARENTHETICAL  Die Zahl steht in Klammern oder hinter einem Doppelpunkt UND der
+ *                uebrige Satz traegt keinen Numerus ("Importieren (3)",
+ *                "fehlgeschlagen: 3"). ACHTUNG: die Klammer allein macht nichts
+ *                neutral - "Dateikonflikte (1)" ist falsch, weil das Substantiv
+ *                davor im Plural steht. Vor dieser Kategorie den GANZEN String
+ *                lesen, nicht nur die Klammer.
  * ABBREV         Die Einheit ist eine numerusneutrale Abkuerzung („3 Min.").
  * PAIR_LEGACY    Handgebautes Paar aus der Zeit vor `_one` (Suffix `Plural`,
  *                `Many`/`One`, `Singular`). Heute korrekt, nur alte Schreibweise.
@@ -233,9 +237,6 @@ const PLURAL_EXCEPTIONS = {
   // --- Zahl in Klammern / hinter Doppelpunkt ------------------------------
   'category.errorInUse': 'PARENTHETICAL',
   'category.errorSubInUse': 'PARENTHETICAL',
-  'documents.folderUpload.fileConflictsTitle': 'PARENTHETICAL',
-  'documents.folderUpload.folderConflictsTitle': 'PARENTHETICAL',
-  'documents.folderUpload.rejectedTitle': 'PARENTHETICAL',
   'shopping.clearChecked': 'PARENTHETICAL',
   'contacts.importSubmit': 'PARENTHETICAL',
   'health.cycle.settings.applyToAllDone': 'PARENTHETICAL',
@@ -275,6 +276,11 @@ const PLURAL_EXCEPTIONS = {
   // --- echte Luecken, eingefroren statt behoben ---------------------------
   // Alle unten sind bei n=1 grammatisch falsch und n=1 ist erreichbar.
   'dashboard.housekeepingVisitsMonth': 'TODO_ONE',  // dashboard.js:2138, `visits` ungefiltert
+  // Diese drei standen faelschlich unter PARENTHETICAL: die Klammer ist neutral, das
+  // Substantiv davor nicht. renderFolderUploadPreview zeigt sie ab EINEM Konflikt.
+  'documents.folderUpload.fileConflictsTitle': 'TODO_ONE',
+  'documents.folderUpload.folderConflictsTitle': 'TODO_ONE',
+  'documents.folderUpload.rejectedTitle': 'TODO_ONE',
   'dashboard.shoppingMore': 'TODO_ONE',             // dashboard.js:1485/2987/3530, Guard ist `> 0`
   'calendar.moreEvents': 'TODO_ONE',
   'calendar.searchCount': 'TODO_ONE',
@@ -339,6 +345,33 @@ test('ein zaehlender Schluessel ohne Variante steht in der Ausnahmekarte (#1010)
   const veraltet = Object.keys(PLURAL_EXCEPTIONS).filter((k) => !ohneVariante.includes(k));
   assert.deepEqual(veraltet, [],
     `Ausnahmekarte veraltet - diese Schluessel brauchen keine Ausnahme mehr: ${veraltet.join(', ')}`);
+});
+
+// Die Pruefung oben misst `de.json` als Referenz. Das beantwortet die Frage, OB ein
+// Schluessel eine Variante braucht - nicht, ob die vorhandene Variante ueberall etwas
+// taugt: ein `_one`, das in de steht und in fr leer ist, faellt zur Laufzeit genau
+// dort auf den Plural zurueck, wo niemand hinsieht, und die Schluessel-Paritaet merkt
+// nichts davon. Der Bestand ist sauber (95 Varianten x 24 Locales, 0 unbrauchbar),
+// also darf diese Pruefung strikt sein und braucht keine Ausnahmekarte.
+test('jede _one-Variante traegt in JEDER Locale einen brauchbaren Wert (#1010)', () => {
+  const referenz = flattenLocale(localeFile('de'));
+  const varianten = [...referenz.keys()].filter((k) => k.endsWith('_one'));
+  assert.ok(varianten.length > 50,
+    `nur ${varianten.length} _one-Varianten gefunden - misst der Filter noch?`);
+
+  const kaputt = [];
+  for (const file of readdirSync(LOCALE_DIR).filter((f) => f.endsWith('.json'))) {
+    const entries = flattenLocale(JSON.parse(readFileSync(new URL(file, LOCALE_DIR), 'utf8')));
+    for (const key of varianten) {
+      const wert = entries.get(key);
+      if (wert === undefined) { kaputt.push(`${file}: ${key} fehlt`); continue; }
+      if (typeof wert !== 'string' || wert.trim() === '') {
+        kaputt.push(`${file}: ${key} = ${JSON.stringify(wert)}`);
+      }
+    }
+  }
+  assert.deepEqual(kaputt, [],
+    `unbrauchbare Singular-Varianten (leer, null oder keine Zeichenkette): ${kaputt.join(', ')}`);
 });
 
 // ---------------------------------------------------------------------------
