@@ -1341,6 +1341,29 @@ test('getWeekRange: Montag-Woche + Montags-Cursor schliesst den vorherigen Sonnt
     `Der vorherige Sonntag muss mitgeladen werden: ${from}..${to}`);
 });
 
+test('getRangeForView: Der echte Week-Aufrufer liest matchMedia und reicht mobile weiter (#1030)', () => {
+  // Die fünf getWeekRange()-Tests oben beweisen nur die Arithmetik, nachdem
+  // `mobile` schon feststeht. Wenn der echte Aufrufer aufhört, das Flag zu
+  // liefern (z.B. `return getWeekRange(cursor)` ohne Optionen), blieben sie
+  // trotzdem grün - dieser Test prüft die fehlende Verbindung.
+  const hadWindow = Object.prototype.hasOwnProperty.call(globalThis, 'window');
+  const previousWindow = globalThis.window;
+  try {
+    globalThis.window = { matchMedia: () => ({ matches: true }) };
+    const mobile = calendarHelpers.getRangeForView('week', '2026-03-15');
+    assert(mobile.from === '2026-03-09' && mobile.to === '2026-03-16',
+      `Mobile-Aufrufer muss das erweiterte Fenster laden: ${mobile.from}..${mobile.to}`);
+
+    globalThis.window = { matchMedia: () => ({ matches: false }) };
+    const desktop = calendarHelpers.getRangeForView('week', '2026-03-15');
+    assert(desktop.from === '2026-03-09' && desktop.to === '2026-03-15',
+      `Desktop-Aufrufer darf sich nicht erweitern: ${desktop.from}..${desktop.to}`);
+  } finally {
+    if (hadWindow) globalThis.window = previousWindow;
+    else delete globalThis.window;
+  }
+});
+
 // --------------------------------------------------------
 // Ergebnis
 // --------------------------------------------------------
