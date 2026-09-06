@@ -13,7 +13,7 @@ import { assertDocumentLinkTargetsAvailable } from '../../services/document-link
 import { attachmentsFor, replaceAttachments, withAttachments } from './attachments.js';
 import {
   budgetFilter, budgetCategoryExpr, maskEntries, getBudgetMode, mayEdit, bookedOnly,
-  DATE_RE, thisMonthLocalKey, cents,
+  DATE_RE, thisMonthLocalKey, todayLocalDateKey, cents,
   generateRecurringInstances, RECURRENCE_INTERVAL_KEYS, MAX_INTERVAL_COUNT,
   normalizeIntervalCount, effectiveMonthly,
   validCategoryKeys, defaultCategory, validateSubcategory, validateAccountRef,
@@ -416,7 +416,21 @@ router.put('/:id/series', (req, res) => {
       accountValue = accountRef.value;
     }
 
-    const currentMonthStart = new Date().toISOString().slice(0, 7) + '-01';
+    // Schnitt bei HEUTE, nicht am Monatsersten (#973, zweite Runde).
+    //
+    // Der Monatserste war fuer Monatsserien gedacht, wo er dasselbe bedeutet.
+    // Eine WOCHENserie hat mehrere Instanzen im Monat: steht heute der 6., dann
+    // liegt die Buchung vom 1. bereits hinter uns, wurde aber mitgeloescht und
+    // aus dem Original neu erzeugt. Solange nur Titel und Betrag wanderten, fiel
+    // das kaum auf; seit das Konto mitkommt, zieht eine bereits erfolgte
+    // Abbuchung auf ein anderes Konto um und verfaelscht dessen Saldo. Der Fehler
+    // war schon da, dieser PR macht ihn wirksam - also faellt er hier mit.
+    // Nebenbei bleiben damit die Belege vergangener Buchungen erhalten, die die
+    // CASCADE bisher mitnahm (siehe #583 weiter unten).
+    //
+    // `todayLocalDateKey()` statt `toISOString()`: letzteres kippt westlich von
+    // UTC auf den Vortag und haette den Schnitt dort um einen Tag verschoben.
+    const cutoffDate = todayLocalDateKey();
 
     db.get().transaction(() => {
       db.get().prepare(`
@@ -442,7 +456,7 @@ router.put('/:id/series', (req, res) => {
 
       db.get().prepare(`
         DELETE FROM budget_entries WHERE recurrence_parent_id = ? AND date >= ?
-      `).run(parentId, currentMonthStart);
+      `).run(parentId, cutoffDate);
 
       if (nextVisibility) {
         db.get().prepare(`

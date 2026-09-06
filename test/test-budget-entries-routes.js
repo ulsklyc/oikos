@@ -567,6 +567,32 @@ test('PUT /:id/series: unbekanntes Konto → 400', async () => {
     'die abgelehnte Anfrage darf nichts anderes geschrieben haben');
 });
 
+test('PUT /:id/series: eine schon gebuchte Instanz DIESES Monats bleibt stehen', async () => {
+  // Der Schnitt lag am Monatsersten. Bei einer Wochenserie liegen mehrere
+  // Instanzen im selben Monat, und die vom Monatsanfang war dann bereits
+  // gebucht, wurde aber mitgelöscht und aus dem Original neu erzeugt - mitsamt
+  // dem gerade gewählten Konto. Eine erfolgte Abbuchung zog so auf ein anderes
+  // Konto um. Der Test rechnet mit der echten Uhr statt mit Extremdaten, weil
+  // genau die Lage "im laufenden Monat, aber vor heute" den Fehler trug.
+  const heute = new Date();
+  if (heute.getDate() < 3) return; // am 1./2. gibt es diese Lage nicht
+  const monat = `${heute.getFullYear()}-${String(heute.getMonth() + 1).padStart(2, '0')}`;
+  const gestern = new Date(heute); gestern.setDate(heute.getDate() - 1);
+  const gesternKey = `${monat}-${String(gestern.getDate()).padStart(2, '0')}`;
+
+  const alt = db.prepare("INSERT INTO budget_accounts (name, created_by) VALUES ('Alt', ?)").run(A).lastInsertRowid;
+  const neu = db.prepare("INSERT INTO budget_accounts (name, created_by) VALUES ('Neu', ?)").run(A).lastInsertRowid;
+  const parent = insertEntry({ title: 'woche', amount: -20, category: 'food', date: `${monat}-01`, is_recurring: 1, account_id: alt });
+  const gebucht = insertEntry({ title: 'woche', amount: -20, category: 'food', date: gesternKey, recurrence_parent_id: parent, account_id: alt });
+
+  const r = await call('PUT', `/${parent}/series`, { body: { account_id: neu } });
+  assert.equal(r.status, 200);
+  const zeile = db.prepare('SELECT account_id FROM budget_entries WHERE id = ?').get(gebucht);
+  assert.ok(zeile, 'die gestrige Buchung darf nicht gelöscht werden');
+  assert.equal(zeile.account_id, alt,
+    'eine bereits erfolgte Abbuchung darf nicht auf das neue Konto umziehen');
+});
+
 test('PUT /:id/series: das Konto wirkt nicht rückwirkend auf vergangene Instanzen', async () => {
   // Anders als die Sichtbarkeit: ein zu weiter Alt-Wert bei visibility ist ein
   // Leck, ein Konto ist eine Tatsache über eine bereits erfolgte Abbuchung.
