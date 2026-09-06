@@ -460,9 +460,48 @@ router.put('/:id/series', (req, res) => {
              finalConfirm, finalFull, nextVisibility,
              accountProvided ? 1 : 0, accountValue, parentId);
 
-      db.get().prepare(`
-        DELETE FROM budget_entries WHERE recurrence_parent_id = ? AND date >= ?
-      `).run(parentId, cutoffDate);
+      // LÖSCHEN NUR, WENN SICH DIE TERMINE VERSCHIEBEN.
+      //
+      // Bis hierher war der einzige Weg, künftige Instanzen an eine geänderte
+      // Serie anzugleichen: alle wegwerfen und beim nächsten Lesen neu bauen.
+      // Das ist richtig, wenn sich der Rhythmus ändert - dann liegen die
+      // Termine anderswo. Für eine reine Wertänderung ist es zu grob: die
+      // Zeilen verlieren ihre Identität, ihre Belege gehen über die CASCADE
+      // mit (#583), und sie kommen mit allem zurück, was am Original steht -
+      // auch mit einem Konto, das sie vorher bewusst nicht hatten.
+      //
+      // Ändert sich nur ein Wert, werden die vorhandenen Zeilen deshalb
+      // aktualisiert statt ersetzt. Der Schnitt bleibt derselbe: was vor
+      // heute liegt, ist gebucht und wird nicht mehr angefasst.
+      const rhythmChanged = finalInterval !== parent.recurrence_interval
+        || finalCount !== parent.recurrence_interval_count
+        || finalVirtual !== parent.recurrence_virtual
+        || finalRrule !== parent.recurrence_rule
+        || finalRecurring !== parent.is_recurring;
+
+      if (rhythmChanged) {
+        db.get().prepare(`
+          DELETE FROM budget_entries WHERE recurrence_parent_id = ? AND date >= ?
+        `).run(parentId, cutoffDate);
+      } else {
+        // `account_id` folgt derselben CASE-Form wie am Original: ein nicht
+        // mitgesendetes Feld lässt die Zuordnung in Ruhe. Eine virtuelle Serie
+        // gibt ihr Konto nicht weiter - ihre Instanzen sind Planwerte, und
+        // `generateRecurringInstances` hält es genauso.
+        db.get().prepare(`
+          UPDATE budget_entries SET
+            title       = ?,
+            amount      = ?,
+            category    = ?,
+            subcategory = ?,
+            is_pending  = ?,
+            account_id  = CASE WHEN ? = 1 THEN ? ELSE account_id END
+          WHERE recurrence_parent_id = ? AND date >= ?
+        `).run(finalTitle, storeAmount, finalCategory, finalSubcat,
+               finalConfirm ? 1 : 0,
+               accountProvided ? 1 : 0, finalVirtual ? null : accountValue,
+               parentId, cutoffDate);
+      }
 
       if (nextVisibility) {
         db.get().prepare(`

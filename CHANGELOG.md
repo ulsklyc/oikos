@@ -234,7 +234,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   **A virtual (smoothed) series is the exception and keeps its instances free of an account:** those
   are planning figures - 1200 a year stored as 100 a month - while the bank debits 1200 once, and an
   account balance counts every booked entry assigned to it. Giving them an account would have moved
-  the reported balance every month for a payment that had not happened.
+  the reported balance every month for a payment that had not happened. **Months you had already
+  opened are repaired once** (migration v181): their instances existed with no account, and
+  materialisation skips rows that are already there, so without it the reported bug would have
+  survived in exactly the data where it was noticed. The repair leaves alone what is a decision
+  rather than a gap - originals, instances carrying a different account, and virtual series.
+
+- **Editing a recurring entry for all future occurrences no longer rebuilds them** (#973). Until
+  now the only way to bring future instances in line with a changed series was to delete them and
+  let the next read recreate them. That is right when the rhythm changes, because the dates move.
+  For a plain value change it was too blunt: the rows lost their identity, their receipts went with
+  the cascade, and they came back carrying everything from the original. Future instances are now
+  updated in place, and deletion is reserved for a changed interval, count, rule or smoothing.
 
 - **The desktop sidebar has a scrollbar again** (#970). It was deliberately hidden at
   `min-width: 1024px`, with a soft fade at the edges standing in for it. The fade answers "is

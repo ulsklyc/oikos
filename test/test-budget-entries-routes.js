@@ -14,12 +14,20 @@
  *          - DELETE /:id (404, Loan-Payment-Cascade + refreshLoanStatus,
  *            Skip-Markierung bei Instanz-Löschung)
  *          - PUT /:id/series (404, not-recurring-400, Parent-Update, Sichtbarkeits-
- *            Propagation auf ALLE Instanzen, Löschung künftiger Instanzen, 403)
+ *            Propagation auf ALLE Instanzen, Konto der Serie inkl. Haushaltszone
+ *            und Nicht-Rückwirkung, Neuaufbau NUR bei geändertem Rhythmus, 403)
  *          - DELETE /:id/series (404, not-recurring-400, Parent + Instanzen weg, 403)
  *
- *        Systemuhr: PUT /:id/series löscht Instanzen ab dem AKTUELLEN Monat
- *        (new Date()). Statt die Uhr zu fixieren werden Extremdaten genutzt:
- *        2000-01 (immer < heute → bleibt) und 2099-12 (immer >= heute → weg).
+ *        Systemuhr: PUT /:id/series schneidet bei HEUTE in der Haushaltszone
+ *        (todayKey(db), #829 - nicht der Serverzone, #973). Statt die Uhr zu
+ *        fixieren werden Extremdaten genutzt: 2000-01 (immer < heute) und
+ *        2099-12 (immer >= heute). Was hinter dem Schnitt liegt, wird seit
+ *        v2.64.2 AKTUALISIERT statt gelöscht - gelöscht wird nur noch, wenn
+ *        sich der Rhythmus ändert und die Termine deshalb anderswo liegen.
+ *        Die zwei Tests, die die Zone selbst messen, rechnen mit der echten
+ *        Uhr, weil nur die Lage "heute, aber je nach Zone anderer Tag" den
+ *        Fehler trägt; sie überspringen sich im seltenen Fenster, in dem beide
+ *        Zonen denselben Tag zeigen, statt ohne Messung grün zu sein.
  *        Die sicherheitskritische Sichtbarkeits-Propagation ist datumsunabhängig
  *        und wird separat geprüft.
  * Ausführen: node --experimental-sqlite --test test/test-budget-entries-routes.js
@@ -523,9 +531,28 @@ test('PUT /:id/series: aktualisiert das Original und propagiert Sichtbarkeit auf
   assert.equal(r.body.data.title, 'neu', 'Original-Titel aktualisiert');
   // Sichtbarkeit trifft ALLE Instanzen (privat→geteilt-Leak-Schutz), unabhängig vom Datum.
   assert.equal(db.prepare('SELECT visibility FROM budget_entries WHERE id = ?').get(past).visibility, 'private', 'Vergangenheits-Instanz geerbt');
-  // Künftige Instanz (>= aktueller Monat) wird gelöscht; die Vergangenheits-Instanz bleibt.
-  assert.equal(db.prepare('SELECT 1 FROM budget_entries WHERE id = ?').get(future), undefined, '2099er-Instanz gelöscht (>= heute)');
-  assert.ok(db.prepare('SELECT 1 FROM budget_entries WHERE id = ?').get(past), '2000er-Instanz bleibt (< heute)');
+  // Bis v2.64.1 wurde die künftige Instanz hier gelöscht und beim nächsten Lesen
+  // neu gebaut. Seit der Rhythmus unverändert bleibt, wird sie AKTUALISIERT: sie
+  // behält ihre Identität und ihre Belege und trägt trotzdem den neuen Wert.
+  // Der Test misst deshalb den Wert, nicht mehr das Verschwinden.
+  const nachher = db.prepare('SELECT title FROM budget_entries WHERE id = ?').get(future);
+  assert.ok(nachher, '2099er-Instanz bleibt bestehen, statt gelöscht zu werden');
+  assert.equal(nachher.title, 'neu', '2099er-Instanz übernimmt den neuen Titel (>= heute)');
+  const vergangen = db.prepare('SELECT title FROM budget_entries WHERE id = ?').get(past);
+  assert.ok(vergangen, '2000er-Instanz bleibt (< heute)');
+  assert.equal(vergangen.title, 'orig', 'eine gebuchte Vergangenheit wird nicht umgeschrieben');
+});
+
+test('PUT /:id/series: ein geänderter Rhythmus baut die künftigen Instanzen neu', async () => {
+  // Die Gegenrichtung zum Test darüber, und der Grund, warum das Löschen nicht
+  // ganz verschwindet: verschiebt sich der Takt, liegen die Termine anderswo -
+  // eine bestehende Zeile am alten Datum wäre dann falsch, nicht veraltet.
+  const parent = insertEntry({ title: 'takt', amount: -20, category: 'food', date: '2035-02-02', is_recurring: 1, recurrence_interval: 'monthly' });
+  const future = insertEntry({ title: 'takt', amount: -20, category: 'food', date: '2099-11-15', recurrence_parent_id: parent });
+  const r = await call('PUT', `/${parent}/series`, { body: { recurrence_interval: 'weekly' } });
+  assert.equal(r.status, 200);
+  assert.equal(db.prepare('SELECT 1 FROM budget_entries WHERE id = ?').get(future), undefined,
+    'bei geändertem Takt wird die künftige Instanz verworfen und neu berechnet');
 });
 
 // Konto an der Serie (#973). Das Feld fehlte in dieser Route ganz, während der
@@ -619,8 +646,8 @@ test('PUT /:id/series: der Schnitt folgt der Haushaltszone, nicht der Serverzone
     setZone(spaet);
     const r = await call('PUT', `/${parent}/series`, { body: { title: 'tz-neu' } });
     assert.equal(r.status, 200);
-    assert.equal(db.prepare('SELECT 1 FROM budget_entries WHERE id = ?').get(anGrenze), undefined,
-      `${grenztag} ist in ${spaet} noch Zukunft und gehoert damit hinter den Schnitt`);
+    assert.equal(db.prepare('SELECT title FROM budget_entries WHERE id = ?').get(anGrenze).title, 'tz-neu',
+      `${grenztag} ist in ${spaet} noch Zukunft und muss den neuen Wert uebernehmen`);
 
     // In Kiritimati ist derselbe Tag bereits heute - "heute" faellt selbst noch
     // hinter den Schnitt (>=), der Tag DAVOR aber nicht mehr.
@@ -632,8 +659,10 @@ test('PUT /:id/series: der Schnitt folgt der Haushaltszone, nicht der Serverzone
     setZone(frueh);
     const r2 = await call('PUT', `/${parent}/series`, { body: { title: 'tz-neuer' } });
     assert.equal(r2.status, 200);
-    assert.ok(db.prepare('SELECT 1 FROM budget_entries WHERE id = ?').get(davor),
-      `${gesternKey} liegt in ${frueh} vor heute und muss stehen bleiben`);
+    const alt = db.prepare('SELECT title FROM budget_entries WHERE id = ?').get(davor);
+    assert.ok(alt, `${gesternKey} muss stehen bleiben`);
+    assert.equal(alt.title, 'tz2',
+      `${gesternKey} liegt in ${frueh} vor heute und darf nicht umgeschrieben werden`);
   } finally {
     db.prepare("DELETE FROM sync_config WHERE key = 'household_timezone'").run();
   }
