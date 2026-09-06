@@ -650,7 +650,10 @@ function setSavedCalendarView(view) {
 
 function getRangeForView(view, cursor) {
   if (view === 'month') return getMonthRange(cursor);
-  if (view === 'week') return getWeekRange(cursor);
+  if (view === 'week') {
+    const mobile = window.matchMedia?.(MOBILE_MEDIA_QUERY).matches ?? false;
+    return getWeekRange(cursor, { mobile });
+  }
   if (view === 'day') return { from: cursor, to: cursor };
   if (view === 'agenda') return getAgendaRange(cursor);
   return getMonthRange(cursor);
@@ -871,9 +874,28 @@ function getMonthRange(dateStr) {
   return { from, to };
 }
 
-function getWeekRange(dateStr) {
-  const weekStart = startOfWeekOf(dateStr);
-  return { from: weekStart, to: addDays(weekStart, 6) };
+/**
+ * Ladefenster der Wochenansicht: das haushaltsweite 7-Tage-Raster, auf Mobile
+ * erweitert um das 3-Tage-Fenster (cursor -1..+1), das renderWeekView() dort
+ * tatsächlich zeichnet. Ohne diese Erweiterung klammerte buildDayIndex() auf
+ * das reine 7-Tage-Raster, und ein Cursor am Wochenrand liess auf Mobile den
+ * hereinragenden Nachbartag ohne seine Termine stehen (#1006) - obwohl
+ * fetchWindow() ihn ohnehin mitlädt. Ein Randtag, der ausserhalb BEIDER
+ * Fenster liegt, bleibt weiterhin draussen; das ist kein Sonderfall des
+ * Ladefensters, sondern dieselbe Klammerung, die buildDayIndex() für jedes
+ * mehrtägige Event ohnehin anwendet.
+ */
+function getWeekRange(dateStr, { weekStart = state.weekStart, mobile = false } = {}) {
+  const start = startOfWeekOf(dateStr, weekStart);
+  const desktopFrom = start;
+  const desktopTo   = addDays(start, 6);
+  if (!mobile) return { from: desktopFrom, to: desktopTo };
+  const mobileFrom = addDays(dateStr, -1);
+  const mobileTo   = addDays(dateStr, 1);
+  return {
+    from: mobileFrom < desktopFrom ? mobileFrom : desktopFrom,
+    to:   mobileTo   > desktopTo   ? mobileTo   : desktopTo,
+  };
 }
 
 function getAgendaRange(dateStr) {
@@ -3034,6 +3056,7 @@ async function openFoundEvent(ev) {
 
 export const __test = {
   fetchWindow,
+  getWeekRange,
   resolveEventColor,
   isVisibleLayer,
   normalizeCalendarView,

@@ -211,6 +211,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Mobile Week no longer silently drops timed events on its boundary day** (#1006). Mobile Week
+  renders a 3-day window centered on the cursor, but the calendar only loaded and indexed the fixed
+  7-day desktop week; whenever that 3-day window crossed the week boundary, the neighboring day's
+  timed events were fetched but then clamped out of the day index, while calendar tasks (loaded
+  separately) and Agenda (which reloads a 31-day range) kept showing normally - the mismatch read as
+  an inconsistent Sunday. The loaded range now covers the union of the desktop week and the mobile
+  window whenever they diverge; Month, Day and Agenda are unaffected.
+
 - **A same-version deployment now invalidates the installed PWA shell.** The served service worker
   receives a build-specific revision, so acceptance builds and rebuilt images no longer reuse an
   older cache merely because the application version has not changed.
