@@ -316,6 +316,55 @@ test('Deep-Link-Instanz: expandiertes Event mit gleichem Datum wird bevorzugt', 
   assert(resolved === occurrence, 'Popup/Edit-Flow muss die angeklickte Instanz erhalten');
 });
 
+test('Wiederholungsmarke ist nur bei Serien sichtbar und für Screenreader benannt', () => {
+  const master = calendarHelpers.calendarRepeatIconHtml({ recurrence_rule: 'FREQ=MONTHLY' });
+  const occurrence = calendarHelpers.calendarRepeatIconHtml({ is_recurring_instance: 1 });
+
+  for (const html of [master, occurrence]) {
+    assert(html.includes('data-lucide="repeat"'), 'die sichtbare Wiederholungsmarke fehlt');
+    assert(html.includes('role="img"'), 'die Markierung braucht eine eigene zugängliche Rolle');
+    assert(html.includes('aria-label="calendar.recurringEvent"'), 'die Bedeutung darf nicht nur visuell sein');
+  }
+  assert(calendarHelpers.calendarRepeatIconHtml({}) === '', 'ein Einzeltermin darf keine Serienmarke bekommen');
+  assert(
+    calendarHelpers.agendaEventAriaLabel({ title: 'Training', recurrence_rule: 'FREQ=WEEKLY' }, '09:00')
+      .startsWith('calendar.recurringEvent, Training, 09:00'),
+    'die Agenda überschreibt ihre Kindinhalte mit aria-label und muss die Serienbedeutung dort wiederholen'
+  );
+  assert(
+    calendarHelpers.agendaEventAriaLabel({ title: 'Training' }, '09:00').startsWith('Training, 09:00'),
+    'ein Einzeltermin darf im zugänglichen Namen nicht als Serie erscheinen'
+  );
+  assert(
+    calendarHelpers.monthDayAriaLabel('2026-09-30', 2, [
+      { title: 'Training', recurrence_rule: 'FREQ=MONTHLY' },
+      { title: 'Arzt' },
+    ]).includes('calendar.recurringEvent: Training'),
+    'die Monatszelle überschreibt ihre Kinder mit aria-label und muss dort den Serientitel nennen'
+  );
+});
+
+test('Wiederholungsmarke steht vor dem Titel in allen Kalenderansichten mit ausgeschriebenem Titel', () => {
+  const src = readFileSync(new URL('../public/pages/calendar.js', import.meta.url), 'utf8');
+  const regions = [
+    ['Monat', 'function renderMonthDay', 'function renderWeekView', 1],
+    ['Woche', 'function renderWeekView', 'function renderDayView', 2],
+    ['Tagesansicht', 'function renderDayView', 'function renderAgendaView', 2],
+    ['Agenda', 'function renderAgendaEvent', 'function applyDefaultSyncTarget', 1],
+  ];
+
+  for (const [name, from, to, expected] of regions) {
+    const body = src.slice(src.indexOf(from), src.indexOf(to));
+    const markers = body.match(/calendarRepeatIconHtml\(ev\)/g) ?? [];
+    assert(markers.length === expected,
+      `${name}: erwartet ${expected} Serienmarken vor ausgeschriebenen Titeln, gefunden ${markers.length}`);
+    assert(
+      /calendarRepeatIconHtml\(ev\)[\s\S]{0,180}esc\(ev\.title\)/.test(body),
+      `${name}: Serienmarke muss vor dem ausgeschriebenen Titel stehen`
+    );
+  }
+});
+
 // --------------------------------------------------------
 // nextOccurrence: INTERVAL-Korrektheit mit BYDAY
 // --------------------------------------------------------

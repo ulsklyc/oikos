@@ -100,7 +100,8 @@ export function buildRRule({ freq, interval, byday, until, count = null, lastDay
  * Rendert das HTML für die Wiederholungs-Felder.
  * @param {string} prefix - ID-Prefix (z.B. "task" oder "event")
  * @param {string|null} existingRule - bestehende RRULE oder null
- * @param {{ allowCount?: boolean, allowFromCompletion?: boolean, fromCompletion?: boolean, expandsFromStart?: boolean }} [opts]
+ * @param {{ allowCount?: boolean, allowFromCompletion?: boolean, fromCompletion?: boolean,
+ *           expandsFromStart?: boolean, startDate?: string }} [opts]
  *        allowCount aktiviert die "Nach N Terminen"-Endebedingung (COUNT). Nur
  *        für Kontexte mit startverankerter Expansion (Kalender). Aufgaben sind
  *        abschluss-getrieben und kennen keine COUNT-Semantik (#513).
@@ -110,8 +111,77 @@ export function buildRRule({ freq, interval, byday, until, count = null, lastDay
  *        expandsFromStart sagt, ob das Modul die Regel vom Startdatum aus
  *        ausrechnet (Kalender) oder ein einzelnes Datum fortschreibt (Aufgaben).
  *        Nur davon haengt ab, welcher Monatsletzten-Hinweis stimmt.
+ *        startDate ist ein explizit vom aufrufenden Modul gelieferter
+ *        kanonischer Datums-Key für die konkrete Kalender-Vorschau.
  * @returns {string} HTML-String
  */
+function canShowConcreteMonthEnd(rule, firstDate) {
+  if (!rule) return true;
+
+  // Eingelesene Regeln koennen mehr ausdruecken als dieses Formular. Ein
+  // BYDAY-Filter macht aus "Monatsletzter" z.B. "Monatsletzter, falls Montag";
+  // dann waere das rechnerische Monatsende nicht zwingend ein Vorkommen. Statt
+  // im Browser eine zweite RRULE-Engine anzufangen, bleibt die Vorschau fuer
+  // alles ausser dem vom Formular selbst schreibbaren Subset bewusst allgemein.
+  const allowed = new Set(['FREQ', 'INTERVAL', 'BYMONTHDAY', 'UNTIL', 'COUNT']);
+  let until = null;
+  for (const segment of String(rule).replace(/^RRULE:/i, '').split(';')) {
+    const eq = segment.indexOf('=');
+    if (eq === -1) return false;
+    const key = segment.slice(0, eq).toUpperCase();
+    const value = segment.slice(eq + 1);
+    if (!allowed.has(key)) return false;
+    if (key === 'UNTIL') {
+      const match = /^(\d{4})(\d{2})(\d{2})(?:T\d{6}Z?)?$/.exec(value);
+      if (!match) return false;
+      until = `${match[1]}-${match[2]}-${match[3]}`;
+    }
+  }
+  return !until || until >= firstDate;
+}
+
+export function monthEndHintText(startDate, { expandsFromStart = false, rule = null } = {}) {
+  if (!expandsFromStart) return t('rrule.lastDayOfMonthHintNext');
+
+  // Der Aufrufer liefert einen kanonischen Datums-Key. parseDateInput erlaubt
+  // zusätzlich die aktuelle Anzeigeform, aber die Kalendermathematik validiert
+  // die Bestandteile noch einmal selbst: ein Date würde den 31. Februar sonst
+  // still in den März normalisieren und eine überzeugende falsche Vorschau
+  // anzeigen.
+  const dateKey = parseDateInput(startDate);
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey);
+  if (!match) return t('rrule.lastDayOfMonthHint');
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const candidate = new Date(Date.UTC(year, month - 1, day));
+  if (candidate.getUTCFullYear() !== year
+      || candidate.getUTCMonth() !== month - 1
+      || candidate.getUTCDate() !== day) {
+    return t('rrule.lastDayOfMonthHint');
+  }
+
+  const monthEnd = new Date(Date.UTC(year, month, 0));
+  const firstDate = [
+    monthEnd.getUTCFullYear(),
+    String(monthEnd.getUTCMonth() + 1).padStart(2, '0'),
+    String(monthEnd.getUTCDate()).padStart(2, '0'),
+  ].join('-');
+
+  if (!canShowConcreteMonthEnd(rule, firstDate)) {
+    return t('rrule.lastDayOfMonthHint');
+  }
+
+  if (dateKey === firstDate) {
+    return t('rrule.lastDayOfMonthHintSame', { date: formatDate(dateKey) });
+  }
+  return t('rrule.lastDayOfMonthHintOverride', {
+    startDate: formatDate(dateKey),
+    firstDate: formatDate(firstDate),
+  });
+}
+
 export function renderRRuleFields(prefix, existingRule, opts = {}) {
   const allowCount = !!opts.allowCount;
   // NICHT AN `allowCount` GEHAENGT, obwohl beide heute denselben Wert haben.
@@ -222,8 +292,9 @@ export function renderRRuleFields(prefix, existingRule, opts = {}) {
              dem buildRRule sie nur dort schreibt. -->
         <div class="rrule-monthday" id="${prefix}-rrule-monthday" ${parsed.freq === 'MONTHLY' ? '' : 'hidden'}>
           <label class="toggle" style="margin:0">
-            <input type="checkbox" id="${prefix}-rrule-last-day" ${parsed.lastDay ? 'checked' : ''}
-                   aria-describedby="${prefix}-rrule-monthday-hint">
+            <input type="checkbox" id="${prefix}-rrule-last-day" ${parsed.lastDay ? 'checked' : ''}${
+              parsed.lastDay ? ` aria-describedby="${prefix}-rrule-monthday-hint"` : ''
+            }>
             <span class="toggle__track"></span>
             <span>${t('rrule.lastDayOfMonth')}</span>
           </label>
@@ -236,12 +307,12 @@ export function renderRRuleFields(prefix, existingRule, opts = {}) {
                Faelligkeitsdatum, das Liste, Ueberfaelligkeit und Countdown
                direkt lesen - sie bleibt am 15. faellig, und erst der Durchlauf
                NACH dem Abhaken faellt auf den Monatsletzten.
-               Kein Vorgriff im Feld selbst - die Startdatum-Felder heissen in
-               Kalender und Aufgaben verschieden und haengen beim Kalender am
-               Ganztags-Schalter; ein geratener Selektor waere still kaputt,
-               sobald eines umbenannt wird. -->
-          <p class="rrule-anchor__hint" id="${prefix}-rrule-monthday-hint">${
-            expandsFromStart ? t('rrule.lastDayOfMonthHint') : t('rrule.lastDayOfMonthHintNext')
+               Der Kalender liefert sein aktives Startdatum deshalb über die
+               Komponenten-Schnittstelle. Der Baustein greift nie selbst nach
+               einem Startdatum-Feld: Kalender und Aufgaben benennen es anders,
+               und im Kalender wechselt es zusätzlich mit „ganztägig". -->
+          <p class="rrule-anchor__hint" id="${prefix}-rrule-monthday-hint"${parsed.lastDay ? '' : ' hidden'}>${
+            monthEndHintText(opts.startDate, { expandsFromStart, rule: existingRule })
           }</p>
         </div>
 
@@ -352,8 +423,12 @@ export function recurrenceRow(rule, opts = {}) {
  * Bindet Events an die RRULE-Felder (Freq-Change, Day-Toggle, etc.)
  * @param {HTMLElement} root - Container-Element
  * @param {string} prefix - ID-Prefix
+ * @param {{ expandsFromStart?: boolean, getStartDate?: () => string }} [opts]
+ *        Das aufrufende Modul liefert bei Bedarf sein aktuelles Startdatum;
+ *        der RRULE-Baustein kennt keine fremden Feldselektoren.
+ * @returns {{ refreshMonthdayHint: () => void }}
  */
-export function bindRRuleEvents(root, prefix) {
+export function bindRRuleEvents(root, prefix, opts = {}) {
   const freqSelect  = root.querySelector(`#${prefix}-rrule-freq`);
   const details     = root.querySelector(`#${prefix}-rrule-details`);
   const weekdays    = root.querySelector(`#${prefix}-rrule-weekdays`);
@@ -363,9 +438,36 @@ export function bindRRuleEvents(root, prefix) {
   const endSelect   = root.querySelector(`#${prefix}-rrule-end`);
   const untilWrap   = root.querySelector(`#${prefix}-rrule-until-wrap`);
   const countWrap   = root.querySelector(`#${prefix}-rrule-count-wrap`);
+  const untilInput  = root.querySelector(`#${prefix}-rrule-until`);
+  const countInput  = root.querySelector(`#${prefix}-rrule-count`);
   const hint        = root.querySelector(`#${prefix}-rrule-hint`);
+  const monthdayHint = root.querySelector(`#${prefix}-rrule-monthday-hint`);
+  const lastDayInput = root.querySelector(`#${prefix}-rrule-last-day`);
 
-  if (!freqSelect) return;
+  const refreshMonthdayHint = () => {
+    if (!monthdayHint || typeof opts.getStartDate !== 'function') return;
+    const current = getRRuleValues(root, prefix);
+    monthdayHint.textContent = monthEndHintText(opts.getStartDate(), {
+      expandsFromStart: !!opts.expandsFromStart,
+      // Die eigenen Felder sind die Wahrheit fuer die Live-Vorschau. Bei einer
+      // ungueltigen UNTIL-Eingabe ist kein konkreter Termin belegbar; der
+      // Platzhalter erzwingt deshalb denselben sicheren generischen Rueckfall
+      // wie ein nicht unterstuetztes importiertes Regelteil.
+      rule: current.valid_until ? current.recurrence_rule : 'INVALID',
+    });
+  };
+
+  const syncMonthdayHintVisibility = () => {
+    if (!monthdayHint || !lastDayInput) return;
+    monthdayHint.hidden = !lastDayInput.checked;
+    if (lastDayInput.checked) {
+      lastDayInput.setAttribute('aria-describedby', monthdayHint.id || `${prefix}-rrule-monthday-hint`);
+    } else {
+      lastDayInput.removeAttribute('aria-describedby');
+    }
+  };
+
+  if (!freqSelect) return { refreshMonthdayHint };
 
   freqSelect.addEventListener('change', () => {
     const freq = freqSelect.value;
@@ -384,6 +486,7 @@ export function bindRRuleEvents(root, prefix) {
       if (freq) freqSelect.removeAttribute('aria-describedby');
       else      freqSelect.setAttribute('aria-describedby', hint.id || `${prefix}-rrule-hint`);
     }
+    refreshMonthdayHint();
     updateUnit();
   });
 
@@ -391,9 +494,16 @@ export function bindRRuleEvents(root, prefix) {
     const mode = endSelect.value;
     if (untilWrap) untilWrap.hidden = mode !== 'until';
     if (countWrap) countWrap.hidden = mode !== 'count';
+    refreshMonthdayHint();
   });
 
   intervalEl?.addEventListener('input', updateUnit);
+  untilInput?.addEventListener('change', refreshMonthdayHint);
+  countInput?.addEventListener('input', refreshMonthdayHint);
+  lastDayInput?.addEventListener('change', () => {
+    refreshMonthdayHint();
+    syncMonthdayHintVisibility();
+  });
 
   // Day-Toggle
   root.querySelectorAll(`#${prefix}-rrule-weekdays .rrule-day`).forEach(btn => {
@@ -408,6 +518,10 @@ export function bindRRuleEvents(root, prefix) {
     const interval = parseInt(intervalEl?.value, 10) || 1;
     unitEl.textContent = intervalUnitLabel(freqSelect.value, interval);
   }
+
+  refreshMonthdayHint();
+  syncMonthdayHintVisibility();
+  return { refreshMonthdayHint };
 }
 
 /**

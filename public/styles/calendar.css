@@ -394,8 +394,10 @@
 }
 
 .calendar-repeat-icon {
+  display: inline-flex;
   flex: 0 0 auto;
-  margin-left: var(--space-0h);
+  align-items: center;
+  margin-inline-end: var(--space-0h);
   opacity: 0.7;
 }
 

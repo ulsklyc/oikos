@@ -6620,7 +6620,7 @@ test('phase 7 calendar inline polish keeps icons and all-day labels tokenized', 
 
   assert.doesNotMatch(source, /data-lucide="(?:x|plus|trash-2|repeat)"\s+style=/, 'Lucide icons should use icon utility classes, not inline sizing');
   assert.doesNotMatch(source, /font-size:10px|color:var\(--color-text-disabled\)/, 'all-day labels should not keep low-contrast inline text styles');
-  assert.match(source, /calendarRepeatIconHtml\(\)/, 'recurrence markers should share the tokenized repeat icon helper');
+  assert.match(source, /calendarRepeatIconHtml\(ev\)/, 'recurrence markers should share the tokenized repeat icon helper');
   assert.match(source, /class="calendar-all-day-label"/, 'all-day gutter labels should use the shared label class');
   assert.match(allDayLabel, /font-size:\s*var\(--text-xs\)/, 'all-day labels should use a text token');
   assert.match(allDayLabel, /color:\s*var\(--color-text-secondary\)/, 'all-day labels should use readable secondary text');

@@ -24,7 +24,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-const { parseRRule, buildRRule, describeRRule, renderRRuleFields, getRRuleValues, bindRRuleEvents } =
+const {
+  parseRRule, buildRRule, describeRRule, renderRRuleFields, getRRuleValues,
+  bindRRuleEvents, monthEndHintText,
+} =
   await import('../public/rrule-ui.js');
 
 // --------------------------------------------------------
@@ -118,12 +121,17 @@ test('das Formular zeigt eine eingelesene Serie als Wiederholung an', () => {
 /** Mini-DOM fuer bindRRuleEvents: nur hidden, value und addEventListener. */
 function eventRoot(html) {
   const nodes = new Map();
+  const decode = (s) => String(s)
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&');
   for (const [, tag, id] of html.matchAll(/<(\w[\w-]*)[^>]*\bid="([^"]+)"/g)) {
     const chunk = new RegExp(`<${tag}[^>]*id="${id}"[^>]*>`).exec(html)?.[0] ?? '';
     const attrs = new Map();
     for (const [, name, val] of chunk.matchAll(/([a-z-]+)="([^"]*)"/g)) attrs.set(name, val);
     nodes.set(`#${id}`, {
-      tagName: tag, id, hidden: /\shidden(?=[\s>])/.test(chunk), value: '',
+      tagName: tag, id, hidden: /\shidden(?=[\s>])/.test(chunk),
+      checked: /\schecked(?=[\s>])/.test(chunk), value: decode(attrs.get('value') ?? ''),
       listeners: {},
       addEventListener(type, fn) { (this.listeners[type] ??= []).push(fn); },
       fire(type) { for (const fn of this.listeners[type] ?? []) fn(); },
@@ -131,6 +139,12 @@ function eventRoot(html) {
       setAttribute(name, val) { attrs.set(name, String(val)); },
       removeAttribute(name) { attrs.delete(name); },
     });
+  }
+  for (const [, id, body] of html.matchAll(/<select[^>]*id="([^"]+)"[^>]*>([\s\S]*?)<\/select>/g)) {
+    const selected = /<option value="([^"]*)"[^>]*\bselected\b/.exec(body);
+    const fallback = /<option value="([^"]*)"/.exec(body);
+    const node = nodes.get(`#${id}`);
+    if (node) node.value = decode(selected?.[1] ?? fallback?.[1] ?? '');
   }
   return {
     querySelector: (sel) => nodes.get(sel) ?? null,
@@ -403,6 +417,30 @@ test('der Hinweis nennt in jeder Sprache dieselbe Richtung (#960)', async () => 
   }
 });
 
+test('Vorschau und Serienmarke sind in allen unterstützten Sprachen vollständig (#975)', async () => {
+  const { readFileSync, readdirSync } = await import('node:fs');
+  const dir = new URL('../public/locales/', import.meta.url);
+  const sprachen = readdirSync(dir).filter((f) => f.endsWith('.json'));
+  assert.equal(sprachen.length, 24, 'der Test muss die vollständige unterstützte Sprachliste sehen');
+
+  for (const datei of sprachen) {
+    const locale = JSON.parse(readFileSync(new URL(datei, dir), 'utf8'));
+    assert.ok(locale.calendar?.recurringEvent, `${datei}: calendar.recurringEvent fehlt`);
+    assert.ok(locale.rrule?.lastDayOfMonthHintOverride, `${datei}: Override-Vorschau fehlt`);
+    assert.ok(locale.rrule?.lastDayOfMonthHintSame, `${datei}: Bestätigung fehlt`);
+    assert.deepEqual(
+      [...locale.rrule.lastDayOfMonthHintOverride.matchAll(/{{(\w+)}}/g)].map((m) => m[1]).sort(),
+      ['firstDate', 'startDate'],
+      `${datei}: die Datums-Platzhalter der Override-Vorschau stimmen nicht`
+    );
+    assert.deepEqual(
+      [...locale.rrule.lastDayOfMonthHintSame.matchAll(/{{(\w+)}}/g)].map((m) => m[1]),
+      ['date'],
+      `${datei}: der Datums-Platzhalter der Bestätigung stimmt nicht`
+    );
+  }
+});
+
 test('der Monatsletzten-Hinweis sagt in jedem Modul, was dort passiert (#960)', () => {
   // Die beiden Module verarbeiten die Regel VERSCHIEDEN: der Kalender rechnet
   // sie vom Startdatum aus aus, die Aufgabe schreibt ein einzelnes Datum fort.
@@ -427,6 +465,156 @@ test('der Monatsletzten-Hinweis sagt in jedem Modul, was dort passiert (#960)', 
   assert.ok(!kalender.includes(AUFG), 'und nicht beides');
   assert.ok(aufgabe.includes(AUFG), 'die Aufgabe verspricht keinen Termin, den sie nicht liefert');
   assert.ok(!aufgabe.includes(KAL), 'und nicht beides');
+});
+
+test('der Kalender nennt den eingegebenen Tag und den ersten echten Monatsletzten (#975)', () => {
+  assert.equal(
+    monthEndHintText('2026-09-15', { expandsFromStart: true }),
+    'rrule.lastDayOfMonthHintOverride{"startDate":"2026-09-15","firstDate":"2026-09-30"}',
+    'der Hinweis muss seine Daten vom expliziten Kalenderwert ableiten'
+  );
+
+  const html = renderRRuleFields('event', 'FREQ=MONTHLY;BYMONTHDAY=-1', {
+    allowCount: true,
+    expandsFromStart: true,
+    startDate: '2026-09-15',
+  });
+  assert.match(html, /rrule\.lastDayOfMonthHintOverride/, 'die Vorschau muss schon beim Öffnen stimmen');
+  assert.match(html, /2026-09-15/, 'das eingegebene Datum fehlt');
+  assert.match(html, /2026-09-30/, 'der erste tatsächliche Termin fehlt');
+});
+
+test('ein bereits passender Monatsletzter wird neutral bestätigt (#975)', () => {
+  assert.equal(
+    monthEndHintText('2028-02-29', { expandsFromStart: true }),
+    'rrule.lastDayOfMonthHintSame{"date":"2028-02-29"}',
+    'Schaltjahre müssen über echte Kalendermathematik laufen'
+  );
+  assert.equal(
+    monthEndHintText('2026-02-28', { expandsFromStart: true }),
+    'rrule.lastDayOfMonthHintSame{"date":"2026-02-28"}'
+  );
+});
+
+test('ohne gültiges Kalenderdatum bleibt der ehrliche generische Hinweis stehen (#975)', () => {
+  assert.equal(monthEndHintText('', { expandsFromStart: true }), 'rrule.lastDayOfMonthHint');
+  assert.equal(monthEndHintText('2026-02-31', { expandsFromStart: true }), 'rrule.lastDayOfMonthHint');
+  assert.equal(
+    monthEndHintText('2026-09-15', { expandsFromStart: false }),
+    'rrule.lastDayOfMonthHintNext',
+    'Aufgaben behalten ihre abschlussgetriebene Semantik'
+  );
+});
+
+test('eine komplexere importierte Monatsregel bekommt keine erfundene konkrete Vorschau (#975)', async () => {
+  const { seriesStartFor, hasAnyOccurrence } = await import('../server/services/recurrence.js');
+  const filteredRule = 'FREQ=MONTHLY;BYDAY=MO;BYMONTHDAY=-1';
+
+  assert.equal(seriesStartFor('2026-09-15', filteredRule), '2026-11-30',
+    'die Referenzrechnung muss belegen, dass der 30. September kein Vorkommen ist');
+  assert.equal(
+    monthEndHintText('2026-09-15', { expandsFromStart: true, rule: filteredRule }),
+    'rrule.lastDayOfMonthHint',
+    'bei zusätzlichen Filtern ist der generische Hinweis ehrlicher als ein falsches Datum'
+  );
+
+  const endedRule = 'FREQ=MONTHLY;BYMONTHDAY=-1;UNTIL=20260920T235959Z';
+  assert.equal(hasAnyOccurrence('2026-09-15', endedRule), false,
+    'die Referenzrechnung muss die vor dem ersten Monatsletzten beendete Serie als leer erkennen');
+  assert.equal(
+    monthEndHintText('2026-09-15', { expandsFromStart: true, rule: endedRule }),
+    'rrule.lastDayOfMonthHint',
+    'eine beendete Regel darf keinen nicht existierenden ersten Termin versprechen'
+  );
+});
+
+test('der Kalender kann die Monatsletzten-Vorschau nach einer Datumsänderung aktualisieren (#975)', () => {
+  const root = eventRoot(renderRRuleFields('event', 'FREQ=MONTHLY;BYMONTHDAY=-1', {
+    expandsFromStart: true,
+    startDate: '2026-09-15',
+  }));
+  let startDate = '2026-09-15';
+  const binding = bindRRuleEvents(root, 'event', {
+    expandsFromStart: true,
+    getStartDate: () => startDate,
+  });
+
+  const hint = root.get('#event-rrule-monthday-hint');
+  binding.refreshMonthdayHint();
+  assert.match(hint.textContent, /2026-09-30/);
+
+  startDate = '2026-10-31';
+  binding.refreshMonthdayHint();
+  assert.equal(hint.textContent, 'rrule.lastDayOfMonthHintSame{"date":"2026-10-31"}');
+});
+
+test('die Live-Vorschau erfindet auch nach Datumsänderung keinen Termin für eine komplexe Regel (#975)', () => {
+  const rule = 'FREQ=MONTHLY;BYDAY=MO;BYMONTHDAY=-1';
+  const root = eventRoot(renderRRuleFields('event', rule, {
+    expandsFromStart: true,
+    startDate: '2026-09-15',
+  }));
+  let startDate = '2026-09-15';
+  const binding = bindRRuleEvents(root, 'event', {
+    expandsFromStart: true,
+    getStartDate: () => startDate,
+  });
+
+  startDate = '2026-10-20';
+  binding.refreshMonthdayHint();
+  assert.equal(root.get('#event-rrule-monthday-hint').textContent, 'rrule.lastDayOfMonthHint');
+});
+
+test('ein live gesetztes Serienende vor dem ersten Monatsletzten nimmt das Versprechen zurück (#975)', () => {
+  const root = eventRoot(renderRRuleFields('event', null, {
+    allowCount: true,
+    expandsFromStart: true,
+    startDate: '2026-09-15',
+  }));
+  root.get('#event-rrule-freq').value = 'MONTHLY';
+  root.get('#event-rrule-last-day').checked = true;
+
+  bindRRuleEvents(root, 'event', {
+    expandsFromStart: true,
+    getStartDate: () => '2026-09-15',
+  });
+  assert.match(root.get('#event-rrule-monthday-hint').textContent, /2026-09-30/,
+    'ohne Ende ist der konkrete erste Termin belegbar');
+
+  root.get('#event-rrule-end').value = 'until';
+  root.get('#event-rrule-until').value = '2026-09-20';
+  root.get('#event-rrule-end').fire('change');
+  assert.equal(root.get('#event-rrule-monthday-hint').textContent, 'rrule.lastDayOfMonthHint',
+    'die Änderung des Endes muss den nun unmöglichen Termin sofort zurücknehmen');
+});
+
+test('die konkrete Vorschau wird erst mit der Monatsletzten-Wahl sichtbar und vorgelesen (#975)', () => {
+  const unchecked = renderRRuleFields('event', 'FREQ=MONTHLY', {
+    expandsFromStart: true,
+    startDate: '2026-09-15',
+  });
+  assert.match(unchecked, /id="event-rrule-monthday-hint"[^>]*hidden/,
+    'ohne gesetzte Wahl darf die Vorschau keine noch nicht getroffene Entscheidung behaupten');
+  assert.doesNotMatch(unchecked, /id="event-rrule-last-day"[^>]*aria-describedby/,
+    'eine verborgene direkt referenzierte Beschreibung würde trotzdem vorgelesen');
+
+  const root = eventRoot(unchecked);
+  const checkbox = root.get('#event-rrule-last-day');
+  const hint = root.get('#event-rrule-monthday-hint');
+  bindRRuleEvents(root, 'event', {
+    expandsFromStart: true,
+    getStartDate: () => '2026-09-15',
+  });
+
+  checkbox.checked = true;
+  checkbox.fire('change');
+  assert.equal(hint.hidden, false);
+  assert.equal(checkbox.getAttribute('aria-describedby'), 'event-rrule-monthday-hint');
+
+  checkbox.checked = false;
+  checkbox.fire('change');
+  assert.equal(hint.hidden, true);
+  assert.equal(checkbox.getAttribute('aria-describedby'), null);
 });
 
 test('jeder Aufrufer des Wiederholungsformulars beantwortet die Expansionsfrage (#960)', async () => {
@@ -468,4 +656,20 @@ test('jeder Aufrufer des Wiederholungsformulars beantwortet die Expansionsfrage 
   assert.ok(kal, 'calendar.js bindet das Formular ein');
   assert.match(kal.text, /expandsFromStart\s*:\s*true/,
     'der Kalender expandiert die Serie ueber expandRecurringEvents und zeigt den ersten Monatsletzten');
+  assert.match(kal.text, /\bstartDate\s*(?::|[,}])/,
+    'das Startdatum muss als expliziter Wert aus dem Kalender kommen, nicht aus einem DOM-Selektor im Widget');
+
+  const kalenderQuelle = readFileSync(new URL('../public/pages/calendar.js', import.meta.url), 'utf8');
+  const bindStart = kalenderQuelle.indexOf("bindRRuleEvents(panel, 'event', {");
+  const bindEnd = kalenderQuelle.indexOf('});', bindStart);
+  const bindCall = kalenderQuelle.slice(bindStart, bindEnd + 3);
+  assert.match(bindCall, /getStartDate\s*:/,
+    'der Kalender muss auch spätere Datumsänderungen ausdrücklich an das Widget liefern');
+  assert.match(bindCall, /#modal-allday[^]*#modal-allday-start[^]*#modal-start-date/,
+    'das vom Kalender gelieferte Datum muss seinem aktiven Ganztags- oder Zeitfeld folgen');
+  assert.doesNotMatch(
+    readFileSync(new URL('../public/rrule-ui.js', import.meta.url), 'utf8'),
+    /modal-(?:allday-)?start-date|modal-allday-start/,
+    'das geteilte Widget darf keine privaten Feld-IDs des Kalenders erraten'
+  );
 });
